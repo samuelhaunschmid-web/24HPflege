@@ -57,6 +57,8 @@ export default function Startseite() {
     )
   }
 
+  const [alsPdf, setAlsPdf] = useState(false)
+
   async function handleGenerate() {
     if (!ordnerName) return alert('Bitte Ordnernamen angeben.')
     if (selected.length === 0) return alert('Bitte mindestens eine Vorlage wählen.')
@@ -68,6 +70,7 @@ export default function Startseite() {
       selectedVorlagen: selected,
       kunde,
       betreuer: betreuu,
+      alsPdf,
     })
     if (res?.ok) alert('Dokumente gespeichert in: ' + res.zielOrdner)
   }
@@ -100,6 +103,10 @@ export default function Startseite() {
           <label>Neuer Ordnername</label>
           <input value={ordnerName} onChange={(e)=> setOrdnerName(e.currentTarget.value)} placeholder="z.B. Vertragsmappe_Müller" />
 
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <input type="checkbox" checked={alsPdf} onChange={(e)=> setAlsPdf(e.currentTarget.checked)} />
+            Als PDF exportieren (falls verfügbar)
+          </label>
           <button onClick={handleGenerate}>Dokumente generieren</button>
         </div>
         <div>

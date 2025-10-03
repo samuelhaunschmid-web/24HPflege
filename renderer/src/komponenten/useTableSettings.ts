@@ -1,6 +1,18 @@
 import { useEffect, useMemo, useState } from 'react'
 
-export type SpaltenGruppe = 'vorname' | 'nachname' | 'svnr' | 'telefon' | 'wichtig' | 'datum'
+export type SpaltenGruppe =
+  | 'vorname'
+  | 'nachname'
+  | 'svnr'
+  | 'telefon'
+  | 'wichtig'
+  | 'datum'
+  | 'geburtsdatum'
+  | 'vorlage'
+  | 'betreuer1'
+  | 'betreuer1_anfang'
+  | 'betreuer2'
+  | 'betreuer2_anfang'
 
 export type TableSettings = {
   displayNames: Record<string, string>

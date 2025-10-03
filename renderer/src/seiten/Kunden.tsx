@@ -35,6 +35,14 @@ export default function Kunden() {
         displayNames={displayNames}
         wichtigeFelder={wichtigeFelder}
         tableId="kunden"
+        gruppen={settings.gruppen}
+        vorhandeneVorwahlen={useMemo(()=> sorted.map(r=> {
+          const telKey = knownKeys.find(k=> isInGruppe(k,'telefon'))
+          if (!telKey) return ''
+          const val = String(r[telKey]||'')
+          const m = val.match(/^(\+?[\d]+)/)
+          return m ? m[1] : ''
+        }).filter(Boolean), [sorted, knownKeys, isInGruppe])}
         makeTitle={(row)=> {
           const vorCol = knownKeys.find(k=> isInGruppe(k,'vorname'))
           const nachCol = knownKeys.find(k=> isInGruppe(k,'nachname'))
@@ -61,6 +69,24 @@ export default function Kunden() {
         onClose={()=> setNeuOffen(false)}
         keys={knownKeys}
         displayNames={displayNames}
+        gruppen={settings.gruppen}
+        vorhandeneVorwahlen={useMemo(()=> sorted.map(r=> {
+          const telKey = knownKeys.find(k=> isInGruppe(k,'telefon'))
+          if (!telKey) return ''
+          const val = String(r[telKey]||'')
+          const m = val.match(/^(\+?[\d]+)/)
+          return m ? m[1] : ''
+        }).filter(Boolean), [sorted, knownKeys, isInGruppe])}
+        vorlagenWerte={useMemo(()=>{
+          const res: Record<string,string[]> = {}
+          knownKeys.forEach(k=>{
+            if (isInGruppe(k,'vorlage')) {
+              const vals = Array.from(new Set(sorted.map(r => String(r[k]||'')).filter(Boolean)))
+              res[k] = vals
+            }
+          })
+          return res
+        }, [sorted, knownKeys, isInGruppe])}
         titel="Neuer Kunde"
         onSpeichern={async (row)=>{
           await window.db?.kundenAdd?.(row)

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import type { SpaltenGruppe } from './useTableSettings'
 
 type Props = {
   offen: boolean
@@ -7,13 +8,88 @@ type Props = {
   displayNames?: Record<string,string>
   titel?: string
   onSpeichern: (row: Record<string, any>) => Promise<boolean | void> | void
+  initialValues?: Record<string, any>
+  gruppen?: Record<string, SpaltenGruppe[]>
+  vorhandeneVorwahlen?: string[]
+  vorlagenWerte?: Record<string, string[]>
 }
 
-export default function NeuerEintragDialog({ offen, onClose, keys, displayNames = {}, titel = 'Neuer Eintrag', onSpeichern }: Props) {
+export default function NeuerEintragDialog({ offen, onClose, keys, displayNames = {}, titel = 'Neuer Eintrag', onSpeichern, initialValues, gruppen = {}, vorhandeneVorwahlen = [], vorlagenWerte = {} }: Props) {
   const felder = useMemo(()=> keys.filter(k=> !k.startsWith('__')), [keys])
   const [werte, setWerte] = useState<Record<string, any>>({})
 
-  useEffect(() => { if (offen) setWerte({}) }, [offen])
+  // Split helpers for Telefon and SVNR
+  const [telVorwahl, setTelVorwahl] = useState('')
+  const [telRest, setTelRest] = useState('')
+  const [svnrA, setSvnrA] = useState('')
+  const [svnrB, setSvnrB] = useState('')
+  const [geburtsKey, setGeburtsKey] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!offen) return
+    const init = initialValues ? { ...initialValues } : {}
+    setWerte(init)
+    // preset split values from initialValues for telefon/svnr
+    const telKey = felder.find(k => (gruppen[k]||[]).some(g => g.includes('telefon')))
+    if (telKey && typeof init[telKey] === 'string') {
+      const m = String(init[telKey]).trim().match(/^(\+?[\d]+)\s*(.*)$/)
+      if (m) { setTelVorwahl(m[1] || ''); setTelRest((m[2] || '').replace(/\s+/g,'')) } else { setTelVorwahl(''); setTelRest(String(init[telKey]||'')) }
+    } else { setTelVorwahl(''); setTelRest('') }
+    const svKey = felder.find(k => (gruppen[k]||[]).some(g => g.includes('svnr')))
+    if (svKey && typeof init[svKey] === 'string') {
+      const clean = String(init[svKey]).replace(/\D+/g,'')
+      if (clean.length <= 6) {
+        setSvnrA('')
+        setSvnrB(clean.slice(0,6))
+      } else {
+        setSvnrA(clean.slice(0,4))
+        setSvnrB(clean.slice(4,10))
+      }
+    } else { setSvnrA(''); setSvnrB('') }
+    const gk = felder.find(k => (gruppen[k]||[]).some(g => g.includes('geburtsdatum'))) || null
+    setGeburtsKey(gk)
+    if (gk && init[gk]) {
+      const only = String(init[gk]).replace(/\D+/g,'')
+      if (only.length >= 8) {
+        const dd = only.slice(0,2), mm = only.slice(2,4), yy = only.slice(6,8)
+        if (!svnrB) setSvnrB(`${dd}${mm}${yy}`)
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [offen])
+
+  function handleSave() {
+    const result: Record<string, any> = { ...werte }
+    // combine telefon
+    const telKey = felder.find(k => (gruppen[k]||[]).some(g => g.includes('telefon')))
+    if (telKey) {
+      const combined = `${telVorwahl}`.trim() + (telRest ? ` ${telRest}` : '')
+      result[telKey] = combined.trim()
+    }
+    const svKey = felder.find(k => (gruppen[k]||[]).some(g => g.includes('svnr')))
+    if (svKey) {
+      const a = svnrA.replace(/\D+/g,'').slice(0,4)
+      const b = svnrB.replace(/\D+/g,'').slice(0,6)
+      result[svKey] = (a + b)
+    }
+    // normalize date format DD.MM.YYYY for datum gruppen
+    felder.forEach(k => {
+      if ((gruppen[k]||[]).some(g => g.includes('datum'))) {
+        const raw = String(result[k] || '').trim()
+        if (raw) {
+          const only = raw.replace(/[^\d]/g,'')
+          let d = only
+          if (only.length === 8) {
+            d = `${only.slice(0,2)}.${only.slice(2,4)}.${only.slice(4,8)}`
+          }
+          result[k] = d
+        }
+      }
+    })
+    return onSpeichern(result)
+  }
+
+  const uniqueVorwahlen = useMemo(() => Array.from(new Set(vorhandeneVorwahlen.filter(Boolean))).sort(), [vorhandeneVorwahlen])
 
   if (!offen) return null
   return (
@@ -24,20 +100,92 @@ export default function NeuerEintragDialog({ offen, onClose, keys, displayNames 
           <button onClick={onClose}>Schließen</button>
         </div>
         <div style={{ padding: 12, overflow: 'auto', flex: '1 1 auto' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '240px 1fr', gap: 10, alignItems: 'center' }}>
-            {felder.map(k => (
-              <>
-                <div key={`${k}-label`} style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{displayNames[k] || k}</div>
-                <input key={`${k}-input`} value={werte[k] ?? ''} onChange={(e)=> setWerte(prev => ({ ...prev, [k]: e.currentTarget.value }))} />
-              </>
-            ))}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {felder.map(k => {
+              const isDatum = (gruppen[k]||[]).some(g => g.includes('datum'))
+              const isTel = (gruppen[k]||[]).some(g => g.includes('telefon'))
+              const isSv = (gruppen[k]||[]).some(g => g.includes('svnr'))
+              const label = displayNames[k] || k
+              return (
+                <div key={k} style={{ display: 'grid', gridTemplateColumns: '240px 1fr', gap: 10, alignItems: 'center' }}>
+                  <div style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</div>
+                  {isDatum ? (
+                    <input
+                      name={k}
+                      placeholder="DD.MM.YYYY"
+                      value={String(werte[k] ?? '')}
+                      onChange={(e)=> {
+                        const raw = (e?.currentTarget?.value ?? '')
+                        const digits = raw.replace(/\D+/g,'').slice(0,8)
+                        let formatted = digits
+                        if (digits.length > 2 && digits.length <= 4) {
+                          formatted = `${digits.slice(0,2)}.${digits.slice(2)}`
+                        } else if (digits.length > 4) {
+                          formatted = `${digits.slice(0,2)}.${digits.slice(2,4)}.${digits.slice(4)}`
+                        }
+                        setWerte(prev => ({ ...prev, [k]: formatted }))
+                        if ((gruppen[k]||[]).includes('geburtsdatum')) {
+                          if (digits.length === 8) {
+                            const dd = digits.slice(0,2)
+                            const mm = digits.slice(2,4)
+                            const yy = digits.slice(6,8)
+                            setSvnrB(`${dd}${mm}${yy}`)
+                          }
+                        }
+                      }}
+                      onBlur={(e)=> {
+                        const raw = (e?.currentTarget?.value ?? '')
+                        const d = raw.replace(/\D+/g,'')
+                        if (d.length === 8) setWerte(prev => ({ ...prev, [k]: `${d.slice(0,2)}.${d.slice(2,4)}.${d.slice(4,8)}` }))
+                      }}
+                      inputMode="numeric"
+                    />
+                  ) : isTel ? (
+                    <div style={{ display: 'grid', gridTemplateColumns: '140px 1fr', gap: 8 }}>
+                      <select name={`${k}-vorwahl`} value={telVorwahl} onChange={e=> setTelVorwahl(e?.currentTarget?.value ?? '')}>
+                        <option value=""></option>
+                        {uniqueVorwahlen.map(v => <option key={v} value={v}>{v}</option>)}
+                      </select>
+                      <input name={`${k}-rest`} value={telRest} onChange={e=> setTelRest(e.currentTarget.value.replace(/\D+/g,''))} inputMode="numeric" />
+                    </div>
+                  ) : isSv ? (
+                    <div style={{ display: 'grid', gridTemplateColumns: '100px 120px', gap: 8 }}>
+                      <input name={`${k}-sv-a`} value={svnrA} onChange={e=> setSvnrA(e.currentTarget.value.replace(/\D+/g,'').slice(0,4))} inputMode="numeric" />
+                      <input name={`${k}-sv-b`} value={svnrB} onChange={e=> setSvnrB(e.currentTarget.value.replace(/\D+/g,'').slice(0,6))} inputMode="numeric" />
+                    </div>
+                  ) : ((gruppen[k]||[]).includes('vorlage')) ? (
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 8 }}>
+                      <input
+                        name={k}
+                        list={`${k}-vorlagen-list`}
+                        defaultValue={String(werte[k] ?? '')}
+                        onChange={(e)=> setWerte(prev => ({ ...prev, [k]: (e?.currentTarget?.value ?? '') }))}
+                      />
+                      <datalist id={`${k}-vorlagen-list`}>
+                        {(vorlagenWerte[k] || []).map(v => (
+                          <option key={v} value={v} />
+                        ))}
+                      </datalist>
+                    </div>
+                  ) : (
+                    <input
+                      name={k}
+                      type="text"
+                      value={String(werte[k] ?? '')}
+                      autoComplete="off"
+                      onChange={(e)=> setWerte(prev => ({ ...prev, [k]: (e?.currentTarget?.value ?? '') }))}
+                    />
+                  )}
+                </div>
+              )
+            })}
           </div>
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', borderTop: '1px solid #eee' }}>
           <div />
           <div style={{ display: 'flex', gap: 8 }}>
             <button onClick={onClose} style={{ padding: '6px 12px', borderRadius: 6, border: '1px solid #ddd', background: '#f7f7f7' }}>Abbrechen</button>
-            <button onClick={async ()=> { await onSpeichern(werte); onClose(); }} style={{ padding: '6px 12px', borderRadius: 6, border: 0, background: '#005bd1', color: '#fff' }}>Speichern</button>
+            <button onClick={async ()=> { await handleSave(); onClose(); }} style={{ padding: '6px 12px', borderRadius: 6, border: 0, background: '#005bd1', color: '#fff' }}>Speichern</button>
           </div>
         </div>
       </div>

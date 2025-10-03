@@ -30,8 +30,14 @@ export default function TabellenEinstellungenDialog({ offen, onClose, keys, disp
         if (isInGruppe(k,'nachname')) list.push('nachname')
         if (isInGruppe(k,'svnr')) list.push('svnr')
         if (isInGruppe(k,'telefon')) list.push('telefon')
+        if (isInGruppe(k,'geburtsdatum')) list.push('geburtsdatum')
+        if (isInGruppe(k,'vorlage')) list.push('vorlage')
         if (isInGruppe(k,'wichtig')) list.push('wichtig')
         if (isInGruppe(k,'datum')) list.push('datum')
+        if (isInGruppe(k,'betreuer1')) list.push('betreuer1')
+        if (isInGruppe(k,'betreuer1_anfang')) list.push('betreuer1_anfang')
+        if (isInGruppe(k,'betreuer2')) list.push('betreuer2')
+        if (isInGruppe(k,'betreuer2_anfang')) list.push('betreuer2_anfang')
         if (list.length) g[k] = list
       })
       setDraftGruppen(g)
@@ -49,8 +55,8 @@ export default function TabellenEinstellungenDialog({ offen, onClose, keys, disp
 
   if (!offen) return null
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-      <div style={{ width: 900, maxWidth: '98vw', maxHeight: '92vh', background: '#fff', borderRadius: 12, boxShadow: '0 12px 36px rgba(0,0,0,0.25)', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ position: 'fixed', inset: 0, background: '#fff', display: 'flex', alignItems: 'stretch', justifyContent: 'stretch', zIndex: 1000 }}>
+      <div style={{ width: '100%', height: '100%', background: '#fff', display: 'flex', flexDirection: 'column' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', borderBottom: '1px solid #eee', flex: '0 0 auto' }}>
           <strong>Tabellen-Einstellungen</strong>
           <button onClick={onClose}>Schließen</button>
@@ -67,11 +73,17 @@ export default function TabellenEinstellungenDialog({ offen, onClose, keys, disp
                 <div>Bitte Spalten den Rollen zuordnen. Aktive Zuordnungen sind farbig markiert.</div>
               </div>
               {sichtbareKeys.map(k => {
-                const chips: Array<{ key: SpaltenGruppe; label: string; color: string }> = [
+              const chips: Array<{ key: SpaltenGruppe; label: string; color: string }> = [
                   { key: 'vorname', label: 'Vorname', color: '#1d4ed8' },
                   { key: 'nachname', label: 'Nachname', color: '#1d4ed8' },
                   { key: 'svnr', label: 'SVNR', color: '#0f766e' },
                   { key: 'telefon', label: 'Telefon', color: '#0f766e' },
+                  { key: 'geburtsdatum', label: 'Geburtsdatum', color: '#b45309' },
+                  { key: 'vorlage', label: 'Vorlage', color: '#2563eb' },
+                  { key: 'betreuer1', label: 'Betreuer 1', color: '#6b7280' },
+                  { key: 'betreuer1_anfang', label: 'Betreuer 1 Anfang', color: '#6b7280' },
+                  { key: 'betreuer2', label: 'Betreuer 2', color: '#6b7280' },
+                  { key: 'betreuer2_anfang', label: 'Betreuer 2 Anfang', color: '#6b7280' },
                   { key: 'wichtig', label: 'Wichtig', color: '#9333ea' },
                   { key: 'datum', label: 'Datum', color: '#b45309' },
                 ]
@@ -83,7 +95,22 @@ export default function TabellenEinstellungenDialog({ offen, onClose, keys, disp
                       {chips.map(c => {
                         const active = (draftGruppen[k] || []).includes(c.key)
                         return (
-                          <button key={c.key} onClick={()=> draftToggle(k, c.key)} style={{
+                          <button key={c.key} onClick={()=> {
+                            if (c.key==='geburtsdatum') {
+                              const updated: Record<string, SpaltenGruppe[]> = {}
+                              // remove geburtsdatum everywhere
+                              sichtbareKeys.forEach(col => {
+                                const arr = (draftGruppen[col]||[]).filter(g=> g!=='geburtsdatum')
+                                if (arr.length) updated[col] = arr
+                              })
+                              // toggle on current
+                              const list = updated[k] || []
+                              updated[k] = active ? list : [...list, 'geburtsdatum']
+                              setDraftGruppen(updated)
+                              return
+                            }
+                            draftToggle(k, c.key)
+                          }} style={{
                             padding: '4px 8px',
                             borderRadius: 999,
                             border: active ? '0' : '1px solid #ddd',
@@ -131,7 +158,7 @@ export default function TabellenEinstellungenDialog({ offen, onClose, keys, disp
               sichtbareKeys.forEach(k => {
                 if (draftNames[k] !== undefined) setDisplayName(k, draftNames[k])
                 const list = draftGruppen[k] || []
-                ;(['vorname','nachname','svnr','telefon','wichtig','datum'] as SpaltenGruppe[]).forEach(g => {
+                ;(['vorname','nachname','svnr','telefon','geburtsdatum','vorlage','betreuer1','betreuer1_anfang','betreuer2','betreuer2_anfang','wichtig','datum'] as SpaltenGruppe[]).forEach(g => {
                   const has = list.includes(g)
                   const is = isInGruppe(k, g)
                   if (has !== is) toggleGruppe(k, g)

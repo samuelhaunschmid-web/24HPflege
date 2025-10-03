@@ -322,7 +322,7 @@ app.whenReady().then(() => {
 
   // Generieren
   ipcMain.handle('docs:generate', async (_e, args) => {
-    const { ordnerName, targetDir, selectedVorlagen, kunde, betreuer } = args || {};
+    const { ordnerName, targetDir, selectedVorlagen, kunde, betreuer, alsPdf } = args || {};
     if (!Array.isArray(selectedVorlagen) || selectedVorlagen.length === 0) throw new Error('Keine Vorlagen ausgewählt');
     if (!ordnerName || !targetDir) throw new Error('Zielordner oder Name fehlt');
     const cfg = readConfig();
@@ -331,6 +331,7 @@ app.whenReady().then(() => {
     if (!fs.existsSync(zielOrdner)) fs.mkdirSync(zielOrdner, { recursive: true });
     const data = { ...(kunde || {}), ...(betreuer || {}) };
     if (kunde) Object.keys(kunde).forEach(key => { if (key.startsWith('a')) data[key] = kunde[key]; });
+    const generatedFiles = []
     for (const rel of selectedVorlagen) {
       const vorlagenPath = path.join(vorlagenRoot, rel);
       const templateBuffer = fs.readFileSync(vorlagenPath);
@@ -338,6 +339,21 @@ app.whenReady().then(() => {
       const dateiname = path.basename(rel);
       const zielDatei = path.join(zielOrdner, await replaceFilenamePlaceholders(dateiname, data));
       fs.writeFileSync(zielDatei, outputBuffer);
+      generatedFiles.push(zielDatei)
+    }
+    if (alsPdf) {
+      try {
+        const { spawnSync } = require('child_process')
+        for (const file of generatedFiles) {
+          // Convert using LibreOffice if available
+          const res = spawnSync('soffice', ['--headless', '--convert-to', 'pdf', '--outdir', zielOrdner, file], { stdio: 'ignore' })
+          if (res.error) {
+            // Try lowriter alias
+            const res2 = spawnSync('lowriter', ['--headless', '--convert-to', 'pdf', '--outdir', zielOrdner, file], { stdio: 'ignore' })
+            // ignore if also fails; user will get docx instead
+          }
+        }
+      } catch {}
     }
     return { ok: true, zielOrdner };
   });
