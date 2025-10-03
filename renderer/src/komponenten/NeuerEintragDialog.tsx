@@ -23,12 +23,17 @@ export default function NeuerEintragDialog({ offen, onClose, keys, displayNames 
   const [telRest, setTelRest] = useState('')
   const [svnrA, setSvnrA] = useState('')
   const [svnrB, setSvnrB] = useState('')
-  const [geburtsKey, setGeburtsKey] = useState<string | null>(null)
+  // const [geburtsKey] = useState<string | null>(null) // Not used in current implementation
 
   useEffect(() => {
     if (!offen) return
     const init = initialValues ? { ...initialValues } : {}
-    setWerte(init)
+    // Stelle sicher, dass alle Felder in werte vorhanden sind
+    const allFields = felder.reduce((acc, k) => {
+      acc[k] = init[k] ?? ''
+      return acc
+    }, {} as Record<string, any>)
+    setWerte(allFields)
     // preset split values from initialValues for telefon/svnr
     const telKey = felder.find(k => (gruppen[k]||[]).some(g => g.includes('telefon')))
     if (telKey && typeof init[telKey] === 'string') {
@@ -47,7 +52,7 @@ export default function NeuerEintragDialog({ offen, onClose, keys, displayNames 
       }
     } else { setSvnrA(''); setSvnrB('') }
     const gk = felder.find(k => (gruppen[k]||[]).some(g => g.includes('geburtsdatum'))) || null
-    setGeburtsKey(gk)
+    // setGeburtsKey(gk) // Not used in current implementation
     if (gk && init[gk]) {
       const only = String(init[gk]).replace(/\D+/g,'')
       if (only.length >= 8) {
@@ -105,7 +110,11 @@ export default function NeuerEintragDialog({ offen, onClose, keys, displayNames 
               const isDatum = (gruppen[k]||[]).some(g => g.includes('datum'))
               const isTel = (gruppen[k]||[]).some(g => g.includes('telefon'))
               const isSv = (gruppen[k]||[]).some(g => g.includes('svnr'))
+              const isVorlage = (gruppen[k]||[]).some(g => g.includes('vorlage'))
+              const isBetreuer = (gruppen[k]||[]).some(g => g.includes('betreuer'))
+              const isReadonly = isBetreuer || k.startsWith('__') // Nur Betreuer-Felder und interne Felder sind nicht direkt editierbar
               const label = displayNames[k] || k
+              
               return (
                 <div key={k} style={{ display: 'grid', gridTemplateColumns: '240px 1fr', gap: 10, alignItems: 'center' }}>
                   <div style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</div>
@@ -153,7 +162,7 @@ export default function NeuerEintragDialog({ offen, onClose, keys, displayNames 
                       <input name={`${k}-sv-a`} value={svnrA} onChange={e=> setSvnrA(e.currentTarget.value.replace(/\D+/g,'').slice(0,4))} inputMode="numeric" />
                       <input name={`${k}-sv-b`} value={svnrB} onChange={e=> setSvnrB(e.currentTarget.value.replace(/\D+/g,'').slice(0,6))} inputMode="numeric" />
                     </div>
-                  ) : ((gruppen[k]||[]).includes('vorlage')) ? (
+                  ) : isVorlage ? (
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 8 }}>
                       <input
                         name={k}
@@ -167,13 +176,46 @@ export default function NeuerEintragDialog({ offen, onClose, keys, displayNames 
                         ))}
                       </datalist>
                     </div>
+                  ) : isReadonly ? (
+                    <div style={{ 
+                      padding: '8px 12px', 
+                      background: '#f5f5f5', 
+                      border: '1px solid #ddd', 
+                      borderRadius: '4px',
+                      color: '#666',
+                      fontSize: '14px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '4px'
+                    }}>
+                      <div>{String(werte[k] ?? '') || 'Nicht editierbar'}</div>
+                      {isBetreuer && (
+                        <div style={{ fontSize: '12px', color: '#999' }}>
+                          Betreuer werden über die Betreuer-Zuweisung verwaltet
+                        </div>
+                      )}
+                      {k.startsWith('__') && (
+                        <div style={{ fontSize: '12px', color: '#999' }}>
+                          Interne Felder sind nicht editierbar
+                        </div>
+                      )}
+                    </div>
                   ) : (
                     <input
                       name={k}
                       type="text"
                       value={String(werte[k] ?? '')}
                       autoComplete="off"
-                      onChange={(e)=> setWerte(prev => ({ ...prev, [k]: (e?.currentTarget?.value ?? '') }))}
+                      onChange={(e)=> {
+                        const value = e.target.value
+                        setWerte(prev => ({ ...prev, [k]: value }))
+                      }}
+                      style={{ 
+                        padding: '8px 12px', 
+                        border: '1px solid #ddd', 
+                        borderRadius: '4px',
+                        fontSize: '14px'
+                      }}
                     />
                   )}
                 </div>

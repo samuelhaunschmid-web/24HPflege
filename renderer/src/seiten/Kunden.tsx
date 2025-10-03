@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import Layout from '../seite-shared/Layout'
 import TabelleDropdownZeilen from '../komponenten/TabelleDropdownZeilen'
 import { useTableSettings } from '../komponenten/useTableSettings'
@@ -6,8 +7,10 @@ import TabellenEinstellungenDialog from '../komponenten/TabellenEinstellungenDia
 import NeuerEintragDialog from '../komponenten/NeuerEintragDialog'
 
 export default function Kunden() {
+  const [searchParams] = useSearchParams()
   const [kunden, setKunden] = useState<any[]>([])
   const [betreuer, setBetreuer] = useState<any[]>([])
+  const [openKundeId, setOpenKundeId] = useState<string | null>(null)
 
   useEffect(() => {
     ;(async () => {
@@ -16,6 +19,22 @@ export default function Kunden() {
       if (lists?.betreuer) setBetreuer(lists.betreuer)
     })()
   }, [])
+
+  // Öffne das Dropdown für den Kunden aus der URL
+  useEffect(() => {
+    const openName = searchParams.get('open')
+    if (openName && kunden.length > 0) {
+      // Suche nach Kunde mit dem entsprechenden Namen (__display)
+      const foundKunde = kunden.find(k => k.__display === openName)
+      if (foundKunde) {
+        setOpenKundeId(foundKunde.__key)
+        // Entferne den URL-Parameter nach dem Öffnen
+        const newSearchParams = new URLSearchParams(searchParams)
+        newSearchParams.delete('open')
+        window.history.replaceState({}, '', `${window.location.pathname}${newSearchParams.toString() ? '?' + newSearchParams.toString() : ''}`)
+      }
+    }
+  }, [searchParams, kunden])
 
   const sorted = useMemo(() => [...kunden].sort((a,b)=> (a.__display||'').localeCompare(b.__display||'')), [kunden])
   const keys = useMemo(()=> sorted.length ? Object.keys(sorted[0]) : [], [sorted])
@@ -38,6 +57,7 @@ export default function Kunden() {
         wichtigeFelder={wichtigeFelder}
         tableId="kunden"
         gruppen={settings.gruppen}
+        openRowId={openKundeId}
         vorhandeneVorwahlen={useMemo(()=> sorted.map(r=> {
           const telKey = knownKeys.find(k=> isInGruppe(k,'telefon'))
           if (!telKey) return ''

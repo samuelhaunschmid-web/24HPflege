@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import type { SpaltenGruppe } from './useTableSettings'
 import NeuerEintragDialog from './NeuerEintragDialog'
 import BetreuerZuweisungDialog from './BetreuerZuweisungDialog'
@@ -14,9 +15,13 @@ type Props = {
   gruppen?: Record<string, SpaltenGruppe[]>
   vorhandeneVorwahlen?: string[]
   betreuerListe?: any[]
+  kundenListe?: any[]
+  kundenGruppen?: Record<string, SpaltenGruppe[]>
+  openRowId?: string | null
 }
 
-export default function TabelleDropdownZeilen({ daten, displayNames = {}, wichtigeFelder = [], ausblenden = ['__display'], tableId, onChanged, makeTitle, gruppen = {}, vorhandeneVorwahlen = [], betreuerListe = [] }: Props) {
+export default function TabelleDropdownZeilen({ daten, displayNames = {}, wichtigeFelder = [], ausblenden = ['__display'], tableId, onChanged, makeTitle, gruppen = {}, vorhandeneVorwahlen = [], betreuerListe = [], kundenListe = [], kundenGruppen = {}, openRowId = null }: Props) {
+  const navigate = useNavigate()
   const [offenIndex, setOffenIndex] = useState<number | null>(null)
   const [bearbeitenOffen, setBearbeitenOffen] = useState(false)
   const [bearbeitenRow, setBearbeitenRow] = useState<Record<string, any> | null>(null)
@@ -29,6 +34,27 @@ export default function TabelleDropdownZeilen({ daten, displayNames = {}, wichti
   }, [daten, ausblenden])
 
   const hasData = !!(daten && daten.length > 0)
+
+  // Öffne das Dropdown für die übergebene Row-ID
+  useEffect(() => {
+    if (openRowId && daten.length > 0) {
+      const rowIndex = daten.findIndex(row => row.__key === openRowId)
+      if (rowIndex !== -1) {
+        setOffenIndex(rowIndex)
+        // Scrolle zum geöffneten Dropdown nach einem kurzen Delay
+        setTimeout(() => {
+          const element = document.getElementById(`dropdown-${openRowId}`)
+          if (element) {
+            element.scrollIntoView({ 
+              behavior: 'smooth', 
+              block: 'center',
+              inline: 'nearest'
+            })
+          }
+        }, 100)
+      }
+    }
+  }, [openRowId, daten])
 
   function isFieldEmptyForRow(row: Record<string, any>, key: string): boolean {
     const value = row[key]
@@ -56,6 +82,48 @@ export default function TabelleDropdownZeilen({ daten, displayNames = {}, wichti
     return keys.find(k => (gruppen[k] || []).includes(anfangsGruppe))
   }
 
+
+  function handleBetreuerClick(betreuerName: string) {
+    // Navigiere zur Betreuer-Seite mit dem Betreuer-Namen als URL-Parameter
+    navigate(`/betreuer?open=${encodeURIComponent(betreuerName)}`)
+  }
+
+  function handleKundeClick(kundeName: string) {
+    // Navigiere zur Kunden-Seite mit dem Kunden-Namen als URL-Parameter
+    navigate(`/kunden?open=${encodeURIComponent(kundeName)}`)
+  }
+
+  function getZugeordneteKunden(betreuerName: string) {
+    if (!kundenListe || kundenListe.length === 0) return []
+    
+    const zugeordneteKunden: Array<{ kunde: any, position: 1 | 2 }> = []
+    
+    // Verwende die Kunden-Gruppen-Konfiguration
+    const kundenKeys = kundenListe.length > 0 ? Object.keys(kundenListe[0]) : []
+    const betreuer1Key = kundenKeys.find(k => (kundenGruppen[k] || []).includes('betreuer1'))
+    const betreuer2Key = kundenKeys.find(k => (kundenGruppen[k] || []).includes('betreuer2'))
+    
+    kundenListe.forEach(kunde => {
+      // Prüfe Betreuer 1
+      if (betreuer1Key) {
+        const betreuer1Name = String(kunde[betreuer1Key] || '').trim()
+        if (betreuer1Name && betreuer1Name === betreuerName) {
+          zugeordneteKunden.push({ kunde, position: 1 })
+        }
+      }
+      
+      // Prüfe Betreuer 2
+      if (betreuer2Key) {
+        const betreuer2Name = String(kunde[betreuer2Key] || '').trim()
+        if (betreuer2Name && betreuer2Name === betreuerName) {
+          zugeordneteKunden.push({ kunde, position: 2 })
+        }
+      }
+    })
+    
+    return zugeordneteKunden
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8, width: '100%' }}>
       {!hasData && (
@@ -66,9 +134,180 @@ export default function TabelleDropdownZeilen({ daten, displayNames = {}, wichti
         const istOffen = offenIndex === i
         const leereWichtigeAnzahl = keys.filter(k => wichtigeFelder.includes(k) && isFieldEmptyForRow(row, k)).length
         return (
-          <div key={i} style={{ border: '1px solid #e5e7eb', borderRadius: 8, overflow: 'hidden', width: '100%' }}>
+          <div 
+            key={i} 
+            id={`dropdown-${row.__key}`}
+            style={{ border: '1px solid #e5e7eb', borderRadius: 8, overflow: 'hidden', width: '100%' }}
+          >
             <div style={{ width: '100%', padding: '10px 12px', background: '#f7f9fc', position: 'relative' }}>
               <div onClick={() => setOffenIndex(istOffen ? null : i)} style={{ fontWeight: 600, cursor: 'pointer', userSelect: 'none', paddingRight: 56, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{title}</div>
+              
+              {/* Betreuer-Anzeige in der Mitte für Kunden */}
+              {!istOffen && tableId === 'kunden' && (
+                <div style={{ 
+                  position: 'absolute', 
+                  left: '50%', 
+                  top: '50%', 
+                  transform: 'translate(-50%, -50%)',
+                  display: 'flex',
+                  gap: '12px',
+                  alignItems: 'center',
+                  fontSize: '12px',
+                  color: '#666'
+                }}>
+                  {(() => {
+                    const betreuer1Key = getBetreuerFieldKey(1)
+                    const betreuer2Key = getBetreuerFieldKey(2)
+                    const betreuer1 = betreuer1Key ? String(row[betreuer1Key] || '') : ''
+                    const betreuer2 = betreuer2Key ? String(row[betreuer2Key] || '') : ''
+                    
+                    if (!betreuer1 && !betreuer2) return null
+                    
+                    return (
+                      <>
+                        {betreuer1 && (
+                          <div 
+                            style={{ 
+                              display: 'flex', 
+                              alignItems: 'center', 
+                              gap: '4px',
+                              padding: '2px 6px',
+                              background: '#e3f2fd',
+                              borderRadius: '4px',
+                              border: '1px solid #bbdefb',
+                              cursor: 'pointer',
+                              transition: 'all 0.2s ease'
+                            }}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleBetreuerClick(betreuer1)
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.background = '#bbdefb'
+                              e.currentTarget.style.transform = 'scale(1.02)'
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.background = '#e3f2fd'
+                              e.currentTarget.style.transform = 'scale(1)'
+                            }}
+                            title="Klicken um Betreuer zu öffnen"
+                          >
+                            <div style={{ 
+                              width: '8px', 
+                              height: '8px', 
+                              borderRadius: '50%', 
+                              background: '#3b82f6' 
+                            }} />
+                            <span style={{ 
+                              color: '#1976d2',
+                              fontWeight: '500'
+                            }}>{betreuer1}</span>
+                          </div>
+                        )}
+                        {betreuer2 && (
+                          <div 
+                            style={{ 
+                              display: 'flex', 
+                              alignItems: 'center', 
+                              gap: '4px',
+                              padding: '2px 6px',
+                              background: '#e8f5e8',
+                              borderRadius: '4px',
+                              border: '1px solid #c8e6c9',
+                              cursor: 'pointer',
+                              transition: 'all 0.2s ease'
+                            }}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleBetreuerClick(betreuer2)
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.background = '#c8e6c9'
+                              e.currentTarget.style.transform = 'scale(1.02)'
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.background = '#e8f5e8'
+                              e.currentTarget.style.transform = 'scale(1)'
+                            }}
+                            title="Klicken um Betreuer zu öffnen"
+                          >
+                            <div style={{ 
+                              width: '8px', 
+                              height: '8px', 
+                              borderRadius: '50%', 
+                              background: '#10b981' 
+                            }} />
+                            <span style={{ 
+                              color: '#2e7d32',
+                              fontWeight: '500'
+                            }}>{betreuer2}</span>
+                          </div>
+                        )}
+                      </>
+                    )
+                  })()}
+                </div>
+              )}
+
+              {/* Kunden-Anzeige in der Mitte für Betreuer */}
+              {!istOffen && tableId === 'betreuer' && (() => {
+                const betreuerName = row.__display || ''
+                const zugeordneteKunden = getZugeordneteKunden(betreuerName)
+                
+                if (zugeordneteKunden.length === 0) return null
+                
+                return (
+                  <div style={{ 
+                    position: 'absolute', 
+                    left: '50%', 
+                    top: '50%', 
+                    transform: 'translate(-50%, -50%)',
+                    display: 'flex',
+                    gap: '12px',
+                    alignItems: 'center',
+                    fontSize: '12px',
+                    color: '#666'
+                  }}>
+                    {zugeordneteKunden.map(({ kunde, position }, index) => (
+                      <div 
+                        key={index}
+                        style={{ 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          gap: '4px',
+                          padding: '2px 6px',
+                          background: position === 1 ? '#e8f5e8' : '#fff3e0',
+                          borderRadius: '4px',
+                          border: position === 1 ? '1px solid #c8e6c9' : '1px solid #ffcc02',
+                          cursor: 'pointer',
+                          transition: 'all 0.2s ease'
+                        }}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleKundeClick(kunde.__display || '')
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.background = position === 1 ? '#c8e6c9' : '#ffcc02'
+                          e.currentTarget.style.transform = 'scale(1.02)'
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.background = position === 1 ? '#e8f5e8' : '#fff3e0'
+                          e.currentTarget.style.transform = 'scale(1)'
+                        }}
+                      >
+                        <div style={{ 
+                          width: '8px', 
+                          height: '8px', 
+                          borderRadius: '50%', 
+                          background: position === 1 ? '#4caf50' : '#ff9800'
+                        }} />
+                        <span>{kunde.__display || ''}</span>
+                        <span style={{ fontSize: '10px', opacity: 0.7 }}>({position})</span>
+                      </div>
+                    ))}
+                  </div>
+                )
+              })()}
               <div style={{ position: 'absolute', right: 30, top: '50%', transform: 'translateY(-50%)', display: 'flex', alignItems: 'center', gap: 6 }}>
                 {!istOffen && leereWichtigeAnzahl > 0 && (
                   <div title="Leere wichtige Felder" style={{ background: '#b00020', color: '#fff', borderRadius: 999, padding: '2px 8px', fontSize: 12, fontWeight: 700, minWidth: 20, textAlign: 'center' }}>{leereWichtigeAnzahl}</div>
@@ -141,24 +380,34 @@ export default function TabelleDropdownZeilen({ daten, displayNames = {}, wichti
                         const isEmpty = isFieldEmptyForRow(row, k)
                         const showEmpty = wichtigeFelder.includes(k)
                         const show = !isEmpty || showEmpty
-                        const highlight = showEmpty && isEmpty
-                        return { k, value, isEmpty, showEmpty, show, highlight }
+                        const highlightEmpty = showEmpty && isEmpty
+                        const highlightFilled = showEmpty && !isEmpty
+                        return { k, value, isEmpty, showEmpty, show, highlightEmpty, highlightFilled }
                       }).filter(x => x.show)
-                      // Wichtig & leer zuerst
-                      items.sort((a,b)=> (b.highlight?1:0) - (a.highlight?1:0))
-                      return items.flatMap(({k, value, highlight, isEmpty}) => {
+                      // Wichtig & leer zuerst, dann wichtig & gefüllt
+                      items.sort((a,b)=> {
+                        if (a.highlightEmpty && !b.highlightEmpty) return -1
+                        if (!a.highlightEmpty && b.highlightEmpty) return 1
+                        if (a.highlightFilled && !b.highlightFilled) return -1
+                        if (!a.highlightFilled && b.highlightFilled) return 1
+                        return 0
+                      })
+                      return items.flatMap(({k, value, highlightEmpty, highlightFilled, isEmpty}) => {
                         const labelStyle = {
                           padding: '8px 10px',
                           borderRight: '1px solid #eee',
                           borderBottom: '1px solid #eee',
-                          background: highlight ? '#fee2e2' : '#fafafa',
-                          color: '#444'
+                          background: highlightEmpty ? '#fee2e2' : highlightFilled ? '#dcfce7' : '#fafafa',
+                          color: highlightEmpty ? '#dc2626' : highlightFilled ? '#16a34a' : '#444',
+                          fontWeight: (highlightEmpty || highlightFilled) ? '600' : 'normal'
                         } as React.CSSProperties
                         const valueStyle = {
                           padding: '6px 8px',
                           borderBottom: '1px solid #eee',
                           whiteSpace: 'nowrap',
-                          background: highlight ? '#fee2e2' : '#fff'
+                          background: highlightEmpty ? '#fee2e2' : highlightFilled ? '#dcfce7' : '#fff',
+                          color: highlightEmpty ? '#dc2626' : highlightFilled ? '#16a34a' : '#333',
+                          fontWeight: highlightFilled ? '500' : 'normal'
                         } as React.CSSProperties
                         let text = isEmpty ? '' : String(value)
                         // format display for datum
@@ -225,43 +474,20 @@ export default function TabelleDropdownZeilen({ daten, displayNames = {}, wichti
           const betreuerKey = getBetreuerFieldKey(betreuerDialogNummer)
           const anfangsKey = getAnfangsFieldKey(betreuerDialogNummer)
           
-          console.log('Debug Betreuer-Zuweisung:', {
-            betreuerDialogNummer,
-            betreuerKey,
-            anfangsKey,
-            gruppen,
-            keys,
-            betreuerDialogRow
-          })
-          
           if (!betreuerKey || !anfangsKey) {
-            console.error('Betreuer- oder Anfangs-Feld nicht gefunden!', {
-              betreuerKey,
-              anfangsKey,
-              gruppen,
-              keys
-            })
+            console.error('Betreuer- oder Anfangs-Feld nicht gefunden!')
             return false
           }
           
           // Verwende den vollständigen Namen aus __display (derselbe wie im Dropdown)
           const betreuerName = betreuer.__display || 'Unbekannter Betreuer'
           
-          console.log('Betreuer-Daten:', {
-            betreuer,
-            betreuerName,
-            __display: betreuer.__display
-          })
-          
           const updates: any = {}
           updates[betreuerKey] = betreuerName
           updates[anfangsKey] = anfangsdatum
           
-          console.log('Updates vor dem Speichern:', updates)
-          
           if (tableId === 'kunden') {
-            const result = await window.db?.kundenUpdate?.({ __key, updates })
-            console.log('Update result:', result)
+            await window.db?.kundenUpdate?.({ __key, updates })
           }
           
           onChanged?.()

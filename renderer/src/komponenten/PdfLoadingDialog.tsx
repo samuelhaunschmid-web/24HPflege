@@ -1,4 +1,4 @@
-import React from 'react'
+// import React from 'react' // Not needed in current implementation
 
 interface PdfLoadingDialogProps {
   isOpen: boolean
