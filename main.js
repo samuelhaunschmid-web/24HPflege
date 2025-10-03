@@ -4,6 +4,7 @@ const fs = require('fs');
 const XLSX = require('xlsx');
 const PizZip = require('pizzip');
 const Docxtemplater = require('docxtemplater');
+const mammoth = require('mammoth');
 const { autoUpdater } = require('electron-updater');
 
 const isDev = process.env.VITE_DEV_SERVER_URL || process.env.ELECTRON_START_URL;
@@ -141,6 +142,75 @@ app.whenReady().then(() => {
     const res = await dialog.showOpenDialog({ title: title || 'Ordner wählen', properties: ['openDirectory'] });
     if (res.canceled || !res.filePaths || res.filePaths.length === 0) return null;
     return res.filePaths[0];
+  });
+
+  // LibreOffice Installation
+  ipcMain.handle('api:checkLibreOffice', async () => {
+    const { spawnSync } = require('child_process');
+    try {
+      // Prüfe soffice
+      const result1 = spawnSync('soffice', ['--version'], { stdio: 'pipe' });
+      if (result1.status === 0) return true;
+      
+      // Prüfe lowriter
+      const result2 = spawnSync('lowriter', ['--version'], { stdio: 'pipe' });
+      return result2.status === 0;
+    } catch (error) {
+      return false;
+    }
+  });
+
+  ipcMain.handle('api:installLibreOffice', async () => {
+    const { spawnSync } = require('child_process');
+    const os = require('os');
+    const platform = os.platform();
+    
+    try {
+      if (platform === 'darwin') {
+        // macOS - Homebrew installieren
+        setStatus('Installiere LibreOffice über Homebrew...');
+        const result = spawnSync('brew', ['install', '--cask', 'libreoffice'], { 
+          stdio: 'pipe',
+          timeout: 300000 // 5 Minuten Timeout
+        });
+        return result.status === 0;
+      } else if (platform === 'win32') {
+        // Windows - Chocolatey oder direkter Download
+        setStatus('Installiere LibreOffice über Chocolatey...');
+        const result = spawnSync('choco', ['install', 'libreoffice', '-y'], { 
+          stdio: 'pipe',
+          timeout: 300000
+        });
+        return result.status === 0;
+      } else {
+        // Linux - apt/yum/dnf
+        setStatus('Installiere LibreOffice über Paketmanager...');
+        let result;
+        if (spawnSync('which', ['apt'], { stdio: 'pipe' }).status === 0) {
+          result = spawnSync('sudo', ['apt', 'update', '&&', 'sudo', 'apt', 'install', '-y', 'libreoffice'], { 
+            stdio: 'pipe',
+            timeout: 300000,
+            shell: true
+          });
+        } else if (spawnSync('which', ['yum'], { stdio: 'pipe' }).status === 0) {
+          result = spawnSync('sudo', ['yum', 'install', '-y', 'libreoffice'], { 
+            stdio: 'pipe',
+            timeout: 300000
+          });
+        } else if (spawnSync('which', ['dnf'], { stdio: 'pipe' }).status === 0) {
+          result = spawnSync('sudo', ['dnf', 'install', '-y', 'libreoffice'], { 
+            stdio: 'pipe',
+            timeout: 300000
+          });
+        } else {
+          return false;
+        }
+        return result.status === 0;
+      }
+    } catch (error) {
+      console.error('LibreOffice installation error:', error);
+      return false;
+    }
   });
 
   // Data lists
@@ -355,6 +425,86 @@ app.whenReady().then(() => {
         }
       } catch {}
     }
+    return { ok: true, zielOrdner };
+  });
+
+  // PDF aus DOCX generieren (direkte Konvertierung)
+  ipcMain.handle('docs:generateHtmlPdf', async (_e, args) => {
+    const { ordnerName, targetDir, selectedVorlagen, kunde, betreuer, alsPdf } = args || {};
+    if (!Array.isArray(selectedVorlagen) || selectedVorlagen.length === 0) throw new Error('Keine Vorlagen ausgewählt');
+    if (!ordnerName || !targetDir) throw new Error('Zielordner oder Name fehlt');
+    const cfg = readConfig();
+    const vorlagenRoot = cfg.vorlagenDir || path.join(__dirname, 'Vorlagen');
+    const zielOrdner = path.join(targetDir, ordnerName);
+    if (!fs.existsSync(zielOrdner)) fs.mkdirSync(zielOrdner, { recursive: true });
+    const data = { ...(kunde || {}), ...(betreuer || {}) };
+    if (kunde) Object.keys(kunde).forEach(key => { if (key.startsWith('a')) data[key] = kunde[key]; });
+    
+    if (alsPdf) {
+      // Direkte DOCX zu PDF Konvertierung mit LibreOffice
+      for (const rel of selectedVorlagen) {
+        const vorlagenPath = path.join(vorlagenRoot, rel);
+        const templateBuffer = fs.readFileSync(vorlagenPath);
+        const outputBuffer = await replacePlaceholders(templateBuffer, data);
+        
+        // Temporäre DOCX-Datei erstellen
+        const tempDocxName = path.basename(rel);
+        const tempDocxPath = path.join(zielOrdner, await replaceFilenamePlaceholders(tempDocxName, data));
+        fs.writeFileSync(tempDocxPath, outputBuffer);
+        
+        try {
+          // LibreOffice für PDF-Konvertierung verwenden
+          const { spawnSync } = require('child_process');
+          const result = spawnSync('soffice', [
+            '--headless',
+            '--convert-to', 'pdf',
+            '--outdir', zielOrdner,
+            tempDocxPath
+          ], { stdio: 'pipe' });
+          
+          if (result.error) {
+            // Fallback: lowriter versuchen
+            const result2 = spawnSync('lowriter', [
+              '--headless',
+              '--convert-to', 'pdf',
+              '--outdir', zielOrdner,
+              tempDocxPath
+            ], { stdio: 'pipe' });
+            
+            if (result2.error) {
+              console.warn('LibreOffice not available, keeping DOCX file');
+            } else {
+              // Temporäre DOCX-Datei löschen nach erfolgreicher PDF-Konvertierung
+              try {
+                fs.unlinkSync(tempDocxPath);
+              } catch (deleteError) {
+                console.warn('Could not delete temp DOCX file:', deleteError);
+              }
+            }
+          } else {
+            // Temporäre DOCX-Datei löschen nach erfolgreicher PDF-Konvertierung
+            try {
+              fs.unlinkSync(tempDocxPath);
+            } catch (deleteError) {
+              console.warn('Could not delete temp DOCX file:', deleteError);
+            }
+          }
+        } catch (error) {
+          console.error('PDF conversion error:', error);
+        }
+      }
+    } else {
+      // Normale DOCX-Erstellung
+      for (const rel of selectedVorlagen) {
+        const vorlagenPath = path.join(vorlagenRoot, rel);
+        const templateBuffer = fs.readFileSync(vorlagenPath);
+        const outputBuffer = await replacePlaceholders(templateBuffer, data);
+        const dateiname = path.basename(rel);
+        const zielDatei = path.join(zielOrdner, await replaceFilenamePlaceholders(dateiname, data));
+        fs.writeFileSync(zielDatei, outputBuffer);
+      }
+    }
+    
     return { ok: true, zielOrdner };
   });
 

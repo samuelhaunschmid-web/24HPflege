@@ -19,6 +19,8 @@
   "dependencies": {
     "@electron/remote": "^2.1.2",
     "docxtemplater": "^3.63.2",
+    "mammoth": "^1.6.0",
+    "officegen": "^0.6.5",
     "pizzip": "^3.2.0",
     "xlsx": "^0.18.5"
   },

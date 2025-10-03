@@ -9,7 +9,9 @@ contextBridge.exposeInMainWorld('api', {
   quitAndInstall: () => ipcRenderer.invoke('update:install'),
   getConfig: () => ipcRenderer.invoke('config:get'),
   setConfig: (partial) => ipcRenderer.invoke('config:set', partial),
-  chooseDirectory: (title) => ipcRenderer.invoke('dialog:chooseDirectory', title)
+  chooseDirectory: (title) => ipcRenderer.invoke('dialog:chooseDirectory', title),
+  checkLibreOffice: () => ipcRenderer.invoke('api:checkLibreOffice'),
+  installLibreOffice: () => ipcRenderer.invoke('api:installLibreOffice'),
 });
 
 contextBridge.exposeInMainWorld('docgen', {
@@ -17,6 +19,7 @@ contextBridge.exposeInMainWorld('docgen', {
   getVorlagenTree: () => ipcRenderer.invoke('vorlagen:getTree'),
   listDocx: () => ipcRenderer.invoke('vorlagen:listDocx'),
   generateDocs: (args) => ipcRenderer.invoke('docs:generate', args),
+  generateHtmlPdf: (args) => ipcRenderer.invoke('docs:generateHtmlPdf', args),
   listInvoiceTemplates: () => ipcRenderer.invoke('rechnungsvorlagen:list'),
   generateInvoices: (args) => ipcRenderer.invoke('invoices:generate', args),
 });

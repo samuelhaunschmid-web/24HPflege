@@ -5,6 +5,8 @@ export default function Einstellungen() {
   const [status, setStatus] = useState<string>('')
   const [progress, setProgress] = useState<number | null>(null)
   const [cfg, setCfg] = useState<any>({})
+  const [libreOfficeStatus, setLibreOfficeStatus] = useState<string>('Prüfe...')
+  const [libreOfficeInstalling, setLibreOfficeInstalling] = useState<boolean>(false)
 
   useEffect(() => {
     window.api?.onUpdateAvailable?.(() => setStatus('Update gefunden – Download startet...'))
@@ -17,6 +19,10 @@ export default function Einstellungen() {
     ;(async () => {
       const c = await window.api?.getConfig?.()
       if (c) setCfg(c)
+      
+      // LibreOffice Status prüfen
+      const isInstalled = await window.api?.checkLibreOffice?.()
+      setLibreOfficeStatus(isInstalled ? 'Installiert ✅' : 'Nicht installiert ❌')
     })()
   }, [])
 
@@ -75,6 +81,34 @@ export default function Einstellungen() {
               const next = await window.api?.setConfig?.({ rechnungsvorlageDir: dir })
               setCfg(next || {})
             }}>Ordner wählen</button>
+          </div>
+        </div>
+        <hr />
+        <div>
+          <label>LibreOffice für PDF-Export:</label>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <span style={{ flex: 1 }}>Status: {libreOfficeStatus}</span>
+            <button 
+              disabled={libreOfficeInstalling || libreOfficeStatus.includes('Installiert')}
+              onClick={async () => {
+                setLibreOfficeInstalling(true)
+                setLibreOfficeStatus('Installiere...')
+                try {
+                  const success = await window.api?.installLibreOffice?.()
+                  if (success) {
+                    setLibreOfficeStatus('Installiert ✅')
+                  } else {
+                    setLibreOfficeStatus('Installation fehlgeschlagen ❌')
+                  }
+                } catch (error) {
+                  setLibreOfficeStatus('Fehler: ' + (error as any))
+                } finally {
+                  setLibreOfficeInstalling(false)
+                }
+              }}
+            >
+              {libreOfficeInstalling ? 'Installiere...' : 'LibreOffice installieren'}
+            </button>
           </div>
         </div>
       </div>

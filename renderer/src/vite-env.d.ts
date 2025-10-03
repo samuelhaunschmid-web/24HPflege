@@ -12,11 +12,14 @@ declare global {
       getConfig?: () => Promise<any>
       setConfig?: (partial: any) => Promise<any>
       chooseDirectory?: (title?: string) => Promise<string | null>
+      checkLibreOffice?: () => Promise<boolean>
+      installLibreOffice?: () => Promise<boolean>
     }
     docgen?: {
       getLists?: () => Promise<{ kunden: any[]; betreuer: any[] }>
       getVorlagenTree?: () => Promise<any[]>
       generateDocs?: (args: any) => Promise<{ ok: boolean; zielOrdner: string }>
+      generateHtmlPdf?: (args: any) => Promise<{ ok: boolean; zielOrdner: string }>
       listInvoiceTemplates?: () => Promise<Array<{ name: string; absPath: string }>>
       generateInvoices?: (args: any) => Promise<{ ok: boolean; files: string[]; currentRechnungsnummer: number }>
     }

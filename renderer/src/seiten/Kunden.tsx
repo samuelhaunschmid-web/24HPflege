@@ -7,11 +7,13 @@ import NeuerEintragDialog from '../komponenten/NeuerEintragDialog'
 
 export default function Kunden() {
   const [kunden, setKunden] = useState<any[]>([])
+  const [betreuer, setBetreuer] = useState<any[]>([])
 
   useEffect(() => {
     ;(async () => {
       const lists = await window.docgen?.getLists?.()
       if (lists?.kunden) setKunden(lists.kunden)
+      if (lists?.betreuer) setBetreuer(lists.betreuer)
     })()
   }, [])
 
@@ -52,8 +54,11 @@ export default function Kunden() {
           return full || row.__display || ''
         }}
         onChanged={async () => {
-          const lists = await window.docgen?.getLists?.(); if (lists?.kunden) setKunden(lists.kunden)
+          const lists = await window.docgen?.getLists?.(); 
+          if (lists?.kunden) setKunden(lists.kunden)
+          if (lists?.betreuer) setBetreuer(lists.betreuer)
         }}
+        betreuerListe={betreuer}
       />
       <TabellenEinstellungenDialog
         offen={dialogOffen}

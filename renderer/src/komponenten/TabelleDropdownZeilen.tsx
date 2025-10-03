@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import type { SpaltenGruppe } from './useTableSettings'
 import NeuerEintragDialog from './NeuerEintragDialog'
+import BetreuerZuweisungDialog from './BetreuerZuweisungDialog'
 
 type Props = {
   daten: Record<string, any>[]
@@ -12,12 +13,16 @@ type Props = {
   makeTitle?: (row: Record<string, any>, index: number) => string
   gruppen?: Record<string, SpaltenGruppe[]>
   vorhandeneVorwahlen?: string[]
+  betreuerListe?: any[]
 }
 
-export default function TabelleDropdownZeilen({ daten, displayNames = {}, wichtigeFelder = [], ausblenden = ['__display'], tableId, onChanged, makeTitle, gruppen = {}, vorhandeneVorwahlen = [] }: Props) {
+export default function TabelleDropdownZeilen({ daten, displayNames = {}, wichtigeFelder = [], ausblenden = ['__display'], tableId, onChanged, makeTitle, gruppen = {}, vorhandeneVorwahlen = [], betreuerListe = [] }: Props) {
   const [offenIndex, setOffenIndex] = useState<number | null>(null)
   const [bearbeitenOffen, setBearbeitenOffen] = useState(false)
   const [bearbeitenRow, setBearbeitenRow] = useState<Record<string, any> | null>(null)
+  const [betreuerDialogOffen, setBetreuerDialogOffen] = useState(false)
+  const [betreuerDialogRow, setBetreuerDialogRow] = useState<Record<string, any> | null>(null)
+  const [betreuerDialogNummer, setBetreuerDialogNummer] = useState<1 | 2>(1)
   const keys = useMemo(() => {
     if (!daten || daten.length === 0) return []
     return Object.keys(daten[0]).filter(k => !ausblenden.includes(k))
@@ -32,6 +37,23 @@ export default function TabelleDropdownZeilen({ daten, displayNames = {}, wichti
       return digits.length !== 10
     }
     return value == null || value === ''
+  }
+
+  function isBetreuerFieldEmpty(row: Record<string, any>, betreuerNummer: 1 | 2): boolean {
+    const betreuerKey = getBetreuerFieldKey(betreuerNummer)
+    return !betreuerKey || isFieldEmptyForRow(row, betreuerKey)
+  }
+
+  function getBetreuerFieldKey(betreuerNummer: 1 | 2): string | undefined {
+    // Verwende die Zuordnungen aus den TabellenEinstellungen
+    const betreuerGruppe = `betreuer${betreuerNummer}` as SpaltenGruppe
+    return keys.find(k => (gruppen[k] || []).includes(betreuerGruppe))
+  }
+
+  function getAnfangsFieldKey(betreuerNummer: 1 | 2): string | undefined {
+    // Verwende die Zuordnungen aus den TabellenEinstellungen
+    const anfangsGruppe = `betreuer${betreuerNummer}_anfang` as SpaltenGruppe
+    return keys.find(k => (gruppen[k] || []).includes(anfangsGruppe))
   }
 
   return (
@@ -50,6 +72,44 @@ export default function TabelleDropdownZeilen({ daten, displayNames = {}, wichti
               <div style={{ position: 'absolute', right: 30, top: '50%', transform: 'translateY(-50%)', display: 'flex', alignItems: 'center', gap: 6 }}>
                 {!istOffen && leereWichtigeAnzahl > 0 && (
                   <div title="Leere wichtige Felder" style={{ background: '#b00020', color: '#fff', borderRadius: 999, padding: '2px 8px', fontSize: 12, fontWeight: 700, minWidth: 20, textAlign: 'center' }}>{leereWichtigeAnzahl}</div>
+                )}
+                {!istOffen && tableId === 'kunden' && (
+                  <>
+                    {isBetreuerFieldEmpty(row, 1) && (
+                      <button 
+                        title="Betreuer 1 zuweisen" 
+                        onClick={(e) => { 
+                          e.stopPropagation(); 
+                          setBetreuerDialogRow(row); 
+                          setBetreuerDialogNummer(1); 
+                          setBetreuerDialogOffen(true); 
+                        }} 
+                        style={{ border: 'none', background: 'transparent', padding: 4, cursor: 'pointer' }}
+                      >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="#3b82f6" xmlns="http://www.w3.org/2000/svg">
+                          <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                          <path d="M16 8h2v2h-2zM18 6h-2v2h2z" fill="#1d4ed8"/>
+                        </svg>
+                      </button>
+                    )}
+                    {isBetreuerFieldEmpty(row, 2) && (
+                      <button 
+                        title="Betreuer 2 zuweisen" 
+                        onClick={(e) => { 
+                          e.stopPropagation(); 
+                          setBetreuerDialogRow(row); 
+                          setBetreuerDialogNummer(2); 
+                          setBetreuerDialogOffen(true); 
+                        }} 
+                        style={{ border: 'none', background: 'transparent', padding: 4, cursor: 'pointer' }}
+                      >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="#10b981" xmlns="http://www.w3.org/2000/svg">
+                          <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                          <path d="M16 8h2v2h-2zM18 6h-2v2h2z" fill="#059669"/>
+                        </svg>
+                      </button>
+                    )}
+                  </>
                 )}
                 {istOffen && (
                     <>
@@ -150,6 +210,66 @@ export default function TabelleDropdownZeilen({ daten, displayNames = {}, wichti
           onChanged?.()
           return true
         }}
+      />
+      
+      <BetreuerZuweisungDialog
+        isOpen={betreuerDialogOffen}
+        onClose={() => {
+          setBetreuerDialogOffen(false)
+          setBetreuerDialogRow(null)
+        }}
+        onAssign={async (betreuer, anfangsdatum) => {
+          if (!betreuerDialogRow || !tableId) return false
+          
+          const __key = betreuerDialogRow.__key
+          const betreuerKey = getBetreuerFieldKey(betreuerDialogNummer)
+          const anfangsKey = getAnfangsFieldKey(betreuerDialogNummer)
+          
+          console.log('Debug Betreuer-Zuweisung:', {
+            betreuerDialogNummer,
+            betreuerKey,
+            anfangsKey,
+            gruppen,
+            keys,
+            betreuerDialogRow
+          })
+          
+          if (!betreuerKey || !anfangsKey) {
+            console.error('Betreuer- oder Anfangs-Feld nicht gefunden!', {
+              betreuerKey,
+              anfangsKey,
+              gruppen,
+              keys
+            })
+            return false
+          }
+          
+          // Verwende den vollständigen Namen aus __display (derselbe wie im Dropdown)
+          const betreuerName = betreuer.__display || 'Unbekannter Betreuer'
+          
+          console.log('Betreuer-Daten:', {
+            betreuer,
+            betreuerName,
+            __display: betreuer.__display
+          })
+          
+          const updates: any = {}
+          updates[betreuerKey] = betreuerName
+          updates[anfangsKey] = anfangsdatum
+          
+          console.log('Updates vor dem Speichern:', updates)
+          
+          if (tableId === 'kunden') {
+            const result = await window.db?.kundenUpdate?.({ __key, updates })
+            console.log('Update result:', result)
+          }
+          
+          onChanged?.()
+          return true
+        }}
+        betreuerListe={betreuerListe}
+        betreuerNummer={betreuerDialogNummer}
+        kundeName={betreuerDialogRow ? (makeTitle ? makeTitle(betreuerDialogRow, 0) : betreuerDialogRow.__display || 'Unbekannt') : ''}
       />
     </div>
   )
