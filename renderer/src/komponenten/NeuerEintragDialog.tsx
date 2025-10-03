@@ -12,9 +12,10 @@ type Props = {
   gruppen?: Record<string, SpaltenGruppe[]>
   vorhandeneVorwahlen?: string[]
   vorlagenWerte?: Record<string, string[]>
+  betreuerListe?: any[]
 }
 
-export default function NeuerEintragDialog({ offen, onClose, keys, displayNames = {}, titel = 'Neuer Eintrag', onSpeichern, initialValues, gruppen = {}, vorhandeneVorwahlen = [], vorlagenWerte = {} }: Props) {
+export default function NeuerEintragDialog({ offen, onClose, keys, displayNames = {}, titel = 'Neuer Eintrag', onSpeichern, initialValues, gruppen = {}, vorhandeneVorwahlen = [], vorlagenWerte = {}, betreuerListe = [] }: Props) {
   const felder = useMemo(()=> keys.filter(k=> !k.startsWith('__')), [keys])
   const [werte, setWerte] = useState<Record<string, any>>({})
 
@@ -111,8 +112,10 @@ export default function NeuerEintragDialog({ offen, onClose, keys, displayNames 
               const isTel = (gruppen[k]||[]).some(g => g.includes('telefon'))
               const isSv = (gruppen[k]||[]).some(g => g.includes('svnr'))
               const isVorlage = (gruppen[k]||[]).some(g => g.includes('vorlage'))
-              const isBetreuer = (gruppen[k]||[]).some(g => g.includes('betreuer'))
-              const isReadonly = isBetreuer || k.startsWith('__') // Nur Betreuer-Felder und interne Felder sind nicht direkt editierbar
+              const isBetreuer1 = (gruppen[k]||[]).some(g => g.includes('betreuer1') && !g.includes('anfang'))
+              const isBetreuer2 = (gruppen[k]||[]).some(g => g.includes('betreuer2') && !g.includes('anfang'))
+              const isBetreuerAnfang = (gruppen[k]||[]).some(g => g.includes('betreuer') && g.includes('anfang'))
+              const isReadonly = isBetreuerAnfang || k.startsWith('__') // Nur Betreuer-Anfangs-Felder und interne Felder sind nicht direkt editierbar
               const label = displayNames[k] || k
               
               return (
@@ -176,6 +179,27 @@ export default function NeuerEintragDialog({ offen, onClose, keys, displayNames 
                         ))}
                       </datalist>
                     </div>
+                  ) : (isBetreuer1 || isBetreuer2) ? (
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 8 }}>
+                      <input
+                        name={k}
+                        list={`${k}-betreuer-list`}
+                        value={String(werte[k] ?? '')}
+                        onChange={(e)=> setWerte(prev => ({ ...prev, [k]: e.target.value }))}
+                        placeholder="Betreuer eingeben oder auswählen"
+                        style={{ 
+                          padding: '8px 12px', 
+                          border: '1px solid #ddd', 
+                          borderRadius: '4px',
+                          fontSize: '14px'
+                        }}
+                      />
+                      <datalist id={`${k}-betreuer-list`}>
+                        {betreuerListe.map(betreuer => (
+                          <option key={betreuer.__key} value={betreuer.__display || ''} />
+                        ))}
+                      </datalist>
+                    </div>
                   ) : isReadonly ? (
                     <div style={{ 
                       padding: '8px 12px', 
@@ -189,9 +213,9 @@ export default function NeuerEintragDialog({ offen, onClose, keys, displayNames 
                       gap: '4px'
                     }}>
                       <div>{String(werte[k] ?? '') || 'Nicht editierbar'}</div>
-                      {isBetreuer && (
+                      {isBetreuerAnfang && (
                         <div style={{ fontSize: '12px', color: '#999' }}>
-                          Betreuer werden über die Betreuer-Zuweisung verwaltet
+                          Betreuer-Anfangsdaten werden über die Betreuer-Zuweisung verwaltet
                         </div>
                       )}
                       {k.startsWith('__') && (

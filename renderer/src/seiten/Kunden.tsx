@@ -95,6 +95,7 @@ export default function Kunden() {
         keys={knownKeys}
         displayNames={displayNames}
         gruppen={settings.gruppen}
+        betreuerListe={betreuer}
         vorhandeneVorwahlen={useMemo(()=> sorted.map(r=> {
           const telKey = knownKeys.find(k=> isInGruppe(k,'telefon'))
           if (!telKey) return ''
