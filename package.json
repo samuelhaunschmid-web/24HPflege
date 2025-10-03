@@ -4,7 +4,12 @@
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "build": "electron-builder",
+    "dev": "concurrently \"npm:renderer:dev\" \"npm:electron:dev\"",
+    "renderer:dev": "npm --prefix renderer run dev",
+    "electron:dev": "wait-on tcp:5173 && ELECTRON_START_URL=http://localhost:5173 electron .",
+    "build": "npm run build:renderer && electron-builder",
+    "build:renderer": "npm --prefix renderer run build",
+    "icons": "node scripts/gen-icons.mjs",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
@@ -18,13 +23,28 @@
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
+    "concurrently": "^9.2.1",
     "electron": "^36.4.0",
     "electron-builder": "^26.0.12",
-    "electron-reload": "^2.0.0-alpha.1"
+    "electron-reload": "^2.0.0-alpha.1",
+    "electron-updater": "^6.6.2",
+    "sharp": "^0.34.4",
+    "wait-on": "^9.0.1"
   },
   "build": {
     "appId": "com.24stundenpflege.app",
     "productName": "24StundenPflege",
+    "files": [
+      "main.js",
+      "preload.js",
+      "renderer/dist/**",
+      "app-icon.*",
+      "config.json",
+      "RechnungsVorlagen/**"
+    ],
+    "directories": {
+      "buildResources": "."
+    },
     "win": {
       "target": "portable",
       "icon": "app-icon.ico",
@@ -32,10 +52,10 @@
       "signAndEditExecutable": false
     },
     "mac": {
-      "icon": "app-icon.png"
+      "icon": "app-icon-512.png"
     },
     "linux": {
-      "icon": "app-icon.png"
+      "icon": "app-icon-512.png"
     }
   }
 }
