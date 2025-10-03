@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <title>Einstellungen</title>
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    body { font-family: Arial, sans-serif; margin: 40px; background: #f7f7f7; }
+    .container { background: #fff; padding: 30px; border-radius: 10px; box-shadow: 0 2px 8px #ccc; max-width: 1200px; margin: auto; }
+    .hamburger-menu {
+      position: relative;
+      margin-bottom: 30px;
+      display: block;
+    }
+    .menu-icon {
+      display: inline-block;
+      cursor: pointer;
+      width: 32px;
+      height: 32px;
+      position: relative;
+      z-index: 20;
+    }
+    .menu-icon span {
+      display: block;
+      height: 4px;
+      width: 100%;
+      background: #2c3e50;
+      margin: 6px 0;
+      border-radius: 2px;
+      transition: 0.3s;
+    }
+    #menu-toggle {
+      display: none;
+    }
+    .menu {
+      display: none;
+      position: absolute;
+      left: 0;
+      top: 40px;
+      background: #fff;
+      box-shadow: 0 2px 8px #ccc;
+      border-radius: 8px;
+      padding: 20px 0 10px 0;
+      min-width: 180px;
+      z-index: 10;
+    }
+    .menu a {
+      display: block;
+      padding: 12px 24px;
+      color: #2c3e50;
+      text-decoration: none;
+      font-weight: bold;
+      border-bottom: 1px solid #f0f0f0;
+    }
+    .menu a:last-child {
+      border-bottom: none;
+    }
+    .menu a.active, .menu a:hover {
+      color: #007bff;
+      background: #f0f8ff;
+    }
+    #menu-toggle:checked + .menu-icon + .menu {
+      display: block;
+    }
+    .nav { display: none !important; }
+    .path-section { margin-bottom: 32px; padding: 18px 15px 15px 15px; background: #f0f8ff; border-radius: 8px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="hamburger-menu">
+      <input type="checkbox" id="menu-toggle" />
+      <label for="menu-toggle" class="menu-icon">
+        <span></span>
+        <span></span>
+        <span></span>
+      </label>
+      <nav class="menu">
+        <a href="index.html">Dokumentengenerator</a>
+        <a href="Betreuerdaten.html">Betreuerdaten</a>
+        <a href="Kundendaten.html">Kundendaten</a>
+        <a href="Altkunden.html">Altkunden</a>
+        <a href="Altbetreuer.html">Altbetreuer</a>
+        <a href="Rechnungen.html">Rechnungen</a>
+        <a href="Einstellungen.html" class="active">Einstellungen</a>
+      </nav>
+    </div>
+    <h1>Einstellungen</h1>
+    <div class="path-section">
+      <label>Daten-Ordner:</label>
+      <span id="daten-path">./Daten</span>
+      <button id="choose-daten">Ordner wählen</button>
+    </div>
+    <div class="path-section">
+      <label>Alte-Ordner:</label>
+      <span id="alt-daten-path">./AlteDaten</span>
+      <button id="choose-alt-daten">Ordner wählen</button>
+    </div>
+    <div class="path-section">
+      <label>Vorlagen-Ordner:</label>
+      <span id="vorlagen-path">./Vorlagen</span>
+      <button id="choose-vorlagen">Ordner wählen</button>
+    </div>
+    <div class="path-section">
+      <label>RechnungsVorlage-Ordner:</label>
+      <span id="rechnungsvorlage-path">./RechnungsVorlagen</span>
+      <button id="choose-rechnungsvorlage">Ordner wählen</button>
+    </div>
+    <p>Hier kannst du zukünftig Einstellungen für die App vornehmen.</p>
+    <!-- Weitere Einstellungen folgen -->
+  </div>
+  <script src="renderer.js"></script>
+</body>
+</html> 

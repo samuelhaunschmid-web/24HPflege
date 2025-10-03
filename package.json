@@ -1,0 +1,41 @@
+{
+  "name": "24stundenpflege",
+  "version": "1.0.2",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "Samuel Haunschmid",
+  "license": "ISC",
+  "description": "Verwaltungs-App für 24-Stunden-Pflege (Electron, Windows, Mac, Linux)",
+  "dependencies": {
+    "@electron/remote": "^2.1.2",
+    "docxtemplater": "^3.63.2",
+    "pizzip": "^3.2.0",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "electron": "^36.4.0",
+    "electron-builder": "^26.0.12",
+    "electron-reload": "^2.0.0-alpha.1"
+  },
+  "build": {
+    "appId": "com.24stundenpflege.app",
+    "productName": "24StundenPflege",
+    "win": {
+      "target": "portable",
+      "icon": "app-icon.ico",
+      "forceCodeSigning": false,
+      "signAndEditExecutable": false
+    },
+    "mac": {
+      "icon": "app-icon.png"
+    },
+    "linux": {
+      "icon": "app-icon.png"
+    }
+  }
+}

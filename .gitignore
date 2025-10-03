@@ -1,0 +1,23 @@
+# Node/Electron
+node_modules/
+.DS_Store
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Excel/Word/Temporär
+*.xlsx
+*.xls
+~$*
+*.docx
+*.doc
+
+# Lokale Konfiguration
+config.json
+
+# Backup-/Datenverzeichnisse
+Daten/
+Vorlagen/
+
+# Sonstiges
+*.log 

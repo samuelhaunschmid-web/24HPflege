@@ -1,0 +1,1902 @@
+[
+  {
+    "PLZ": "1010",
+    "Ort": "Wien"
+  },
+  {
+    "PLZ": "1020",
+    "Ort": "Wien"
+  },
+  {
+    "PLZ": "1030",
+    "Ort": "Wien"
+  },
+  {
+    "PLZ": "1040",
+    "Ort": "Wien"
+  },
+  {
+    "PLZ": "1050",
+    "Ort": "Wien"
+  },
+  {
+    "PLZ": "1060",
+    "Ort": "Wien"
+  },
+  {
+    "PLZ": "1070",
+    "Ort": "Wien"
+  },
+  {
+    "PLZ": "1080",
+    "Ort": "Wien"
+  },
+  {
+    "PLZ": "1090",
+    "Ort": "Wien"
+  },
+  {
+    "PLZ": "1100",
+    "Ort": "Wien"
+  },
+  {
+    "PLZ": "1110",
+    "Ort": "Wien"
+  },
+  {
+    "PLZ": "1120",
+    "Ort": "Wien"
+  },
+  {
+    "PLZ": "1130",
+    "Ort": "Wien"
+  },
+  {
+    "PLZ": "1140",
+    "Ort": "Wien"
+  },
+  {
+    "PLZ": "1150",
+    "Ort": "Wien"
+  },
+  {
+    "PLZ": "1160",
+    "Ort": "Wien"
+  },
+  {
+    "PLZ": "1170",
+    "Ort": "Wien"
+  },
+  {
+    "PLZ": "1180",
+    "Ort": "Wien"
+  },
+  {
+    "PLZ": "1190",
+    "Ort": "Wien"
+  },
+  {
+    "PLZ": "1200",
+    "Ort": "Wien"
+  },
+  {
+    "PLZ": "1210",
+    "Ort": "Wien"
+  },
+  {
+    "PLZ": "1220",
+    "Ort": "Wien"
+  },
+  {
+    "PLZ": "1230",
+    "Ort": "Wien"
+  },
+  {
+    "PLZ": "1300",
+    "Ort": "Wien-Schwechat"
+  },
+  {
+    "PLZ": "1400",
+    "Ort": "Wien-UNO City"
+  },
+  {
+    "PLZ": "1500",
+    "Ort": "Wien-Feldpost"
+  },
+  {
+    "PLZ": "1502",
+    "Ort": "Wien-Feldpost"
+  },
+  {
+    "PLZ": "1503",
+    "Ort": "Wien-Feldpost"
+  },
+  {
+    "PLZ": "2000",
+    "Ort": "Stockerau"
+  },
+  {
+    "PLZ": "2002",
+    "Ort": "Großmugl"
+  },
+  {
+    "PLZ": "2003",
+    "Ort": "Leitzersdorf"
+  },
+  {
+    "PLZ": "2004",
+    "Ort": "Niederhollabrunn"
+  },
+  {
+    "PLZ": "2011",
+    "Ort": "Sierndorf"
+  },
+  {
+    "PLZ": "2013",
+    "Ort": "Göllersdorf"
+  },
+  {
+    "PLZ": "2014",
+    "Ort": "Breitenwaida"
+  },
+  {
+    "PLZ": "2020",
+    "Ort": "Hollabrunn"
+  },
+  {
+    "PLZ": "2022",
+    "Ort": "Immendorf"
+  },
+  {
+    "PLZ": "2023",
+    "Ort": "Nappersdorf"
+  },
+  {
+    "PLZ": "2024",
+    "Ort": "Mailberg"
+  },
+  {
+    "PLZ": "2031",
+    "Ort": "Eggendorf im Thale"
+  },
+  {
+    "PLZ": "2032",
+    "Ort": "Enzersdorf im Thale"
+  },
+  {
+    "PLZ": "2033",
+    "Ort": "Kammersdorf"
+  },
+  {
+    "PLZ": "2041",
+    "Ort": "Wullersdorf"
+  },
+  {
+    "PLZ": "2042",
+    "Ort": "Guntersdorf"
+  },
+  {
+    "PLZ": "2051",
+    "Ort": "Zellerndorf"
+  },
+  {
+    "PLZ": "2052",
+    "Ort": "Pernersdorf"
+  },
+  {
+    "PLZ": "2053",
+    "Ort": "Jetzelsdorf"
+  },
+  {
+    "PLZ": "2054",
+    "Ort": "Haugsdorf"
+  },
+  {
+    "PLZ": "2061",
+    "Ort": "Hadres"
+  },
+  {
+    "PLZ": "2062",
+    "Ort": "Seefeld-Kadolz"
+  },
+  {
+    "PLZ": "2063",
+    "Ort": "Zwingendorf"
+  },
+  {
+    "PLZ": "2064",
+    "Ort": "Wulzeshofen"
+  },
+  {
+    "PLZ": "2070",
+    "Ort": "Retz"
+  },
+  {
+    "PLZ": "2073",
+    "Ort": "Schrattenthal"
+  },
+  {
+    "PLZ": "2074",
+    "Ort": "Unterretzbach"
+  },
+  {
+    "PLZ": "2081",
+    "Ort": "Niederfladnitz"
+  },
+  {
+    "PLZ": "2082",
+    "Ort": "Hardegg"
+  },
+  {
+    "PLZ": "2083",
+    "Ort": "Pleißing"
+  },
+  {
+    "PLZ": "2084",
+    "Ort": "Weitersfeld"
+  },
+  {
+    "PLZ": "2091",
+    "Ort": "Langau"
+  },
+  {
+    "PLZ": "2092",
+    "Ort": "Riegersburg"
+  },
+  {
+    "PLZ": "2093",
+    "Ort": "Geras"
+  },
+  {
+    "PLZ": "2094",
+    "Ort": "Zissersdorf"
+  },
+  {
+    "PLZ": "2095",
+    "Ort": "Drosendorf-Zissersdorf"
+  },
+  {
+    "PLZ": "2100",
+    "Ort": "Korneuburg"
+  },
+  {
+    "PLZ": "2102",
+    "Ort": "Bisamberg"
+  },
+  {
+    "PLZ": "2103",
+    "Ort": "Langenzersdorf"
+  },
+  {
+    "PLZ": "2104",
+    "Ort": "Spillern"
+  },
+  {
+    "PLZ": "2105",
+    "Ort": "Oberrohrbach"
+  },
+  {
+    "PLZ": "2111",
+    "Ort": "Rückersdorf-Harmannsdorf"
+  },
+  {
+    "PLZ": "2112",
+    "Ort": "Würnitz"
+  },
+  {
+    "PLZ": "2113",
+    "Ort": "Karnabrunn"
+  },
+  {
+    "PLZ": "2114",
+    "Ort": "Großrußbach"
+  },
+  {
+    "PLZ": "2115",
+    "Ort": "Ernstbrunn"
+  },
+  {
+    "PLZ": "2116",
+    "Ort": "Niederleis"
+  },
+  {
+    "PLZ": "2120",
+    "Ort": "Wolkersdorf im Weinviertel"
+  },
+  {
+    "PLZ": "2122",
+    "Ort": "Ulrichskirchen"
+  },
+  {
+    "PLZ": "2123",
+    "Ort": "Schleinbach"
+  },
+  {
+    "PLZ": "2124",
+    "Ort": "Niederkreuzstetten"
+  },
+  {
+    "PLZ": "2125",
+    "Ort": "Neubau"
+  },
+  {
+    "PLZ": "2126",
+    "Ort": "Ladendorf"
+  },
+  {
+    "PLZ": "2127",
+    "Ort": "Hautzendorf"
+  },
+  {
+    "PLZ": "2130",
+    "Ort": "Mistelbach"
+  },
+  {
+    "PLZ": "2132",
+    "Ort": "Frättingsdorf"
+  },
+  {
+    "PLZ": "2133",
+    "Ort": "Loosdorf"
+  },
+  {
+    "PLZ": "2134",
+    "Ort": "Staatz-Kautendorf"
+  },
+  {
+    "PLZ": "2135",
+    "Ort": "Neudorf bei Staatz"
+  },
+  {
+    "PLZ": "2136",
+    "Ort": "Laa an der Thaya"
+  },
+  {
+    "PLZ": "2141",
+    "Ort": "Ameis"
+  },
+  {
+    "PLZ": "2142",
+    "Ort": "Poysdorf"
+  },
+  {
+    "PLZ": "2143",
+    "Ort": "Großkrut"
+  },
+  {
+    "PLZ": "2144",
+    "Ort": "Altlichtenwarth"
+  },
+  {
+    "PLZ": "2145",
+    "Ort": "Hausbrunn"
+  },
+  {
+    "PLZ": "2151",
+    "Ort": "Asparn an der Zaya"
+  },
+  {
+    "PLZ": "2152",
+    "Ort": "Gnadendorf"
+  },
+  {
+    "PLZ": "2153",
+    "Ort": "Stronsdorf"
+  },
+  {
+    "PLZ": "2154",
+    "Ort": "Unterstinkenbrunn"
+  },
+  {
+    "PLZ": "2161",
+    "Ort": "Poysbrunn"
+  },
+  {
+    "PLZ": "2162",
+    "Ort": "Falkenstein"
+  },
+  {
+    "PLZ": "2163",
+    "Ort": "Ottenthal"
+  },
+  {
+    "PLZ": "2164",
+    "Ort": "Wildendürnbach"
+  },
+  {
+    "PLZ": "2165",
+    "Ort": "Drasenhofen"
+  },
+  {
+    "PLZ": "2170",
+    "Ort": "Poysdorf"
+  },
+  {
+    "PLZ": "2171",
+    "Ort": "Herrnbaumgarten"
+  },
+  {
+    "PLZ": "2172",
+    "Ort": "Schrattenberg"
+  },
+  {
+    "PLZ": "2173",
+    "Ort": "Palterndorf"
+  },
+  {
+    "PLZ": "2181",
+    "Ort": "Dobermannsdorf"
+  },
+  {
+    "PLZ": "2182",
+    "Ort": "Palterndorf"
+  },
+  {
+    "PLZ": "2183",
+    "Ort": "Neusiedl an der Zaya"
+  },
+  {
+    "PLZ": "2184",
+    "Ort": "Hauskirchen"
+  },
+  {
+    "PLZ": "2185",
+    "Ort": "Prinzendorf an der Zaya"
+  },
+  {
+    "PLZ": "2191",
+    "Ort": "Gaweinstal"
+  },
+  {
+    "PLZ": "2192",
+    "Ort": "Kettlasbrunn"
+  },
+  {
+    "PLZ": "2193",
+    "Ort": "Wilfersdorf"
+  },
+  {
+    "PLZ": "2201",
+    "Ort": "Gerasdorf bei Wien"
+  },
+  {
+    "PLZ": "2202",
+    "Ort": "Enzersfeld"
+  },
+  {
+    "PLZ": "2203",
+    "Ort": "Großebersdorf"
+  },
+  {
+    "PLZ": "2211",
+    "Ort": "Pillichsdorf"
+  },
+  {
+    "PLZ": "2212",
+    "Ort": "Großengersdorf"
+  },
+  {
+    "PLZ": "2213",
+    "Ort": "Bockfließ"
+  },
+  {
+    "PLZ": "2214",
+    "Ort": "Auersthal"
+  },
+  {
+    "PLZ": "2215",
+    "Ort": "Raggendorf"
+  },
+  {
+    "PLZ": "2221",
+    "Ort": "Groß Schweinbarth"
+  },
+  {
+    "PLZ": "2222",
+    "Ort": "Bad Pirawarth"
+  },
+  {
+    "PLZ": "2223",
+    "Ort": "Hohenruppersdorf"
+  },
+  {
+    "PLZ": "2224",
+    "Ort": "Obersulz"
+  },
+  {
+    "PLZ": "2225",
+    "Ort": "Zistersdorf"
+  },
+  {
+    "PLZ": "2230",
+    "Ort": "Gänserndorf"
+  },
+  {
+    "PLZ": "2231",
+    "Ort": "Strasshof an der Nordbahn"
+  },
+  {
+    "PLZ": "2232",
+    "Ort": "Deutsch-Wagram"
+  },
+  {
+    "PLZ": "2241",
+    "Ort": "Schönkirchen-Reyersdorf"
+  },
+  {
+    "PLZ": "2242",
+    "Ort": "Prottes"
+  },
+  {
+    "PLZ": "2243",
+    "Ort": "Matzen"
+  },
+  {
+    "PLZ": "2244",
+    "Ort": "Spannberg"
+  },
+  {
+    "PLZ": "2245",
+    "Ort": "Velm-Götzendorf"
+  },
+  {
+    "PLZ": "2251",
+    "Ort": "Ebenthal"
+  },
+  {
+    "PLZ": "2252",
+    "Ort": "Ollersdorf"
+  },
+  {
+    "PLZ": "2253",
+    "Ort": "Weikendorf"
+  },
+  {
+    "PLZ": "2261",
+    "Ort": "Angern an der March"
+  },
+  {
+    "PLZ": "2262",
+    "Ort": "Stillfried"
+  },
+  {
+    "PLZ": "2263",
+    "Ort": "Dürnkrut"
+  },
+  {
+    "PLZ": "2264",
+    "Ort": "Jedenspeigen"
+  },
+  {
+    "PLZ": "2265",
+    "Ort": "Drösing"
+  },
+  {
+    "PLZ": "2272",
+    "Ort": "Niederabsdorf"
+  },
+  {
+    "PLZ": "2273",
+    "Ort": "Hohenau an der March"
+  },
+  {
+    "PLZ": "2274",
+    "Ort": "Rabensburg"
+  },
+  {
+    "PLZ": "2275",
+    "Ort": "Bernhardsthal"
+  },
+  {
+    "PLZ": "2276",
+    "Ort": "Reintal"
+  },
+  {
+    "PLZ": "2280",
+    "Ort": "Glinzendorf"
+  },
+  {
+    "PLZ": "2281",
+    "Ort": "Raasdorf"
+  },
+  {
+    "PLZ": "2282",
+    "Ort": "Markgrafneusiedl"
+  },
+  {
+    "PLZ": "2283",
+    "Ort": "Obersiebenbrunn"
+  },
+  {
+    "PLZ": "2284",
+    "Ort": "Untersiebenbrunn"
+  },
+  {
+    "PLZ": "2285",
+    "Ort": "Leopoldsdorf im Marchfelde"
+  },
+  {
+    "PLZ": "2286",
+    "Ort": "Haringsee"
+  },
+  {
+    "PLZ": "2291",
+    "Ort": "Lassee"
+  },
+  {
+    "PLZ": "2292",
+    "Ort": "Engelhartstetten"
+  },
+  {
+    "PLZ": "2293",
+    "Ort": "Marchegg"
+  },
+  {
+    "PLZ": "2294",
+    "Ort": "Marchegg"
+  },
+  {
+    "PLZ": "2295",
+    "Ort": "Oberweiden"
+  },
+  {
+    "PLZ": "2301",
+    "Ort": "Groß-Enzersdorf"
+  },
+  {
+    "PLZ": "2304",
+    "Ort": "Orth an der Donau"
+  },
+  {
+    "PLZ": "2305",
+    "Ort": "Eckartsau"
+  },
+  {
+    "PLZ": "2320",
+    "Ort": "Schwechat"
+  },
+  {
+    "PLZ": "2322",
+    "Ort": "Zwölfaxing"
+  },
+  {
+    "PLZ": "2325",
+    "Ort": "Himberg"
+  },
+  {
+    "PLZ": "2326",
+    "Ort": "Maria Lanzendorf"
+  },
+  {
+    "PLZ": "2331",
+    "Ort": "Vösendorf"
+  },
+  {
+    "PLZ": "2332",
+    "Ort": "Hennersdorf"
+  },
+  {
+    "PLZ": "2333",
+    "Ort": "Leopoldsdorf"
+  },
+  {
+    "PLZ": "2334",
+    "Ort": "Vösendorf"
+  },
+  {
+    "PLZ": "2340",
+    "Ort": "Mödling"
+  },
+  {
+    "PLZ": "2344",
+    "Ort": "Maria Enzersdorf"
+  },
+  {
+    "PLZ": "2345",
+    "Ort": "Brunn am Gebirge"
+  },
+  {
+    "PLZ": "2351",
+    "Ort": "Wiener Neudorf"
+  },
+  {
+    "PLZ": "2352",
+    "Ort": "Gumpoldskirchen"
+  },
+  {
+    "PLZ": "2353",
+    "Ort": "Guntramsdorf"
+  },
+  {
+    "PLZ": "2355",
+    "Ort": "Wiener Neudorf"
+  },
+  {
+    "PLZ": "2361",
+    "Ort": "Laxenburg"
+  },
+  {
+    "PLZ": "2362",
+    "Ort": "Biedermannsdorf"
+  },
+  {
+    "PLZ": "2371",
+    "Ort": "Hinterbrühl"
+  },
+  {
+    "PLZ": "2372",
+    "Ort": "Gießhübl"
+  },
+  {
+    "PLZ": "2380",
+    "Ort": "Perchtoldsdorf"
+  },
+  {
+    "PLZ": "2381",
+    "Ort": "Laab im Walde"
+  },
+  {
+    "PLZ": "2384",
+    "Ort": "Breitenfurt bei Wien"
+  },
+  {
+    "PLZ": "2391",
+    "Ort": "Kaltenleutgeben"
+  },
+  {
+    "PLZ": "2392",
+    "Ort": "Sulz im Wienerwald"
+  },
+  {
+    "PLZ": "2393",
+    "Ort": "Sittendorf"
+  },
+  {
+    "PLZ": "2401",
+    "Ort": "Fischamend"
+  },
+  {
+    "PLZ": "2402",
+    "Ort": "Maria Ellend"
+  },
+  {
+    "PLZ": "2403",
+    "Ort": "Scharndorf"
+  },
+  {
+    "PLZ": "2404",
+    "Ort": "Petronell-Carnuntum"
+  },
+  {
+    "PLZ": "2405",
+    "Ort": "Bad Deutsch-Altenburg"
+  },
+  {
+    "PLZ": "2410",
+    "Ort": "Hainburg an der Donau"
+  },
+  {
+    "PLZ": "2412",
+    "Ort": "Wolfsthal"
+  },
+  {
+    "PLZ": "2413",
+    "Ort": "Berg"
+  },
+  {
+    "PLZ": "2421",
+    "Ort": "Kittsee"
+  },
+  {
+    "PLZ": "2422",
+    "Ort": "Pama"
+  },
+  {
+    "PLZ": "2423",
+    "Ort": "Deutsch Jahrndorf"
+  },
+  {
+    "PLZ": "2424",
+    "Ort": "Zurndorf"
+  },
+  {
+    "PLZ": "2425",
+    "Ort": "Nickelsdorf"
+  },
+  {
+    "PLZ": "2431",
+    "Ort": "Enzersdorf an der Fischa"
+  },
+  {
+    "PLZ": "2432",
+    "Ort": "Schwadorf"
+  },
+  {
+    "PLZ": "2433",
+    "Ort": "Margarethen am Moos"
+  },
+  {
+    "PLZ": "2434",
+    "Ort": "Götzendorf an der Leitha"
+  },
+  {
+    "PLZ": "2435",
+    "Ort": "Ebergassing"
+  },
+  {
+    "PLZ": "2440",
+    "Ort": "Gramatneusiedl"
+  },
+  {
+    "PLZ": "2441",
+    "Ort": "Mitterndorf an der Fischa"
+  },
+  {
+    "PLZ": "2442",
+    "Ort": "Unterwaltersdorf"
+  },
+  {
+    "PLZ": "2443",
+    "Ort": "Deutsch Brodersdorf"
+  },
+  {
+    "PLZ": "2444",
+    "Ort": "Seibersdorf"
+  },
+  {
+    "PLZ": "2445",
+    "Ort": "Leithaprodersdorf"
+  },
+  {
+    "PLZ": "2451",
+    "Ort": "Hof am Leithaberge"
+  },
+  {
+    "PLZ": "2452",
+    "Ort": "Mannersdorf am Leithagebirge"
+  },
+  {
+    "PLZ": "2453",
+    "Ort": "Sommerein"
+  },
+  {
+    "PLZ": "2454",
+    "Ort": "Trautmannsdorf an der Leitha"
+  },
+  {
+    "PLZ": "2460",
+    "Ort": "Bruck an der Leitha"
+  },
+  {
+    "PLZ": "2462",
+    "Ort": "Wilfleinsdorf"
+  },
+  {
+    "PLZ": "2463",
+    "Ort": "Stixneusiedl"
+  },
+  {
+    "PLZ": "2464",
+    "Ort": "Göttlesbrunn"
+  },
+  {
+    "PLZ": "2465",
+    "Ort": "Höflein"
+  },
+  {
+    "PLZ": "2471",
+    "Ort": "Rohrau"
+  },
+  {
+    "PLZ": "2472",
+    "Ort": "Prellenkirchen"
+  },
+  {
+    "PLZ": "2473",
+    "Ort": "Potzneusiedl"
+  },
+  {
+    "PLZ": "2474",
+    "Ort": "Gattendorf"
+  },
+  {
+    "PLZ": "2475",
+    "Ort": "Neudorf"
+  },
+  {
+    "PLZ": "2481",
+    "Ort": "Achau"
+  },
+  {
+    "PLZ": "2482",
+    "Ort": "Münchendorf"
+  },
+  {
+    "PLZ": "2483",
+    "Ort": "Ebreichsdorf"
+  },
+  {
+    "PLZ": "2484",
+    "Ort": "Weigelsdorf"
+  },
+  {
+    "PLZ": "2485",
+    "Ort": "Wampersdorf"
+  },
+  {
+    "PLZ": "2486",
+    "Ort": "Pottendorf"
+  },
+  {
+    "PLZ": "2490",
+    "Ort": "Ebenfurth"
+  },
+  {
+    "PLZ": "2491",
+    "Ort": "Neufeld an der Leitha"
+  },
+  {
+    "PLZ": "2492",
+    "Ort": "Eggendorf"
+  },
+  {
+    "PLZ": "2493",
+    "Ort": "Lichtenwörth"
+  },
+  {
+    "PLZ": "2500",
+    "Ort": "Baden"
+  },
+  {
+    "PLZ": "2504",
+    "Ort": "Sooß"
+  },
+  {
+    "PLZ": "2505",
+    "Ort": "Baden"
+  },
+  {
+    "PLZ": "2511",
+    "Ort": "Pfaffstätten"
+  },
+  {
+    "PLZ": "2512",
+    "Ort": "Tribuswinkel"
+  },
+  {
+    "PLZ": "2513",
+    "Ort": "Möllersdorf"
+  },
+  {
+    "PLZ": "2514",
+    "Ort": "Traiskirchen"
+  },
+  {
+    "PLZ": "2521",
+    "Ort": "Trumau"
+  },
+  {
+    "PLZ": "2522",
+    "Ort": "Oberwaltersdorf"
+  },
+  {
+    "PLZ": "2523",
+    "Ort": "Tattendorf"
+  },
+  {
+    "PLZ": "2524",
+    "Ort": "Teesdorf"
+  },
+  {
+    "PLZ": "2525",
+    "Ort": "Günselsdorf"
+  },
+  {
+    "PLZ": "2531",
+    "Ort": "Gaaden"
+  },
+  {
+    "PLZ": "2532",
+    "Ort": "Heiligenkreuz"
+  },
+  {
+    "PLZ": "2533",
+    "Ort": "Klausen-Leopoldsdorf"
+  },
+  {
+    "PLZ": "2534",
+    "Ort": "Alland"
+  },
+  {
+    "PLZ": "2540",
+    "Ort": "Bad Vöslau"
+  },
+  {
+    "PLZ": "2542",
+    "Ort": "Kottingbrunn"
+  },
+  {
+    "PLZ": "2544",
+    "Ort": "Leobersdorf"
+  },
+  {
+    "PLZ": "2551",
+    "Ort": "Enzesfeld-Lindabrunn"
+  },
+  {
+    "PLZ": "2552",
+    "Ort": "Hirtenberg"
+  },
+  {
+    "PLZ": "2560",
+    "Ort": "Berndorf"
+  },
+  {
+    "PLZ": "2561",
+    "Ort": "Hernstein"
+  },
+  {
+    "PLZ": "2563",
+    "Ort": "Pottenstein"
+  },
+  {
+    "PLZ": "2564",
+    "Ort": "Weissenbach an der Triesting"
+  },
+  {
+    "PLZ": "2565",
+    "Ort": "Neuhaus"
+  },
+  {
+    "PLZ": "2571",
+    "Ort": "Altenmarkt an der Triesting"
+  },
+  {
+    "PLZ": "2572",
+    "Ort": "Kaumberg"
+  },
+  {
+    "PLZ": "2601",
+    "Ort": "Sollenau"
+  },
+  {
+    "PLZ": "2602",
+    "Ort": "Blumau-Neurißhof"
+  },
+  {
+    "PLZ": "2603",
+    "Ort": "Felixdorf"
+  },
+  {
+    "PLZ": "2604",
+    "Ort": "Theresienfeld"
+  },
+  {
+    "PLZ": "2620",
+    "Ort": "Neunkirchen"
+  },
+  {
+    "PLZ": "2624",
+    "Ort": "Breitenau"
+  },
+  {
+    "PLZ": "2625",
+    "Ort": "Schwarzau am Steinfeld"
+  },
+  {
+    "PLZ": "2630",
+    "Ort": "Ternitz"
+  },
+  {
+    "PLZ": "2631",
+    "Ort": "Sieding"
+  },
+  {
+    "PLZ": "2632",
+    "Ort": "Wimpassing im Schwarzatale"
+  },
+  {
+    "PLZ": "2640",
+    "Ort": "Gloggnitz"
+  },
+  {
+    "PLZ": "2641",
+    "Ort": "Schottwien"
+  },
+  {
+    "PLZ": "2642",
+    "Ort": "Payerbach"
+  },
+  {
+    "PLZ": "2650",
+    "Ort": "Payerbach"
+  },
+  {
+    "PLZ": "2651",
+    "Ort": "Reichenau an der Rax"
+  },
+  {
+    "PLZ": "2654",
+    "Ort": "Prein an der Rax"
+  },
+  {
+    "PLZ": "2661",
+    "Ort": "Naßwald"
+  },
+  {
+    "PLZ": "2662",
+    "Ort": "Schwarzau im Gebirge"
+  },
+  {
+    "PLZ": "2663",
+    "Ort": "Rohr im Gebirge"
+  },
+  {
+    "PLZ": "2671",
+    "Ort": "Küb"
+  },
+  {
+    "PLZ": "2673",
+    "Ort": "Breitenstein"
+  },
+  {
+    "PLZ": "2680",
+    "Ort": "Semmering"
+  },
+  {
+    "PLZ": "2700",
+    "Ort": "Wiener Neustadt"
+  },
+  {
+    "PLZ": "2704",
+    "Ort": "Wiener Neustadt"
+  },
+  {
+    "PLZ": "2705",
+    "Ort": "Wiener Neustadt"
+  },
+  {
+    "PLZ": "2706",
+    "Ort": "Wiener Neustadt"
+  },
+  {
+    "PLZ": "2721",
+    "Ort": "Bad Fischau"
+  },
+  {
+    "PLZ": "2722",
+    "Ort": "Winzendorf"
+  },
+  {
+    "PLZ": "2723",
+    "Ort": "Muthmannsdorf"
+  },
+  {
+    "PLZ": "2724",
+    "Ort": "Hohe Wand"
+  },
+  {
+    "PLZ": "2731",
+    "Ort": "St. Egyden am Steinfeld"
+  },
+  {
+    "PLZ": "2732",
+    "Ort": "Willendorf"
+  },
+  {
+    "PLZ": "2733",
+    "Ort": "Grünbach am Schneeberg"
+  },
+  {
+    "PLZ": "2734",
+    "Ort": "Puchberg am Schneeberg"
+  },
+  {
+    "PLZ": "2751",
+    "Ort": "Steinabrückl"
+  },
+  {
+    "PLZ": "2752",
+    "Ort": "Wöllersdorf"
+  },
+  {
+    "PLZ": "2753",
+    "Ort": "Markt Piesting"
+  },
+  {
+    "PLZ": "2754",
+    "Ort": "Waldegg"
+  },
+  {
+    "PLZ": "2755",
+    "Ort": "Ober-Piesting"
+  },
+  {
+    "PLZ": "2761",
+    "Ort": "Miesenbach"
+  },
+  {
+    "PLZ": "2763",
+    "Ort": "Pernitz"
+  },
+  {
+    "PLZ": "2770",
+    "Ort": "Gutenstein"
+  },
+  {
+    "PLZ": "2801",
+    "Ort": "Katzelsdorf"
+  },
+  {
+    "PLZ": "2802",
+    "Ort": "Hochwolkersdorf"
+  },
+  {
+    "PLZ": "2803",
+    "Ort": "Schwarzenbach"
+  },
+  {
+    "PLZ": "2811",
+    "Ort": "Wiesmath"
+  },
+  {
+    "PLZ": "2812",
+    "Ort": "Hollenthon"
+  },
+  {
+    "PLZ": "2813",
+    "Ort": "Lichtenegg"
+  },
+  {
+    "PLZ": "2821",
+    "Ort": "Lanzenkirchen"
+  },
+  {
+    "PLZ": "2822",
+    "Ort": "Bad Erlach"
+  },
+  {
+    "PLZ": "2823",
+    "Ort": "Pitten"
+  },
+  {
+    "PLZ": "2824",
+    "Ort": "Seebenstein"
+  },
+  {
+    "PLZ": "2831",
+    "Ort": "Warth"
+  },
+  {
+    "PLZ": "2832",
+    "Ort": "Thernberg"
+  },
+  {
+    "PLZ": "2833",
+    "Ort": "Bromberg"
+  },
+  {
+    "PLZ": "2840",
+    "Ort": "Grimmenstein"
+  },
+  {
+    "PLZ": "2842",
+    "Ort": "Edlitz"
+  },
+  {
+    "PLZ": "2851",
+    "Ort": "Krumbach"
+  },
+  {
+    "PLZ": "2852",
+    "Ort": "Hochneukirchen"
+  },
+  {
+    "PLZ": "2853",
+    "Ort": "Bad Schönau"
+  },
+  {
+    "PLZ": "2860",
+    "Ort": "Kirchschlag in der Buckligen Welt"
+  },
+  {
+    "PLZ": "2870",
+    "Ort": "Aspang"
+  },
+  {
+    "PLZ": "2871",
+    "Ort": "Zöbern"
+  },
+  {
+    "PLZ": "2872",
+    "Ort": "Mönichkirchen"
+  },
+  {
+    "PLZ": "2873",
+    "Ort": "Feistritz am Wechsel"
+  },
+  {
+    "PLZ": "2880",
+    "Ort": "Kirchberg am Wechsel"
+  },
+  {
+    "PLZ": "2881",
+    "Ort": "Trattenbach"
+  },
+  {
+    "PLZ": "2882",
+    "Ort": "Vöstenhof"
+  },
+  {
+    "PLZ": "2890",
+    "Ort": "St. Corona am Wechsel"
+  },
+  {
+    "PLZ": "2891",
+    "Ort": "Otterthal"
+  },
+  {
+    "PLZ": "2892",
+    "Ort": "Edlach an der Rax"
+  },
+  {
+    "PLZ": "2893",
+    "Ort": "Reichenau an der Rax"
+  },
+  {
+    "PLZ": "2894",
+    "Ort": "Reichenau an der Rax"
+  },
+  {
+    "PLZ": "7000",
+    "Ort": "Eisenstadt"
+  },
+  {
+    "PLZ": "7001",
+    "Ort": "Eisenstadt"
+  },
+  {
+    "PLZ": "7002",
+    "Ort": "Eisenstadt"
+  },
+  {
+    "PLZ": "7011",
+    "Ort": "Siegendorf"
+  },
+  {
+    "PLZ": "7012",
+    "Ort": "Zagersdorf"
+  },
+  {
+    "PLZ": "7013",
+    "Ort": "Klingenbach"
+  },
+  {
+    "PLZ": "7014",
+    "Ort": "Schattendorf"
+  },
+  {
+    "PLZ": "7020",
+    "Ort": "Loipersbach im Burgenland"
+  },
+  {
+    "PLZ": "7021",
+    "Ort": "Draßburg"
+  },
+  {
+    "PLZ": "7022",
+    "Ort": "Schattendorf"
+  },
+  {
+    "PLZ": "7023",
+    "Ort": "Zemendorf-Stöttera"
+  },
+  {
+    "PLZ": "7024",
+    "Ort": "Hirm"
+  },
+  {
+    "PLZ": "7025",
+    "Ort": "Pöttelsdorf"
+  },
+  {
+    "PLZ": "7031",
+    "Ort": "Krensdorf"
+  },
+  {
+    "PLZ": "7032",
+    "Ort": "Sigleß"
+  },
+  {
+    "PLZ": "7033",
+    "Ort": "Pöttsching"
+  },
+  {
+    "PLZ": "7034",
+    "Ort": "Zillingtal"
+  },
+  {
+    "PLZ": "7035",
+    "Ort": "Steinbrunn"
+  },
+  {
+    "PLZ": "7041",
+    "Ort": "Wulkaprodersdorf"
+  },
+  {
+    "PLZ": "7042",
+    "Ort": "Antau"
+  },
+  {
+    "PLZ": "7043",
+    "Ort": "Girm"
+  },
+  {
+    "PLZ": "7051",
+    "Ort": "Großhöflein"
+  },
+  {
+    "PLZ": "7052",
+    "Ort": "Müllendorf"
+  },
+  {
+    "PLZ": "7053",
+    "Ort": "Hornstein"
+  },
+  {
+    "PLZ": "7061",
+    "Ort": "Trausdorf an der Wulka"
+  },
+  {
+    "PLZ": "7062",
+    "Ort": "St. Margarethen im Burgenland"
+  },
+  {
+    "PLZ": "7063",
+    "Ort": "Oggau am Neusiedler See"
+  },
+  {
+    "PLZ": "7064",
+    "Ort": "Oslip"
+  },
+  {
+    "PLZ": "7071",
+    "Ort": "Rust"
+  },
+  {
+    "PLZ": "7072",
+    "Ort": "Mörbisch am See"
+  },
+  {
+    "PLZ": "7081",
+    "Ort": "Schützen am Gebirge"
+  },
+  {
+    "PLZ": "7082",
+    "Ort": "Donnerskirchen"
+  },
+  {
+    "PLZ": "7083",
+    "Ort": "Purbach am Neusiedler See"
+  },
+  {
+    "PLZ": "7091",
+    "Ort": "Breitenbrunn am Neusiedler See"
+  },
+  {
+    "PLZ": "7092",
+    "Ort": "Winden am See"
+  },
+  {
+    "PLZ": "7093",
+    "Ort": "Jois"
+  },
+  {
+    "PLZ": "7100",
+    "Ort": "Neusiedl am See"
+  },
+  {
+    "PLZ": "7111",
+    "Ort": "Parndorf"
+  },
+  {
+    "PLZ": "7121",
+    "Ort": "Weiden am See"
+  },
+  {
+    "PLZ": "7122",
+    "Ort": "Gols"
+  },
+  {
+    "PLZ": "7123",
+    "Ort": "Mönchhof"
+  },
+  {
+    "PLZ": "7131",
+    "Ort": "Halbturn"
+  },
+  {
+    "PLZ": "7132",
+    "Ort": "Frauenkirchen"
+  },
+  {
+    "PLZ": "7141",
+    "Ort": "Podersdorf am See"
+  },
+  {
+    "PLZ": "7142",
+    "Ort": "Illmitz"
+  },
+  {
+    "PLZ": "7143",
+    "Ort": "Apetlon"
+  },
+  {
+    "PLZ": "7151",
+    "Ort": "Wallern im Burgenland"
+  },
+  {
+    "PLZ": "7152",
+    "Ort": "Pamhagen"
+  },
+  {
+    "PLZ": "7161",
+    "Ort": "St. Andrä am Zicksee"
+  },
+  {
+    "PLZ": "7162",
+    "Ort": "Tadten"
+  },
+  {
+    "PLZ": "7163",
+    "Ort": "Andau"
+  },
+  {
+    "PLZ": "7201",
+    "Ort": "Neudörfl"
+  },
+  {
+    "PLZ": "7202",
+    "Ort": "Bad Sauerbrunn"
+  },
+  {
+    "PLZ": "7203",
+    "Ort": "Wiesen"
+  },
+  {
+    "PLZ": "7210",
+    "Ort": "Mattersburg"
+  },
+  {
+    "PLZ": "7212",
+    "Ort": "Forchtenstein"
+  },
+  {
+    "PLZ": "7221",
+    "Ort": "Marz"
+  },
+  {
+    "PLZ": "7222",
+    "Ort": "Rohrbach bei Mattersburg"
+  },
+  {
+    "PLZ": "7223",
+    "Ort": "Sieggraben"
+  },
+  {
+    "PLZ": "7301",
+    "Ort": "Deutschkreutz"
+  },
+  {
+    "PLZ": "7302",
+    "Ort": "Nikitsch"
+  },
+  {
+    "PLZ": "7304",
+    "Ort": "Großwarasdorf"
+  },
+  {
+    "PLZ": "7311",
+    "Ort": "Neckenmarkt"
+  },
+  {
+    "PLZ": "7312",
+    "Ort": "Horitschon"
+  },
+  {
+    "PLZ": "7321",
+    "Ort": "Lackendorf"
+  },
+  {
+    "PLZ": "7322",
+    "Ort": "Lackenbach"
+  },
+  {
+    "PLZ": "7323",
+    "Ort": "Ritzing"
+  },
+  {
+    "PLZ": "7331",
+    "Ort": "Weppersdorf"
+  },
+  {
+    "PLZ": "7332",
+    "Ort": "Kobersdorf"
+  },
+  {
+    "PLZ": "7341",
+    "Ort": "Markt St. Martin"
+  },
+  {
+    "PLZ": "7342",
+    "Ort": "Kaisersdorf"
+  },
+  {
+    "PLZ": "7343",
+    "Ort": "Neutal"
+  },
+  {
+    "PLZ": "7344",
+    "Ort": "Stoob"
+  },
+  {
+    "PLZ": "7350",
+    "Ort": "Oberpullendorf"
+  },
+  {
+    "PLZ": "7361",
+    "Ort": "Lutzmannsburg"
+  },
+  {
+    "PLZ": "7371",
+    "Ort": "Unterrabnitz"
+  },
+  {
+    "PLZ": "7372",
+    "Ort": "Draßmarkt"
+  },
+  {
+    "PLZ": "7373",
+    "Ort": "Piringsdorf"
+  },
+  {
+    "PLZ": "7374",
+    "Ort": "Weingraben"
+  },
+  {
+    "PLZ": "7400",
+    "Ort": "Oberwart"
+  },
+  {
+    "PLZ": "7410",
+    "Ort": "Loipersdorf-Kitzladen"
+  },
+  {
+    "PLZ": "7411",
+    "Ort": "Markt Allhau"
+  },
+  {
+    "PLZ": "7412",
+    "Ort": "Wolfau"
+  },
+  {
+    "PLZ": "7421",
+    "Ort": "Tauchen"
+  },
+  {
+    "PLZ": "7422",
+    "Ort": "Riedlingsdorf"
+  },
+  {
+    "PLZ": "7423",
+    "Ort": "Pinkafeld"
+  },
+  {
+    "PLZ": "7424",
+    "Ort": "Grafenschachen"
+  },
+  {
+    "PLZ": "7425",
+    "Ort": "Wiesfleck"
+  },
+  {
+    "PLZ": "7431",
+    "Ort": "Bad Tatzmannsdorf"
+  },
+  {
+    "PLZ": "7432",
+    "Ort": "Oberschützen"
+  },
+  {
+    "PLZ": "7433",
+    "Ort": "Mariasdorf"
+  },
+  {
+    "PLZ": "7434",
+    "Ort": "Bernstein"
+  },
+  {
+    "PLZ": "7435",
+    "Ort": "Unterkohlstätten"
+  },
+  {
+    "PLZ": "7441",
+    "Ort": "Pilgersdorf"
+  },
+  {
+    "PLZ": "7442",
+    "Ort": "Lockenhaus"
+  },
+  {
+    "PLZ": "7443",
+    "Ort": "Rattersdorf"
+  },
+  {
+    "PLZ": "7444",
+    "Ort": "Mannersdorf an der Rabnitz"
+  },
+  {
+    "PLZ": "7451",
+    "Ort": "Oberloisdorf"
+  },
+  {
+    "PLZ": "7452",
+    "Ort": "Unterpullendorf"
+  },
+  {
+    "PLZ": "7453",
+    "Ort": "Steinberg-Dörfl"
+  },
+  {
+    "PLZ": "7461",
+    "Ort": "Stadtschlaining"
+  },
+  {
+    "PLZ": "7463",
+    "Ort": "Weiden bei Rechnitz"
+  },
+  {
+    "PLZ": "7464",
+    "Ort": "Markt Neuhodis"
+  },
+  {
+    "PLZ": "7471",
+    "Ort": "Rechnitz"
+  },
+  {
+    "PLZ": "7472",
+    "Ort": "Schachendorf"
+  },
+  {
+    "PLZ": "7473",
+    "Ort": "Hannersdorf"
+  },
+  {
+    "PLZ": "7474",
+    "Ort": "Deutsch Schützen-Eisenberg"
+  },
+  {
+    "PLZ": "7501",
+    "Ort": "Rotenturm an der Pinka"
+  },
+  {
+    "PLZ": "7502",
+    "Ort": "Unterwart"
+  },
+  {
+    "PLZ": "7503",
+    "Ort": "Großpetersdorf"
+  },
+  {
+    "PLZ": "7511",
+    "Ort": "Mischendorf"
+  },
+  {
+    "PLZ": "7512",
+    "Ort": "Kohfidisch"
+  },
+  {
+    "PLZ": "7521",
+    "Ort": "Eberau"
+  },
+  {
+    "PLZ": "7522",
+    "Ort": "Strem"
+  },
+  {
+    "PLZ": "7531",
+    "Ort": "Kemeten"
+  },
+  {
+    "PLZ": "7532",
+    "Ort": "Litzelsdorf"
+  },
+  {
+    "PLZ": "7533",
+    "Ort": "Ollersdorf im Burgenland"
+  },
+  {
+    "PLZ": "7534",
+    "Ort": "Olbendorf"
+  },
+  {
+    "PLZ": "7535",
+    "Ort": "St. Michael im Burgenland"
+  },
+  {
+    "PLZ": "7536",
+    "Ort": "Güttenbach"
+  },
+  {
+    "PLZ": "7537",
+    "Ort": "Neuberg im Burgenland"
+  },
+  {
+    "PLZ": "7540",
+    "Ort": "Güssing"
+  },
+  {
+    "PLZ": "7542",
+    "Ort": "Gerersdorf bei Güssing"
+  },
+  {
+    "PLZ": "7543",
+    "Ort": "Kukmirn"
+  },
+  {
+    "PLZ": "7544",
+    "Ort": "Tobaj"
+  },
+  {
+    "PLZ": "7545",
+    "Ort": "Neustift bei Güssing"
+  },
+  {
+    "PLZ": "7546",
+    "Ort": "Moschendorf"
+  },
+  {
+    "PLZ": "7551",
+    "Ort": "Stegersbach"
+  },
+  {
+    "PLZ": "7552",
+    "Ort": "Stinatz"
+  },
+  {
+    "PLZ": "7553",
+    "Ort": "Bocksdorf"
+  },
+  {
+    "PLZ": "7554",
+    "Ort": "Rohr im Burgenland"
+  },
+  {
+    "PLZ": "7561",
+    "Ort": "Heiligenkreuz im Lafnitztal"
+  },
+  {
+    "PLZ": "7562",
+    "Ort": "Eltendorf"
+  },
+  {
+    "PLZ": "7563",
+    "Ort": "Königsdorf"
+  },
+  {
+    "PLZ": "7564",
+    "Ort": "Dobersdorf"
+  },
+  {
+    "PLZ": "7571",
+    "Ort": "Rudersdorf"
+  },
+  {
+    "PLZ": "7572",
+    "Ort": "Deutsch Kaltenbrunn"
+  },
+  {
+    "PLZ": "7574",
+    "Ort": "Burgauberg-Neudauberg"
+  }
+]

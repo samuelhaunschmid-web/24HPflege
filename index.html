@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <title>24 Stunden Pflege Dokumentengenerator</title>
+  <style>
+    body { 
+      font-family: Arial, sans-serif; 
+      margin: 40px; 
+      background: #ffffff; 
+    }
+    h1 { 
+      color: #98a9ba; 
+      margin-bottom: 30px;
+    }
+    .container { 
+      background: #fff; 
+      padding: 30px; 
+      border-radius: 10px; 
+      box-shadow: 0 2px 8px #ccc; 
+      max-width: 1200px; 
+      margin: auto; 
+    }
+    .nav { 
+      display: none !important; 
+    }
+    .path-section { 
+      margin-bottom: 30px; 
+      padding: 15px; 
+      background: #f0f8ff; 
+      border-radius: 8px; 
+    }
+    .path-section label { 
+      font-weight: bold; 
+    }
+    .path-section span { 
+      font-family: monospace; 
+      color: #2c3e50; 
+    }
+    .path-section button { 
+      margin-left: 10px; 
+    }
+    .highlight-betreuer {
+      background: #ffe066 !important;
+      font-weight: bold;
+      transition: background 0.5s;
+    }
+    .hamburger-menu {
+      position: relative;
+      margin-bottom: 30px;
+      display: block;
+    }
+    .menu-icon {
+      display: inline-block;
+      cursor: pointer;
+      width: 32px;
+      height: 32px;
+      position: relative;
+      z-index: 20;
+    }
+    .menu-icon span {
+      display: block;
+      height: 4px;
+      width: 100%;
+      background: #2c3e50;
+      margin: 6px 0;
+      border-radius: 2px;
+      transition: 0.3s;
+    }
+    #menu-toggle {
+      display: none;
+    }
+    .menu {
+      display: none;
+      position: absolute;
+      left: 0;
+      top: 40px;
+      background: #fff;
+      box-shadow: 0 2px 8px #ccc;
+      border-radius: 8px;
+      padding: 20px 0 10px 0;
+      min-width: 180px;
+      z-index: 10;
+    }
+    .menu a {
+      display: block;
+      padding: 12px 24px;
+      color: #2c3e50;
+      text-decoration: none;
+      font-weight: bold;
+      border-bottom: 1px solid #f0f0f0;
+    }
+    .menu a:last-child {
+      border-bottom: none;
+    }
+    .menu a.active, .menu a:hover {
+      color: #007bff;
+      background: #f0f8ff;
+    }
+    #menu-toggle:checked + .menu-icon + .menu {
+      display: block;
+    }
+
+    /* Neues Layout */
+    .main-content {
+      display: grid;
+      grid-template-columns: 300px 1fr;
+      gap: 30px;
+      align-items: start;
+    }
+    
+    .selection-panel {
+      background: #f8f9fa;
+      padding: 20px;
+      border-radius: 8px;
+      position: sticky;
+      top: 20px;
+    }
+    
+    .selection-panel h2 {
+      color: #2c3e50;
+      font-size: 1.2em;
+      margin-top: 0;
+      margin-bottom: 15px;
+    }
+    
+    .selection-panel select {
+      width: 100%;
+      padding: 8px;
+      margin-bottom: 20px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      background: white;
+    }
+    
+    .documents-panel {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+    }
+    
+    .documents-panel h2 {
+      color: #2c3e50;
+      font-size: 1.2em;
+      margin-top: 0;
+      margin-bottom: 15px;
+    }
+    
+    .document-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    
+    .document-category {
+      margin-bottom: 20px;
+    }
+    
+    .document-category-title {
+      font-weight: bold;
+      color: #2c3e50;
+      margin-bottom: 10px;
+    }
+    
+    .generate-button {
+      background: #007bff;
+      color: white;
+      padding: 10px 20px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: bold;
+      margin-top: 20px;
+    }
+    
+    .generate-button:hover {
+      background: #0056b3;
+    }
+    
+    /* Combobox-Styling */
+    .kunde-section input,
+    .betreuer-section input {
+      width: 100%;
+      padding: 8px 12px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-size: 14px;
+      background: white;
+      cursor: pointer;
+    }
+    
+    .kunde-section input:focus,
+    .betreuer-section input:focus {
+      outline: none;
+      border-color: #007bff;
+      box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+    }
+    
+    .kunde-section input:hover,
+    .betreuer-section input:hover {
+      border-color: #999;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="hamburger-menu">
+      <input type="checkbox" id="menu-toggle" />
+      <label for="menu-toggle" class="menu-icon">
+        <span></span>
+        <span></span>
+        <span></span>
+      </label>
+      <nav class="menu">
+        <a href="index.html" class="active">Dokumentengenerator</a>
+        <a href="Betreuerdaten.html">Betreuerdaten</a>
+        <a href="Kundendaten.html">Kundendaten</a>
+        <a href="Altkunden.html">Altkunden</a>
+        <a href="Altbetreuer.html">Altbetreuer</a>
+        <a href="Rechnungen.html">Rechnungen</a>
+        <a href="Einstellungen.html">Einstellungen</a>
+      </nav>
+    </div>
+    <h1>24 Stunden Pflege Dokumentengenerator</h1>
+    
+    <div class="main-content">
+      <div class="selection-panel">
+        <h2>Auswahl</h2>
+        <div class="kunde-section">
+          <label for="kunde">Kunde wählen:</label>
+          <input type="text" id="kunde" list="kunden-list" placeholder="-- Bitte wählen oder tippen --">
+          <datalist id="kunden-list">
+            <option value="">-- Bitte wählen --</option>
+          </datalist>
+        </div>
+        
+        <div class="betreuer-section">
+          <label for="betreuer">Betreuer/in wählen:</label>
+          <input type="text" id="betreuer" list="betreuer-list" placeholder="-- Bitte wählen oder tippen --">
+          <datalist id="betreuer-list">
+            <option value="">-- Bitte wählen --</option>
+          </datalist>
+        </div>
+        
+        <button class="generate-button" id="generate">Ausgewählte Dokumente generieren</button>
+      </div>
+      
+      <div class="documents-panel">
+        <h2>Verfügbare Dokumente</h2>
+        <div id="vorlagen-container" class="document-list">
+          <!-- Dokumente werden hier dynamisch eingefügt -->
+        </div>
+      </div>
+    </div>
+  </div>
+  <script src="renderer.js"></script>
+</body>
+</html> 
