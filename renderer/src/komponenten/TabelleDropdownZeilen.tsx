@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import type { SpaltenGruppe } from './useTableSettings'
 import NeuerEintragDialog from './NeuerEintragDialog'
 import BetreuerZuweisungDialog from './BetreuerZuweisungDialog'
+import BetreuerWechselDialog from './BetreuerWechselDialog'
 
 type Props = {
   daten: Record<string, any>[]
@@ -20,7 +21,7 @@ type Props = {
   openRowId?: string | null
 }
 
-export default function TabelleDropdownZeilen({ daten, displayNames = {}, wichtigeFelder = [], ausblenden = ['__display'], tableId, onChanged, makeTitle, gruppen = {}, vorhandeneVorwahlen = [], betreuerListe = [], kundenListe = [], kundenGruppen = {}, openRowId = null }: Props) {
+export default function TabelleDropdownZeilen({ daten, displayNames = {}, wichtigeFelder = [], ausblenden = ['__display','__key'], tableId, onChanged, makeTitle, gruppen = {}, vorhandeneVorwahlen = [], betreuerListe = [], kundenListe = [], kundenGruppen = {}, openRowId = null }: Props) {
   const navigate = useNavigate()
   const [offenIndex, setOffenIndex] = useState<number | null>(null)
   const [bearbeitenOffen, setBearbeitenOffen] = useState(false)
@@ -28,9 +29,11 @@ export default function TabelleDropdownZeilen({ daten, displayNames = {}, wichti
   const [betreuerDialogOffen, setBetreuerDialogOffen] = useState(false)
   const [betreuerDialogRow, setBetreuerDialogRow] = useState<Record<string, any> | null>(null)
   const [betreuerDialogNummer, setBetreuerDialogNummer] = useState<1 | 2>(1)
+  const [wechselDialogOffen, setWechselDialogOffen] = useState(false)
+  const [wechselDialogRow, setWechselDialogRow] = useState<Record<string, any> | null>(null)
   const keys = useMemo(() => {
     if (!daten || daten.length === 0) return []
-    return Object.keys(daten[0]).filter(k => !ausblenden.includes(k))
+    return Object.keys(daten[0]).filter(k => !ausblenden.includes(k) && !k.startsWith('__'))
   }, [daten, ausblenden])
 
   const hasData = !!(daten && daten.length > 0)
@@ -73,13 +76,50 @@ export default function TabelleDropdownZeilen({ daten, displayNames = {}, wichti
   function getBetreuerFieldKey(betreuerNummer: 1 | 2): string | undefined {
     // Verwende die Zuordnungen aus den TabellenEinstellungen
     const betreuerGruppe = `betreuer${betreuerNummer}` as SpaltenGruppe
-    return keys.find(k => (gruppen[k] || []).includes(betreuerGruppe))
+    const fromSettings = keys.find(k => (gruppen[k] || []).includes(betreuerGruppe))
+    if (fromSettings) return fromSettings
+
+    // Fallback: Heuristik über Spaltennamen, falls Gruppen (noch) nicht gesetzt sind
+    const normalized = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '')
+    const candidates = keys.filter(k => !k.startsWith('__'))
+
+    // Bevorzugt genaue Varianten wie "betreuer1", erlaubt aber auch "betreuer_1", "Betreuer 1" usw.
+    const exact = candidates.find(k => normalized(k) === `betreuer${betreuerNummer}`)
+    if (exact) return exact
+
+    // Lockeres Matching: irgendein "betreuer" mit der passenden Nummer drin
+    const loose = candidates.find(k => /betreuer/i.test(k) && new RegExp(`${betreuerNummer}(?!\d)`).test(k))
+    if (loose) return loose
+
+    return undefined
   }
 
   function getAnfangsFieldKey(betreuerNummer: 1 | 2): string | undefined {
     // Verwende die Zuordnungen aus den TabellenEinstellungen
     const anfangsGruppe = `betreuer${betreuerNummer}_anfang` as SpaltenGruppe
-    return keys.find(k => (gruppen[k] || []).includes(anfangsGruppe))
+    const fromSettings = keys.find(k => (gruppen[k] || []).includes(anfangsGruppe))
+    if (fromSettings) return fromSettings
+
+    // Fallback: Heuristik über Spaltennamen
+    const normalized = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '')
+    const candidates = keys.filter(k => !k.startsWith('__'))
+
+    // Häufige Begriffe: anfang, beginn, start
+    const nameHasStart = (k: string) => /(anfang|beginn|start)/i.test(k)
+
+    const exact = candidates.find(k => nameHasStart(k) && normalized(k).includes(`betreuer${betreuerNummer}`))
+    if (exact) return exact
+
+    const loose = candidates.find(k => nameHasStart(k) && new RegExp(`${betreuerNummer}(?!\d)`).test(k))
+    if (loose) return loose
+
+    return undefined
+  }
+
+  function getAltbetreuerFieldKey(): string | undefined {
+    // Heuristik: Spalte heißt typischerweise "Altbetreuer"
+    const k = keys.find(k => /alt\s*betreuer/i.test(k) || /^altbetreuer$/i.test(k))
+    return k
   }
 
 
@@ -142,8 +182,8 @@ export default function TabelleDropdownZeilen({ daten, displayNames = {}, wichti
             <div style={{ width: '100%', padding: '10px 12px', background: '#f7f9fc', position: 'relative' }}>
               <div onClick={() => setOffenIndex(istOffen ? null : i)} style={{ fontWeight: 600, cursor: 'pointer', userSelect: 'none', paddingRight: 56, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{title}</div>
               
-              {/* Betreuer-Anzeige in der Mitte für Kunden */}
-              {!istOffen && tableId === 'kunden' && (
+              {/* Betreuer-Anzeige in der Mitte für Kunden (auch wenn offen) */}
+              {tableId === 'kunden' && (
                 <div style={{ 
                   position: 'absolute', 
                   left: '50%', 
@@ -249,8 +289,8 @@ export default function TabelleDropdownZeilen({ daten, displayNames = {}, wichti
                 </div>
               )}
 
-              {/* Kunden-Anzeige in der Mitte für Betreuer */}
-              {!istOffen && tableId === 'betreuer' && (() => {
+              {/* Kunden-Anzeige in der Mitte für Betreuer (auch wenn offen) */}
+              {tableId === 'betreuer' && (() => {
                 const betreuerName = row.__display || ''
                 const zugeordneteKunden = getZugeordneteKunden(betreuerName)
                 
@@ -352,6 +392,13 @@ export default function TabelleDropdownZeilen({ daten, displayNames = {}, wichti
                 )}
                 {istOffen && (
                     <>
+                      {tableId === 'kunden' && (
+                        <button title="Betreuerwechsel" onClick={(e) => { e.stopPropagation(); setWechselDialogRow(row); setWechselDialogOffen(true) }} style={{ border: 'none', background: 'transparent', padding: 6, cursor: 'pointer' }}>
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="#0b6ef7" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M12 6V3L8 7l4 4V8c2.76 0 5 2.24 5 5 0 .7-.15 1.36-.42 1.95l1.48 1.48C18.67 15.47 19 14.28 19 13c0-3.87-3.13-7-7-7zm-5 6c0-.7.15-1.36.42-1.95L5.94 8.57C5.33 9.53 5 10.72 5 12c0 3.87 3.13 7 7 7v3l4-4-4-4v3c-2.76 0-5-2.24-5-5z"/>
+                          </svg>
+                        </button>
+                      )}
                       <button title="Bearbeiten" onClick={(e) => { e.stopPropagation(); setBearbeitenRow(row); setBearbeitenOffen(true) }} style={{ border: 'none', background: 'transparent', padding: 6, cursor: 'pointer' }}>
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="#333" xmlns="http://www.w3.org/2000/svg"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34a.9959.9959 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
                       </button>
@@ -404,7 +451,7 @@ export default function TabelleDropdownZeilen({ daten, displayNames = {}, wichti
                         const valueStyle = {
                           padding: '6px 8px',
                           borderBottom: '1px solid #eee',
-                          whiteSpace: 'nowrap',
+                          whiteSpace: 'pre-wrap',
                           background: highlightEmpty ? '#fee2e2' : highlightFilled ? '#dcfce7' : '#fff',
                           color: highlightEmpty ? '#dc2626' : highlightFilled ? '#16a34a' : '#333',
                           fontWeight: highlightFilled ? '500' : 'normal'
@@ -415,9 +462,41 @@ export default function TabelleDropdownZeilen({ daten, displayNames = {}, wichti
                           const digits = text.replace(/\D+/g,'')
                           if (digits.length === 8) text = `${digits.slice(0,2)}.${digits.slice(2,4)}.${digits.slice(4,8)}`
                         }
+                        // Altbetreuer: mehrere mit ; getrennte Einträge untereinander darstellen
+                        if (/^alt\s*betreuer$/i.test(k) || /altbetreuer/i.test(k)) {
+                          if (text.includes(';')) {
+                            text = text.split(';').map(s => s.trim()).filter(Boolean).join('\n')
+                          }
+                        }
+                        // Für Betreuer-Felder klickbare Chips auch im ausgeklappten Zustand anzeigen
+                        const isBetreuer1 = (gruppen[k]||[]).includes('betreuer1') || /^betreuer\s*1$/i.test(k)
+                        const isBetreuer2 = (gruppen[k]||[]).includes('betreuer2') || /^betreuer\s*2$/i.test(k)
+                        const label = displayNames[k] || k
+                        const valueEl = (isBetreuer1 || isBetreuer2) && text ? (
+                          <div style={{ display: 'inline-flex', gap: 8, alignItems: 'center' }}>
+                            <div 
+                              onClick={(e)=> { e.stopPropagation(); handleBetreuerClick(text) }}
+                              title="Klicken um Betreuer zu öffnen"
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 6,
+                                padding: '2px 6px',
+                                borderRadius: 4,
+                                border: '1px solid #c8e6c9',
+                                background: isBetreuer1 ? '#e3f2fd' : '#e8f5e8',
+                                color: isBetreuer1 ? '#1976d2' : '#2e7d32',
+                                cursor: 'pointer'
+                              }}
+                            >
+                              <div style={{ width: 8, height: 8, borderRadius: '50%', background: isBetreuer1 ? '#3b82f6' : '#10b981' }} />
+                              <span style={{ fontWeight: 500 }}>{text}</span>
+                            </div>
+                          </div>
+                        ) : text
                         return [
-                          <div key={`${i}-${k}-label`} style={labelStyle}>{displayNames[k] || k}</div>,
-                          <div key={`${i}-${k}-value`} style={valueStyle}>{text}</div>
+                          <div key={`${i}-${k}-label`} style={labelStyle}>{label}</div>,
+                          <div key={`${i}-${k}-value`} style={valueStyle}>{valueEl}</div>
                         ]
                       })
                     })()}
@@ -497,6 +576,51 @@ export default function TabelleDropdownZeilen({ daten, displayNames = {}, wichti
         betreuerNummer={betreuerDialogNummer}
         kundeName={betreuerDialogRow ? (makeTitle ? makeTitle(betreuerDialogRow, 0) : betreuerDialogRow.__display || 'Unbekannt') : ''}
       />
+
+      {/* Betreuerwechsel-Dialog nur für Kunden */}
+      {tableId === 'kunden' && (
+        <BetreuerWechselDialog
+          isOpen={wechselDialogOffen}
+          onClose={() => { setWechselDialogOffen(false); setWechselDialogRow(null) }}
+          kundenName={wechselDialogRow ? (makeTitle ? makeTitle(wechselDialogRow, 0) : wechselDialogRow.__display || 'Unbekannt') : ''}
+          verfuegbarePositionen={(() => {
+            const pos: Array<1|2> = []
+            if (getBetreuerFieldKey(1)) pos.push(1)
+            if (getBetreuerFieldKey(2)) pos.push(2)
+            return pos.length ? pos : [1,2]
+          })()}
+          betreuerListe={betreuerListe}
+          currentBetreuerNamen={{
+            1: (() => { const k = getBetreuerFieldKey(1); return k && wechselDialogRow ? String(wechselDialogRow[k] || '') : '' })(),
+            2: (() => { const k = getBetreuerFieldKey(2); return k && wechselDialogRow ? String(wechselDialogRow[k] || '') : '' })(),
+          }}
+          onConfirm={async ({ position, neuerBetreuer, wechselDatum }) => {
+            if (!wechselDialogRow) return false
+            const __key = wechselDialogRow.__key
+            const betreuerKey = getBetreuerFieldKey(position)
+            const anfangsKey = getAnfangsFieldKey(position)
+            const altKey = getAltbetreuerFieldKey() || 'Altbetreuer'
+            if (!betreuerKey || !anfangsKey) {
+              console.error('Betreuer-/Anfangs-Felder nicht gefunden')
+              return false
+            }
+            const updates: any = {}
+            const alterBetreuerName = String(wechselDialogRow[betreuerKey] || '').trim()
+            const anfangsDatumAlt = String(wechselDialogRow[anfangsKey] || '').trim()
+            if (alterBetreuerName) {
+              const altSegment = anfangsDatumAlt ? `${alterBetreuerName} (${anfangsDatumAlt}-${wechselDatum})` : `${alterBetreuerName} (${wechselDatum})`
+              const bisherAlt = String(wechselDialogRow[altKey] || '').trim()
+              updates[altKey] = bisherAlt ? `${bisherAlt}; ${altSegment}` : altSegment
+            }
+            const neuerName = neuerBetreuer.__display || ''
+            updates[betreuerKey] = neuerName
+            updates[anfangsKey] = wechselDatum
+            await window.db?.kundenUpdate?.({ __key, updates })
+            onChanged?.()
+            return true
+          }}
+        />
+      )}
     </div>
   )
 }

@@ -161,50 +161,104 @@ export default function Startseite() {
 
   return (
     <Layout>
-      <h2>Dokumentengenerator</h2>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, padding: '12px 16px', background: '#fff', border: '1px solid #eaeaea', borderRadius: 10 }}>
+        <h2 style={{ margin: 0 }}>Dokumentengenerator</h2>
+      </div>
+
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-        <div style={{ display: 'grid', gap: 8 }}>
-          <label>Kunde</label>
-          <input list="kunden-list" placeholder="Kunde wählen" onChange={(e) => {
-            const v = e.currentTarget.value
-            const k = kunden.find(x => x.__display === v)
-            setKunde(k || null)
-          }} />
-          <datalist id="kunden-list">
-            {kundenSorted.map((k, i) => <option value={k.__display || ''} key={i} />)}
-          </datalist>
+        <div style={{ display: 'grid', gap: 12 }}>
+          <div style={{ background: '#fff', border: '1px solid #eaeaea', borderRadius: 10, padding: 12 }}>
+            <div style={{ display: 'grid', gap: 10 }}>
+              <div>
+                <label style={{ display: 'block', marginBottom: 4, fontSize: '14px' }}>Kunde</label>
+                <input 
+                  list="kunden-list" 
+                  placeholder="Kunde wählen" 
+                  onChange={(e) => {
+                    const v = e.currentTarget.value
+                    const k = kunden.find(x => x.__display === v)
+                    setKunde(k || null)
+                  }}
+                  style={{ padding: '6px 8px', border: '1px solid #ddd', borderRadius: 8, width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}
+                />
+                <datalist id="kunden-list">
+                  {kundenSorted.map((k, i) => <option value={k.__display || ''} key={i} />)}
+                </datalist>
+              </div>
 
-          <label>Betreuer</label>
-          <input list="betreuer-list" placeholder="Betreuer wählen" onChange={(e) => {
-            const v = e.currentTarget.value
-            const b = betreuer.find(x => x.__display === v)
-            setBetreuu(b || null)
-          }} />
-          <datalist id="betreuer-list">
-            {betreuerSorted.map((b, i) => <option value={b.__display || ''} key={i} />)}
-          </datalist>
+              <div>
+                <label style={{ display: 'block', marginBottom: 4, fontSize: '14px' }}>Betreuer</label>
+                <input 
+                  list="betreuer-list" 
+                  placeholder="Betreuer wählen" 
+                  onChange={(e) => {
+                    const v = e.currentTarget.value
+                    const b = betreuer.find(x => x.__display === v)
+                    setBetreuu(b || null)
+                  }}
+                  style={{ padding: '6px 8px', border: '1px solid #ddd', borderRadius: 8, width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}
+                />
+                <datalist id="betreuer-list">
+                  {betreuerSorted.map((b, i) => <option value={b.__display || ''} key={i} />)}
+                </datalist>
+              </div>
 
-          <label>Neuer Ordnername</label>
-          <input value={ordnerName} onChange={(e)=> setOrdnerName(e.currentTarget.value)} placeholder="z.B. Vertragsmappe_Müller" />
-
-          <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <input type="radio" name="modus" checked={modus==='docx'} onChange={()=> setModus('docx')} /> DOCX
-            </label>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <input type="radio" name="modus" checked={modus==='pdf'} onChange={()=> setModus('pdf')} /> PDF
-            </label>
+              <div>
+                <label style={{ display: 'block', marginBottom: 4, fontSize: '14px' }}>Neuer Ordnername</label>
+                <input 
+                  value={ordnerName} 
+                  onChange={(e)=> setOrdnerName(e.currentTarget.value)} 
+                  placeholder="z.B. Vertragsmappe_Müller"
+                  style={{ padding: '6px 8px', border: '1px solid #ddd', borderRadius: 8, width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}
+                />
+              </div>
+            </div>
           </div>
-          <button onClick={handleGenerate} disabled={isLoading}>
-            {isLoading ? 'Wird generiert...' : 'Dokumente generieren'}
-          </button>
+
+          <div style={{ background: '#fff', border: '1px solid #eaeaea', borderRadius: 10, padding: 12 }}>
+            <label style={{ display: 'block', marginBottom: 8, fontWeight: 700 }}>Ausgabeformat</label>
+            <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                <input type="radio" name="modus" checked={modus==='docx'} onChange={()=> setModus('docx')} /> 
+                DOCX
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                <input type="radio" name="modus" checked={modus==='pdf'} onChange={()=> setModus('pdf')} /> 
+                PDF
+              </label>
+            </div>
+          </div>
         </div>
+
         <div>
-          <label>Vorlagen</label>
-          <div style={{ border: '1px solid #ddd', borderRadius: 8, padding: 12, maxHeight: 420, overflow: 'auto' }}>
-            {renderTree(tree)}
+          <div style={{ background: '#fff', border: '1px solid #eaeaea', borderRadius: 10, padding: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+              <label style={{ fontWeight: 700 }}>Vorlagen</label>
+            </div>
+            <div style={{ border: '1px solid #eee', borderRadius: 8, padding: 8, maxHeight: 420, overflow: 'auto', background: '#fff' }}>
+              {renderTree(tree)}
+            </div>
           </div>
         </div>
+      </div>
+
+      <div style={{ position: 'sticky', bottom: 0, background: 'transparent', paddingTop: 12, marginTop: 12, textAlign: 'center' }}>
+        <button 
+          onClick={handleGenerate}
+          disabled={isLoading}
+          style={{
+            background: isLoading ? '#6c757d' : '#005bd1',
+            color: 'white',
+            border: 'none',
+            padding: '12px 24px',
+            borderRadius: 999,
+            fontSize: '16px',
+            cursor: isLoading ? 'not-allowed' : 'pointer',
+            fontWeight: 'bold'
+          }}
+        >
+          {isLoading ? 'Wird generiert...' : (modus==='pdf' ? 'Dokumente als PDF generieren' : 'Dokumente als DOCX generieren')}
+        </button>
       </div>
       
       <LoadingDialog

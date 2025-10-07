@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import Layout from '../seite-shared/Layout'
+import CountBadge from '../komponenten/CountBadge'
 import TabelleDropdownZeilen from '../komponenten/TabelleDropdownZeilen'
 import { useTableSettings } from '../komponenten/useTableSettings'
 import TabellenEinstellungenDialog from '../komponenten/TabellenEinstellungenDialog'
@@ -46,6 +47,7 @@ export default function Kunden() {
 
   return (
     <Layout>
+      <CountBadge count={sorted.length} title="Gesamtanzahl Kunden" />
       <h2>Kunden</h2>
       <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
         <button onClick={()=> setNeuOffen(true)}>Neu</button>

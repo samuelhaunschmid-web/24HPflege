@@ -22,7 +22,7 @@ function createWindow () {
   });
 
   if (isDev) {
-    const devUrl = process.env.VITE_DEV_SERVER_URL || 'http://localhost:5173';
+    const devUrl = process.env.VITE_DEV_SERVER_URL || process.env.ELECTRON_START_URL || 'http://localhost:5173';
     win.loadURL(devUrl);
   } else {
     const indexHtml = path.join(__dirname, 'renderer', 'dist', 'index.html');
@@ -430,17 +430,124 @@ app.whenReady().then(() => {
 
   // PDF aus DOCX generieren (direkte Konvertierung)
   ipcMain.handle('docs:generateHtmlPdf', async (_e, args) => {
-    const { ordnerName, targetDir, selectedVorlagen, kunde, betreuer, alsPdf } = args || {};
+    const { ordnerName, targetDir, selectedVorlagen, kunde, betreuer, alsPdf, selectedKundenKeys, month, year, individualRanges } = args || {};
     if (!Array.isArray(selectedVorlagen) || selectedVorlagen.length === 0) throw new Error('Keine Vorlagen ausgewählt');
     if (!ordnerName || !targetDir) throw new Error('Zielordner oder Name fehlt');
     const cfg = readConfig();
-    const vorlagenRoot = cfg.vorlagenDir || path.join(__dirname, 'Vorlagen');
+    
+    // Prüfe ob es sich um Rechnungen handelt
+    const isRechnung = selectedKundenKeys && selectedKundenKeys.length > 0;
+    const vorlagenRoot = isRechnung ? (cfg.rechnungsvorlageDir || path.join(__dirname, 'RechnungsVorlagen')) : (cfg.vorlagenDir || path.join(__dirname, 'Vorlagen'));
+    
     const zielOrdner = path.join(targetDir, ordnerName);
     if (!fs.existsSync(zielOrdner)) fs.mkdirSync(zielOrdner, { recursive: true });
-    const data = { ...(kunde || {}), ...(betreuer || {}) };
-    if (kunde) Object.keys(kunde).forEach(key => { if (key.startsWith('a')) data[key] = kunde[key]; });
     
-    if (alsPdf) {
+    let currentRechnungsnummer = Number(cfg.currentRechnungsnummer || 1);
+    
+    if (isRechnung) {
+      // Rechnungslogik
+      const datenDir = cfg.datenDir || path.join(__dirname, 'Daten');
+      const kundenPath = path.join(datenDir, 'Kundendaten.xlsx');
+      let kunden = [];
+      if (fs.existsSync(kundenPath)) {
+        const wb = XLSX.readFile(kundenPath);
+        const sheet = wb.Sheets[wb.SheetNames[0]];
+        kunden = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+      }
+      const getKey = (k) => `${String(k.kfname||'').toLowerCase()}__${String(k.kvname||'').toLowerCase()}`;
+      function getDaysInMonth(m, y) { return new Date(y, m, 0).getDate(); }
+      function getVerrechnungszeitraum(m, y) { const d=getDaysInMonth(m,y); return `01.${String(m).padStart(2,'0')}.${y}-${String(d).padStart(2,'0')}.${String(m).padStart(2,'0')}.${y}`; }
+      function getMonatstage(m, y) { return getDaysInMonth(m, y); }
+      function getMonatende(m, y) { const d=getDaysInMonth(m,y); for(let day=d; day>=1; day--){const date=new Date(y,m-1,day); const dow=date.getDay(); if(dow>=1&&dow<=5) return `${String(day).padStart(2,'0')}.${String(m).padStart(2,'0')}.${y}`;} return `${String(d).padStart(2,'0')}.${String(m).padStart(2,'0')}.${y}`; }
+      function getIndividuelleTage(von, bis) { const d1=new Date(von), d2=new Date(bis); return Math.floor((d2-d1)/(1000*60*60*24))+1; }
+      function getIndividuellerZeitraum(von, bis) { const f=(d)=>`${String(d.getDate()).padStart(2,'0')}.${String(d.getMonth()+1).padStart(2,'0')}.${d.getFullYear()}`; const d1=new Date(von), d2=new Date(bis); return `${f(d1)}-${f(d2)}`; }
+      function calculateGesamtsumme(k, tage) { const perDay = parseFloat(k.Money) || 0; return perDay * (tage || 0); }
+      function calculateVorsteuer(sum) { return sum / 1.2; }
+      function calculateSteuer(vst) { return vst * 0.2; }
+      
+      // Generiere Rechnungen für jeden Kunden
+      for (const key of selectedKundenKeys) {
+        const kunde = kunden.find(k => getKey(k) === key);
+        if (!kunde) continue;
+        for (const rel of selectedVorlagen) {
+          const monthNum = Number(month || cfg.verrechnungsmonat || (new Date().getMonth()+1));
+          const yearNum = Number(year || cfg.verrechnungsjahr || (new Date().getFullYear()));
+          let tage, zeitraum;
+          const ind = individualRanges && individualRanges[key];
+          if (ind && ind.von && ind.bis) { tage = getIndividuelleTage(ind.von, ind.bis); zeitraum = getIndividuellerZeitraum(ind.von, ind.bis); }
+          else { tage = getMonatstage(monthNum, yearNum); zeitraum = getVerrechnungszeitraum(monthNum, yearNum); }
+          const summe = calculateGesamtsumme(kunde, tage);
+          const vst = calculateVorsteuer(summe);
+          const st = calculateSteuer(vst);
+          const data = { ...kunde, Rechnungsnummer: currentRechnungsnummer, Verrechnungsmonat: monthNum, Verrechnungsjahr: yearNum, Verrechnungszeitraum: zeitraum, Monatstage: tage, Gesamtsumme: summe.toFixed(2), Vorsteuer: vst.toFixed(2), Steuer: st.toFixed(2), Monatende: getMonatende(monthNum, yearNum) };
+          
+          const vorlagenPath = path.join(vorlagenRoot, rel);
+          const templateBuffer = fs.readFileSync(vorlagenPath);
+          const outputBuffer = await replacePlaceholders(templateBuffer, data);
+          
+          if (alsPdf) {
+            // Temporäre DOCX-Datei erstellen
+            const tempDocxName = await replaceFilenamePlaceholders(path.basename(rel), data);
+            const tempDocxPath = path.join(zielOrdner, tempDocxName);
+            fs.writeFileSync(tempDocxPath, outputBuffer);
+            
+            try {
+              // LibreOffice für PDF-Konvertierung verwenden
+              const { spawnSync } = require('child_process');
+              const result = spawnSync('soffice', [
+                '--headless',
+                '--convert-to', 'pdf',
+                '--outdir', zielOrdner,
+                tempDocxPath
+              ], { stdio: 'pipe' });
+              
+              if (result.error) {
+                // Fallback: lowriter versuchen
+                const result2 = spawnSync('lowriter', [
+                  '--headless',
+                  '--convert-to', 'pdf',
+                  '--outdir', zielOrdner,
+                  tempDocxPath
+                ], { stdio: 'pipe' });
+                
+                if (result2.error) {
+                  console.warn('LibreOffice not available, keeping DOCX file');
+                } else {
+                  // Temporäre DOCX-Datei löschen nach erfolgreicher PDF-Konvertierung
+                  try {
+                    fs.unlinkSync(tempDocxPath);
+                  } catch (deleteError) {
+                    console.warn('Could not delete temp DOCX file:', deleteError);
+                  }
+                }
+              } else {
+                // Temporäre DOCX-Datei löschen nach erfolgreicher PDF-Konvertierung
+                try {
+                  fs.unlinkSync(tempDocxPath);
+                } catch (deleteError) {
+                  console.warn('Could not delete temp DOCX file:', deleteError);
+                }
+              }
+            } catch (error) {
+              console.error('PDF conversion error:', error);
+            }
+          } else {
+            // Normale DOCX-Erstellung
+            const dateiname = await replaceFilenamePlaceholders(path.basename(rel), data);
+            const zielDatei = path.join(zielOrdner, dateiname);
+            fs.writeFileSync(zielDatei, outputBuffer);
+          }
+          currentRechnungsnummer++;
+        }
+      }
+      writeConfig({ ...cfg, currentRechnungsnummer });
+      return { ok: true, zielOrdner, currentRechnungsnummer };
+    } else {
+      // Normale Vorlagenlogik
+      const data = { ...(kunde || {}), ...(betreuer || {}) };
+      if (kunde) Object.keys(kunde).forEach(key => { if (key.startsWith('a')) data[key] = kunde[key]; });
+      
+      if (alsPdf) {
       // Direkte DOCX zu PDF Konvertierung mit LibreOffice
       for (const rel of selectedVorlagen) {
         const vorlagenPath = path.join(vorlagenRoot, rel);
@@ -504,12 +611,13 @@ app.whenReady().then(() => {
         fs.writeFileSync(zielDatei, outputBuffer);
       }
     }
+    }
     
     return { ok: true, zielOrdner };
   });
 
   ipcMain.handle('invoices:generate', async (_e, args) => {
-    const { selectedKundenKeys, selectedVorlagenAbs, targetDir, month, year, individualRanges } = args || {};
+    const { selectedKundenKeys, selectedVorlagenAbs, targetDir, month, year, individualRanges, alsPdf } = args || {};
     if (!Array.isArray(selectedKundenKeys) || selectedKundenKeys.length === 0) throw new Error('Keine Kunden ausgewählt');
     if (!Array.isArray(selectedVorlagenAbs) || selectedVorlagenAbs.length === 0) throw new Error('Keine Vorlagen ausgewählt');
     if (!targetDir) throw new Error('Kein Zielordner');
@@ -535,6 +643,8 @@ app.whenReady().then(() => {
 
     let currentRechnungsnummer = Number(cfg.currentRechnungsnummer || 1);
     const used = [];
+    const generatedFiles = [];
+    
     for (const key of selectedKundenKeys) {
       const kunde = kunden.find(k => getKey(k) === key);
       if (!kunde) continue;
@@ -554,10 +664,84 @@ app.whenReady().then(() => {
         const filename = await replaceFilenamePlaceholders(path.basename(absPath), data);
         const zielDatei = path.join(targetDir, filename);
         fs.writeFileSync(zielDatei, outputBuffer);
+        generatedFiles.push(zielDatei);
         used.push(zielDatei);
         currentRechnungsnummer++;
       }
     }
+    
+    // PDF-Konvertierung falls gewünscht (wie in generateHtmlPdf)
+    if (alsPdf) {
+      try {
+        const { spawnSync } = require('child_process');
+        const pdfFiles = [];
+        
+        for (const file of generatedFiles) {
+          try {
+            // LibreOffice für PDF-Konvertierung verwenden (wie in generateHtmlPdf)
+            const result = spawnSync('soffice', [
+              '--headless',
+              '--convert-to', 'pdf',
+              '--outdir', targetDir,
+              file
+            ], { stdio: 'pipe' });
+            
+            if (result.error) {
+              // Fallback: lowriter versuchen
+              const result2 = spawnSync('lowriter', [
+                '--headless',
+                '--convert-to', 'pdf',
+                '--outdir', targetDir,
+                file
+              ], { stdio: 'pipe' });
+              
+              if (result2.error) {
+                console.warn('LibreOffice not available, keeping DOCX file');
+                pdfFiles.push(file); // Behalte DOCX wenn PDF-Konvertierung fehlschlägt
+              } else {
+                // PDF erfolgreich erstellt
+                const pdfFileName = path.basename(file, path.extname(file)) + '.pdf';
+                const pdfFilePath = path.join(targetDir, pdfFileName);
+                if (fs.existsSync(pdfFilePath)) {
+                  pdfFiles.push(pdfFilePath);
+                }
+                // Temporäre DOCX-Datei löschen nach erfolgreicher PDF-Konvertierung
+                try {
+                  fs.unlinkSync(file);
+                } catch (deleteError) {
+                  console.warn('Could not delete temp DOCX file:', deleteError);
+                }
+              }
+            } else {
+              // PDF erfolgreich erstellt
+              const pdfFileName = path.basename(file, path.extname(file)) + '.pdf';
+              const pdfFilePath = path.join(targetDir, pdfFileName);
+              if (fs.existsSync(pdfFilePath)) {
+                pdfFiles.push(pdfFilePath);
+              }
+              // Temporäre DOCX-Datei löschen nach erfolgreicher PDF-Konvertierung
+              try {
+                fs.unlinkSync(file);
+              } catch (deleteError) {
+                console.warn('Could not delete temp DOCX file:', deleteError);
+              }
+            }
+          } catch (error) {
+            console.error('PDF conversion error for file:', file, error);
+            pdfFiles.push(file); // Behalte DOCX bei Fehler
+          }
+        }
+        
+        // Ersetze used-Liste mit PDF-Dateien
+        if (pdfFiles.length > 0) {
+          used.length = 0; // Leere das Array
+          used.push(...pdfFiles); // Füge PDF-Dateien hinzu
+        }
+      } catch (error) {
+        console.error('PDF conversion error:', error);
+      }
+    }
+    
     writeConfig({ ...cfg, currentRechnungsnummer });
     return { ok: true, files: used, currentRechnungsnummer };
   });

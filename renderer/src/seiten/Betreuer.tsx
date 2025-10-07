@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import Layout from '../seite-shared/Layout'
+import CountBadge from '../komponenten/CountBadge'
 import TabelleDropdownZeilen from '../komponenten/TabelleDropdownZeilen'
 import { useTableSettings } from '../komponenten/useTableSettings'
 import TabellenEinstellungenDialog from '../komponenten/TabellenEinstellungenDialog'
@@ -50,6 +51,7 @@ export default function Betreuer() {
 
   return (
     <Layout>
+      <CountBadge count={sorted.length} title="Gesamtanzahl Betreuer" />
       <h2>Betreuer</h2>
       <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
         <button onClick={()=> setNeuOffen(true)}>Neu</button>

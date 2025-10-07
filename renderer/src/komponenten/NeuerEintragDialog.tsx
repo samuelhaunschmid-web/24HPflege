@@ -170,8 +170,10 @@ export default function NeuerEintragDialog({ offen, onClose, keys, displayNames 
                       <input
                         name={k}
                         list={`${k}-vorlagen-list`}
-                        defaultValue={String(werte[k] ?? '')}
-                        onChange={(e)=> setWerte(prev => ({ ...prev, [k]: (e?.currentTarget?.value ?? '') }))}
+                        value={String(werte[k] ?? '')}
+                        autoComplete="off"
+                        onChange={(e)=> setWerte(prev => ({ ...prev, [k]: (e.target as any)?.value ?? '' }))}
+                        onInput={(e)=> setWerte(prev => ({ ...prev, [k]: (e.target as any)?.value ?? '' }))}
                       />
                       <datalist id={`${k}-vorlagen-list`}>
                         {(vorlagenWerte[k] || []).map(v => (
