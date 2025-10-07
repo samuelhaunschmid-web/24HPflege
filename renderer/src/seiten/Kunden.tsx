@@ -37,24 +37,77 @@ export default function Kunden() {
     }
   }, [searchParams, kunden])
 
-  const sorted = useMemo(() => [...kunden].sort((a,b)=> (a.__display||'').localeCompare(b.__display||'')), [kunden])
+  const sorted = useMemo(() => {
+    const list = [...kunden]
+    // Sortiere nach Nachname Vorname, falls konfiguriert
+    const keys = list.length ? Object.keys(list[0]) : []
+    // Wir haben die Gruppen-Konfiguration später; für die Sortierung hier verwenden wir heuristisch __display Fallback
+    const vorCol = keys.find(k=> /vorname|vname|vor\.?/i.test(k))
+    const nachCol = keys.find(k=> /nachname|fname|familien|fam\.?\s?nam/i.test(k))
+    return list.sort((a,b)=> {
+      const av = vorCol ? String(a[vorCol]||'') : ''
+      const an = nachCol ? String(a[nachCol]||'') : ''
+      const bv = vorCol ? String(b[vorCol]||'') : ''
+      const bn = nachCol ? String(b[nachCol]||'') : ''
+      const aKey = (an || av || a.__display || '').toLowerCase() + ' ' + av.toLowerCase()
+      const bKey = (bn || bv || b.__display || '').toLowerCase() + ' ' + bv.toLowerCase()
+      return aKey.localeCompare(bKey)
+    })
+  }, [kunden])
   const keys = useMemo(()=> sorted.length ? Object.keys(sorted[0]) : [], [sorted])
   const { settings, knownKeys, setDisplayName, toggleGruppe, isInGruppe } = useTableSettings('kunden', keys)
   const wichtigeFelder = useMemo(()=> knownKeys.filter(k=> isInGruppe(k,'wichtig')), [knownKeys, isInGruppe])
   const displayNames = settings.displayNames
   const [dialogOffen, setDialogOffen] = useState(false)
   const [neuOffen, setNeuOffen] = useState(false)
+  const [suche, setSuche] = useState('')
+
+  const gefiltert = useMemo(() => {
+    const term = suche.trim().toLowerCase()
+    if (!term) return sorted
+    const vorCol = knownKeys.find(k=> isInGruppe(k,'vorname'))
+    const nachCol = knownKeys.find(k=> isInGruppe(k,'nachname'))
+    return sorted.filter(r => {
+      const vor = vorCol ? String(r[vorCol]||'') : ''
+      const nach = nachCol ? String(r[nachCol]||'') : ''
+      const a = `${nach} ${vor}`.trim().toLowerCase()
+      const b = `${vor} ${nach}`.trim().toLowerCase()
+      const disp = String(r.__display||'').toLowerCase()
+      return a.includes(term) || b.includes(term) || disp.includes(term)
+    })
+  }, [sorted, suche, knownKeys, isInGruppe])
 
   return (
     <Layout>
-      <CountBadge count={sorted.length} title="Gesamtanzahl Kunden" />
-      <h2>Kunden</h2>
-      <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
-        <button onClick={()=> setNeuOffen(true)}>Neu</button>
-        <button onClick={()=> setDialogOffen(true)}>Einstellungen</button>
+      <div style={{ position: 'relative', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, padding: '12px 16px', background: '#fff', border: '1px solid #eaeaea', borderRadius: 10 }}>
+        <h2 style={{ margin: 0 }}>Kunden</h2>
+        <CountBadge count={sorted.length} title="Gesamtanzahl Kunden" />
+      </div>
+
+      <div style={{ background: '#fff', border: '1px solid #eaeaea', borderRadius: 10, padding: 12, marginBottom: 12, display: 'flex', gap: 8, alignItems: 'center' }}>
+        <input 
+          value={suche}
+          onChange={(e)=> setSuche(e.currentTarget.value)}
+          placeholder="Suchen…"
+          style={{ flex: 1, padding: '8px 10px', border: '1px solid #ddd', borderRadius: 10 }}
+        />
+        <button 
+          title="Neu"
+          onClick={()=> setNeuOffen(true)}
+          style={{ width: 36, height: 36, borderRadius: 10, border: '1px solid #ddd', background: '#fff', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: '#0f172a', lineHeight: 0 }}
+        >
+          <span style={{ fontSize: 18, fontWeight: 700, lineHeight: 1 }}>+</span>
+        </button>
+        <button 
+          title="Einstellungen"
+          onClick={()=> setDialogOffen(true)}
+          style={{ width: 36, height: 36, borderRadius: 10, border: '1px solid #ddd', background: '#fff', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: '#0f172a', lineHeight: 0 }}
+        >
+          <span style={{ fontSize: 16, lineHeight: 1 }}>⚙︎</span>
+        </button>
       </div>
       <TabelleDropdownZeilen
-        daten={sorted}
+        daten={gefiltert}
         displayNames={displayNames}
         wichtigeFelder={wichtigeFelder}
         tableId="kunden"
@@ -72,7 +125,7 @@ export default function Kunden() {
           const nachCol = knownKeys.find(k=> isInGruppe(k,'nachname'))
           const vor = vorCol ? String(row[vorCol]||'') : ''
           const nach = nachCol ? String(row[nachCol]||'') : ''
-          const full = `${vor} ${nach}`.trim()
+          const full = `${nach} ${vor}`.trim()
           return full || row.__display || ''
         }}
         onChanged={async () => {

@@ -7,6 +7,10 @@ export default function Einstellungen() {
   const [cfg, setCfg] = useState<any>({})
   const [libreOfficeStatus, setLibreOfficeStatus] = useState<string>('Prüfe...')
   const [libreOfficeInstalling, setLibreOfficeInstalling] = useState<boolean>(false)
+  const [brewAvailable, setBrewAvailable] = useState<boolean | null>(null)
+  const [chocoAvailable, setChocoAvailable] = useState<boolean | null>(null)
+  const [platform, setPlatform] = useState<string>('')
+  const [installDetails, setInstallDetails] = useState<{ brewPath?: string | null; message?: string; uninstall?: { code?: number; stdout?: string; stderr?: string }; install?: { code?: number; stdout?: string; stderr?: string } } | null>(null)
 
   useEffect(() => {
     window.api?.onUpdateAvailable?.(() => setStatus('Update gefunden – Download startet...'))
@@ -17,12 +21,23 @@ export default function Einstellungen() {
     window.api?.onUpdateDownloaded?.(() => setStatus('Update geladen – Neustart zum Installieren.'))
     window.api?.onUpdateError?.((err) => setStatus('Fehler beim Update: ' + (err as any)))
     ;(async () => {
+      const pf = await window.api?.getPlatform?.()
+      if (pf) setPlatform(pf)
       const c = await window.api?.getConfig?.()
       if (c) setCfg(c)
       
       // LibreOffice Status prüfen
       const isInstalled = await window.api?.checkLibreOffice?.()
       setLibreOfficeStatus(isInstalled ? 'Installiert ✅' : 'Nicht installiert ❌')
+
+      // Paketmanager prüfen
+      if (pf === 'darwin') {
+        const hasBrew = await window.api?.checkHomebrew?.()
+        setBrewAvailable(!!hasBrew)
+      } else if (pf === 'win32') {
+        const hasChoco = await window.api?.checkChocolatey?.()
+        setChocoAvailable(!!hasChoco)
+      }
     })()
   }, [])
 
@@ -49,16 +64,18 @@ export default function Einstellungen() {
             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
               <span style={{ flex: 1 }}>Status: {libreOfficeStatus}</span>
               <button 
-                disabled={libreOfficeInstalling || libreOfficeStatus.includes('Installiert')}
+                disabled={libreOfficeInstalling || libreOfficeStatus.includes('Installiert') || (platform === 'darwin' && brewAvailable === false)}
                 onClick={async () => {
+                  setInstallDetails(null)
                   setLibreOfficeInstalling(true)
                   setLibreOfficeStatus('Installiere...')
                   try {
-                    const success = await window.api?.installLibreOffice?.()
-                    if (success) {
+                    const res = await window.api?.installLibreOffice?.()
+                    if (res && res.ok) {
                       setLibreOfficeStatus('Installiert ✅')
                     } else {
                       setLibreOfficeStatus('Installation fehlgeschlagen ❌')
+                      setInstallDetails(res || null)
                     }
                   } catch (error) {
                     setLibreOfficeStatus('Fehler: ' + (error as any))
@@ -68,9 +85,67 @@ export default function Einstellungen() {
                 }}
                 style={{ padding: '6px 12px', borderRadius: 8, border: '1px solid #ddd', background: '#fff', cursor: 'pointer' }}
               >
-                {libreOfficeInstalling ? 'Installiere...' : 'LibreOffice installieren'}
+                {libreOfficeInstalling ? 'Installiere...' : (platform === 'darwin' && brewAvailable === false ? 'Homebrew erforderlich' : 'LibreOffice installieren')}
               </button>
             </div>
+            {platform === 'darwin' && brewAvailable === false && (
+              <div style={{ marginTop: 8, color: '#7f1d1d' }}>
+                Homebrew nicht gefunden. Du kannst Homebrew automatisch installieren oder folge <a href={'https://brew.sh'} target={'_blank'} rel={'noreferrer'}>brew.sh</a>.
+                <div style={{ marginTop: 8 }}>
+                  <button onClick={async ()=>{
+                    try {
+                      setLibreOfficeStatus('Installiere Homebrew...')
+                      const r = await window.api?.installHomebrew?.()
+                      if (r && r.ok) {
+                        setLibreOfficeStatus('Homebrew installiert. Prüfe erneut...')
+                        const hasBrew = await window.api?.checkHomebrew?.()
+                        setBrewAvailable(!!hasBrew)
+                        setLibreOfficeStatus('Nicht installiert ❌')
+                      } else {
+                        setLibreOfficeStatus('Homebrew-Installation fehlgeschlagen ❌')
+                        setInstallDetails(r as any)
+                      }
+                    } catch (e) {
+                      setLibreOfficeStatus('Fehler: ' + String(e))
+                    }
+                  }} style={{ padding: '6px 12px', borderRadius: 8, border: '1px solid #ddd', background: '#fff', cursor: 'pointer' }}>Homebrew installieren</button>
+                </div>
+              </div>
+            )}
+            {platform === 'darwin' && brewAvailable && libreOfficeStatus.includes('fehlgeschlagen') && (
+              <div style={{ marginTop: 8, color: '#7f1d1d' }}>
+                Installation fehlgeschlagen. Prüfe Homebrew (<code>{installDetails?.brewPath || 'brew'}</code>) und beachte Ausgabe unten.
+              </div>
+            )}
+            {platform === 'win32' && chocoAvailable === false && (
+              <div style={{ marginTop: 8, color: '#7f1d1d' }}>
+                Chocolatey nicht gefunden. Beim Klick auf “LibreOffice installieren” wird Chocolatey automatisch versucht zu installieren (Adminrechte erforderlich).
+              </div>
+            )}
+            {installDetails && (
+              <div style={{ marginTop: 8 }}>
+                <div style={{ fontSize: 12, color: '#334155', whiteSpace: 'pre-wrap' }}>
+                  <div><strong>Brew:</strong> {installDetails.brewPath || '-'}</div>
+                  {installDetails.message && <div><strong>Meldung:</strong> {installDetails.message}</div>}
+                  {installDetails.uninstall && (
+                    <div style={{ marginTop: 6 }}>
+                      <strong>Uninstall:</strong>
+                      <div>code: {installDetails.uninstall.code ?? '-'}</div>
+                      {installDetails.uninstall.stdout && <div style={{ border: '1px solid #e2e8f0', borderRadius: 8, padding: 8, background: '#f8fafc', maxHeight: 120, overflow: 'auto' }}>{installDetails.uninstall.stdout}</div>}
+                      {installDetails.uninstall.stderr && <div style={{ border: '1px solid #e2e8f0', borderRadius: 8, padding: 8, background: '#f8fafc', maxHeight: 120, overflow: 'auto', marginTop: 4 }}>{installDetails.uninstall.stderr}</div>}
+                    </div>
+                  )}
+                  {installDetails.install && (
+                    <div style={{ marginTop: 6 }}>
+                      <strong>Install:</strong>
+                      <div>code: {installDetails.install.code ?? '-'}</div>
+                      {installDetails.install.stdout && <div style={{ border: '1px solid #e2e8f0', borderRadius: 8, padding: 8, background: '#f8fafc', maxHeight: 120, overflow: 'auto' }}>{installDetails.install.stdout}</div>}
+                      {installDetails.install.stderr && <div style={{ border: '1px solid #e2e8f0', borderRadius: 8, padding: 8, background: '#f8fafc', maxHeight: 120, overflow: 'auto', marginTop: 4 }}>{installDetails.install.stderr}</div>}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

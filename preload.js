@@ -12,6 +12,10 @@ contextBridge.exposeInMainWorld('api', {
   chooseDirectory: (title) => ipcRenderer.invoke('dialog:chooseDirectory', title),
   checkLibreOffice: () => ipcRenderer.invoke('api:checkLibreOffice'),
   installLibreOffice: () => ipcRenderer.invoke('api:installLibreOffice'),
+  checkHomebrew: () => ipcRenderer.invoke('api:checkHomebrew'),
+  installHomebrew: () => ipcRenderer.invoke('api:installHomebrew'),
+  getPlatform: () => ipcRenderer.invoke('api:getPlatform'),
+  checkChocolatey: () => ipcRenderer.invoke('api:checkChocolatey'),
 });
 
 contextBridge.exposeInMainWorld('docgen', {
@@ -28,9 +32,16 @@ contextBridge.exposeInMainWorld('db', {
   kundenAdd: (row) => ipcRenderer.invoke('kunden:add', row),
   kundenUpdate: (payload) => ipcRenderer.invoke('kunden:update', payload),
   kundenDelete: (__key) => ipcRenderer.invoke('kunden:delete', __key),
+  kundenRestore: (__key) => ipcRenderer.invoke('kunden:restore', __key),
+  archivKundenList: () => ipcRenderer.invoke('archiv:kunden:list'),
+  archivKundenDelete: (__key) => ipcRenderer.invoke('archiv:kunden:delete', __key),
   betreuerAdd: (row) => ipcRenderer.invoke('betreuer:add', row),
   betreuerUpdate: (payload) => ipcRenderer.invoke('betreuer:update', payload),
   betreuerDelete: (__key) => ipcRenderer.invoke('betreuer:delete', __key),
+  betreuerRestore: (__key) => ipcRenderer.invoke('betreuer:restore', __key),
+  archivBetreuerList: () => ipcRenderer.invoke('archiv:betreuer:list'),
+  archivBetreuerDelete: (__key) => ipcRenderer.invoke('archiv:betreuer:delete', __key),
+  archivDebug: () => ipcRenderer.invoke('archiv:debug'),
 });
 
 

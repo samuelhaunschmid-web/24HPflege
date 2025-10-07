@@ -102,7 +102,6 @@ export default function Startseite() {
   const [modus, setModus] = useState<'docx'|'pdf'>('docx')
 
   async function handleGenerate() {
-    if (!ordnerName) return alert('Bitte Ordnernamen angeben.')
     if (selected.length === 0) return alert('Bitte mindestens eine Vorlage wählen.')
     const dir = await window.api?.chooseDirectory?.('Zielordner wählen')
     if (!dir) return
@@ -115,14 +114,16 @@ export default function Startseite() {
     let progressInterval: number | null = null
     
     try {
-      const payload = {
-        ordnerName,
+      const basePayload = {
         targetDir: dir,
         selectedVorlagen: selected,
         kunde,
         betreuer: betreuu,
         alsPdf: modus === 'pdf',
       }
+      const payload = ordnerName
+        ? { ...basePayload, ordnerName }
+        : basePayload
       
       // Simuliere Progress für bessere UX
       progressInterval = setInterval(() => {
@@ -208,7 +209,7 @@ export default function Startseite() {
                 <input 
                   value={ordnerName} 
                   onChange={(e)=> setOrdnerName(e.currentTarget.value)} 
-                  placeholder="z.B. Vertragsmappe_Müller"
+                  placeholder="Ordnernamen"
                   style={{ padding: '6px 8px', border: '1px solid #ddd', borderRadius: 8, width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}
                 />
               </div>

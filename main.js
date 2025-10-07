@@ -160,6 +160,72 @@ app.whenReady().then(() => {
     }
   });
 
+  // Prüfe Homebrew Verfügbarkeit (macOS)
+  ipcMain.handle('api:checkHomebrew', async () => {
+    try {
+      const os = require('os');
+      if (os.platform() !== 'darwin') return false;
+      const { spawnSync } = require('child_process');
+      const whichBrew = spawnSync('which', ['brew'], { stdio: 'pipe' });
+      if (whichBrew.status === 0) return true;
+      // Prüfe Standardpfade
+      try {
+        if (fs.existsSync('/opt/homebrew/bin/brew')) return true;
+        if (fs.existsSync('/usr/local/bin/brew')) return true;
+      } catch {}
+      return false;
+    } catch {
+      return false;
+    }
+  });
+
+  // macOS: Homebrew installieren (non-interactive)
+  ipcMain.handle('api:installHomebrew', async () => {
+    try {
+      const os = require('os');
+      if (os.platform() !== 'darwin') return { ok: false, message: 'not-macos' };
+      const { spawnSync } = require('child_process');
+      // Wenn bereits vorhanden → ok
+      try {
+        if (fs.existsSync('/opt/homebrew/bin/brew') || fs.existsSync('/usr/local/bin/brew')) {
+          return { ok: true, alreadyInstalled: true };
+        }
+      } catch {}
+      // Offizielles Installscript non-interactive ausführen
+      const cmd = '/bin/bash';
+      const args = ['-c', 'NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"'];
+      const res = spawnSync(cmd, args, { stdio: 'pipe', timeout: 1200000, shell: false });
+      // Nach-Check
+      const ok = fs.existsSync('/opt/homebrew/bin/brew') || fs.existsSync('/usr/local/bin/brew');
+      return {
+        ok,
+        code: res.status,
+        stdout: String(res.stdout || ''),
+        stderr: String(res.stderr || ''),
+      };
+    } catch (e) {
+      return { ok: false, message: String(e) };
+    }
+  });
+
+  // Plattform abrufen
+  ipcMain.handle('api:getPlatform', async () => {
+    try { return require('os').platform(); } catch { return process.platform; }
+  });
+
+  // Windows: Chocolatey prüfen
+  ipcMain.handle('api:checkChocolatey', async () => {
+    try {
+      const os = require('os');
+      if (os.platform() !== 'win32') return false;
+      const { spawnSync } = require('child_process');
+      const choco = spawnSync('choco', ['-v'], { stdio: 'pipe', shell: true });
+      return choco.status === 0;
+    } catch {
+      return false;
+    }
+  });
+
   ipcMain.handle('api:installLibreOffice', async () => {
     const { spawnSync } = require('child_process');
     const os = require('os');
@@ -167,24 +233,74 @@ app.whenReady().then(() => {
     
     try {
       if (platform === 'darwin') {
-        // macOS - Homebrew installieren
-        setStatus('Installiere LibreOffice über Homebrew...');
-        const result = spawnSync('brew', ['install', '--cask', 'libreoffice'], { 
-          stdio: 'pipe',
-          timeout: 300000 // 5 Minuten Timeout
-        });
-        return result.status === 0;
-      } else if (platform === 'win32') {
-        // Windows - Chocolatey oder direkter Download
-        setStatus('Installiere LibreOffice über Chocolatey...');
-        const result = spawnSync('choco', ['install', 'libreoffice', '-y'], { 
+        // macOS: LibreOffice via Homebrew installieren (nur Brew, kein DMG)
+        try { if (fs.existsSync('/Applications/LibreOffice.app')) return true; } catch {}
+        // Finde Homebrew Pfad (GUI-Apps haben oft kein PATH)
+        let brewPath = 'brew';
+        const whichBrew = spawnSync('which', ['brew'], { stdio: 'pipe' });
+        if (whichBrew.status === 0) {
+          brewPath = String(whichBrew.stdout || '').toString().trim() || 'brew';
+        } else if (fs.existsSync('/opt/homebrew/bin/brew')) {
+          brewPath = '/opt/homebrew/bin/brew';
+        } else if (fs.existsSync('/usr/local/bin/brew')) {
+          brewPath = '/usr/local/bin/brew';
+        } else {
+          return { ok: false, message: 'Homebrew not found', brewPath: null };
+        }
+        // Versuche vorherige fehlerhafte Cask-Installation zu entfernen
+        const uninst = spawnSync(brewPath, ['uninstall', '--cask', '--force', 'libreoffice'], {
           stdio: 'pipe',
           timeout: 300000
         });
-        return result.status === 0;
+        const inst = spawnSync(brewPath, ['install', '--cask', 'libreoffice'], { 
+          stdio: 'pipe',
+          timeout: 900000
+        });
+        return {
+          ok: inst.status === 0,
+          brewPath,
+          uninstall: {
+            code: uninst.status,
+            stdout: String(uninst.stdout || '').toString(),
+            stderr: String(uninst.stderr || '').toString(),
+          },
+          install: {
+            code: inst.status,
+            stdout: String(inst.stdout || '').toString(),
+            stderr: String(inst.stderr || '').toString(),
+          }
+        };
+      } else if (platform === 'win32') {
+        // Windows - Chocolatey Installation LibreOffice; falls choco fehlt, versuchen zu installieren
+        const ensureChoco = () => {
+          const chk = spawnSync('choco', ['-v'], { stdio: 'pipe', shell: true });
+          if (chk.status === 0) {
+            return { ok: true, installed: false, stdout: String(chk.stdout||''), stderr: String(chk.stderr||'') };
+          }
+          // Installiere Chocolatey (benötigt erhöhte Rechte)
+          const psCmd = 'Set-ExecutionPolicy Bypass -Scope Process -Force; ' +
+            "[System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; " +
+            'iwr https://community.chocolatey.org/install.ps1 -UseBasicParsing | iex';
+          const inst = spawnSync('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', psCmd], { stdio: 'pipe', shell: false, timeout: 600000 });
+          const verify = spawnSync('choco', ['-v'], { stdio: 'pipe', shell: true });
+          return { ok: verify.status === 0, installed: true, stdout: String(inst.stdout||'') + String(verify.stdout||''), stderr: String(inst.stderr||'') + String(verify.stderr||'') };
+        };
+        const chocoRes = ensureChoco();
+        if (!chocoRes.ok) {
+          return { ok: false, message: 'Chocolatey installation failed or requires admin privileges', chocolatey: chocoRes };
+        }
+        const inst = spawnSync('choco', ['install', 'libreoffice', '-y'], { stdio: 'pipe', shell: true, timeout: 900000 });
+        return {
+          ok: inst.status === 0,
+          chocolatey: chocoRes,
+          install: {
+            code: inst.status,
+            stdout: String(inst.stdout || ''),
+            stderr: String(inst.stderr || ''),
+          }
+        };
       } else {
         // Linux - apt/yum/dnf
-        setStatus('Installiere LibreOffice über Paketmanager...');
         let result;
         if (spawnSync('which', ['apt'], { stdio: 'pipe' }).status === 0) {
           result = spawnSync('sudo', ['apt', 'update', '&&', 'sudo', 'apt', 'install', '-y', 'libreoffice'], { 
@@ -209,7 +325,7 @@ app.whenReady().then(() => {
       }
     } catch (error) {
       console.error('LibreOffice installation error:', error);
-      return false;
+      return { ok: false, message: String(error) };
     }
   });
 
@@ -370,6 +486,150 @@ app.whenReady().then(() => {
     return false;
   });
 
+  // Archiv – Listen aus ALT-Dateien lesen
+  ipcMain.handle('archiv:kunden:list', () => {
+    const cfg = readConfig();
+    const altPath = path.join(cfg.altDatenDir || path.join(__dirname, 'AlteDaten'), 'ALTkundendaten.xlsx');
+    let kunden = [];
+    if (fs.existsSync(altPath)) {
+      try {
+        const wb = XLSX.readFile(altPath);
+        const sheet = wb.Sheets[wb.SheetNames[0]];
+        kunden = XLSX.utils.sheet_to_json(sheet, { defval: '' }).map(fixDates);
+      } catch {}
+    }
+    const getKundenKey = (k) => `${String(k.kfname||'').toLowerCase()}__${String(k.kvname||'').toLowerCase()}`;
+    const withDisplay = kunden.map(k => ({ ...k, __display: `${k.kvname || ''} ${k.kfname || ''}`.trim(), __key: getKundenKey(k) }));
+    return withDisplay;
+  });
+  ipcMain.handle('archiv:betreuer:list', () => {
+    const cfg = readConfig();
+    const altPath = path.join(cfg.altDatenDir || path.join(__dirname, 'AlteDaten'), 'ALTbetreuerinnendaten.xlsx');
+    let betreuer = [];
+    if (fs.existsSync(altPath)) {
+      try {
+        const wb = XLSX.readFile(altPath);
+        const sheet = wb.Sheets[wb.SheetNames[0]];
+        betreuer = XLSX.utils.sheet_to_json(sheet, { defval: '' }).map(fixDates);
+      } catch {}
+    }
+    const getBetreuerKey = (b) => `${String(b['Vor.Nam']||'').toLowerCase()}__${String(b['Fam. Nam']||'').toLowerCase()}`;
+    const withDisplay = betreuer.map(b => ({ ...b, __display: `${b['Vor.Nam'] || ''} ${b['Fam. Nam'] || ''}`.trim(), __key: getBetreuerKey(b) }));
+    return withDisplay;
+  });
+
+  // Archiv – Wiederherstellen (von ALT nach aktiv)
+  ipcMain.handle('kunden:restore', (_e, __key) => {
+    const cfg = readConfig();
+    const datenDir = cfg.datenDir || path.join(__dirname, 'Daten');
+    const mainPath = path.join(datenDir, 'Kundendaten.xlsx');
+    const altPath = path.join(cfg.altDatenDir || path.join(__dirname, 'AlteDaten'), 'ALTkundendaten.xlsx');
+    let main = [];
+    if (fs.existsSync(mainPath)) {
+      const wb = XLSX.readFile(mainPath);
+      const sheet = wb.Sheets[wb.SheetNames[0]];
+      main = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+    }
+    let alt = [];
+    if (fs.existsSync(altPath)) {
+      const wbAlt = XLSX.readFile(altPath);
+      const sheetAlt = wbAlt.Sheets[wbAlt.SheetNames[0]];
+      alt = XLSX.utils.sheet_to_json(sheetAlt, { defval: '' });
+    }
+    const getKey = (k) => `${String(k.kfname||'').toLowerCase()}__${String(k.kvname||'').toLowerCase()}`;
+    const idx = alt.findIndex(k => getKey(k) === __key);
+    if (idx >= 0) {
+      const restored = alt.splice(idx, 1)[0];
+      main.push(restored);
+      writeExcel(mainPath, main);
+      writeExcel(altPath, alt);
+      return true;
+    }
+    return false;
+  });
+  ipcMain.handle('betreuer:restore', (_e, __key) => {
+    const cfg = readConfig();
+    const datenDir = cfg.datenDir || path.join(__dirname, 'Daten');
+    const mainPath = path.join(datenDir, 'Betreuerinnendaten.xlsx');
+    const altPath = path.join(cfg.altDatenDir || path.join(__dirname, 'AlteDaten'), 'ALTbetreuerinnendaten.xlsx');
+    let main = [];
+    if (fs.existsSync(mainPath)) {
+      const wb = XLSX.readFile(mainPath);
+      const sheet = wb.Sheets[wb.SheetNames[0]];
+      main = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+    }
+    let alt = [];
+    if (fs.existsSync(altPath)) {
+      const wbAlt = XLSX.readFile(altPath);
+      const sheetAlt = wbAlt.Sheets[wbAlt.SheetNames[0]];
+      alt = XLSX.utils.sheet_to_json(sheetAlt, { defval: '' });
+    }
+    const getKey = (b) => `${String(b['Vor.Nam']||'').toLowerCase()}__${String(b['Fam. Nam']||'').toLowerCase()}`;
+    const idx = alt.findIndex(b => getKey(b) === __key);
+    if (idx >= 0) {
+      const restored = alt.splice(idx, 1)[0];
+      main.push(restored);
+      writeExcel(mainPath, main);
+      writeExcel(altPath, alt);
+      return true;
+    }
+    return false;
+  });
+
+  // Archiv – endgültig löschen (nur aus ALT entfernen)
+  ipcMain.handle('archiv:kunden:delete', (_e, __key) => {
+    const cfg = readConfig();
+    const altPath = path.join(cfg.altDatenDir || path.join(__dirname, 'AlteDaten'), 'ALTkundendaten.xlsx');
+    let alt = [];
+    if (fs.existsSync(altPath)) {
+      const wbAlt = XLSX.readFile(altPath);
+      const sheetAlt = wbAlt.Sheets[wbAlt.SheetNames[0]];
+      alt = XLSX.utils.sheet_to_json(sheetAlt, { defval: '' });
+    }
+    const getKey = (k) => `${String(k.kfname||'').toLowerCase()}__${String(k.kvname||'').toLowerCase()}`;
+    const idx = alt.findIndex(k => getKey(k) === __key);
+    if (idx >= 0) {
+      alt.splice(idx, 1);
+      writeExcel(altPath, alt);
+      return true;
+    }
+    return false;
+  });
+  ipcMain.handle('archiv:betreuer:delete', (_e, __key) => {
+    const cfg = readConfig();
+    const altPath = path.join(cfg.altDatenDir || path.join(__dirname, 'AlteDaten'), 'ALTbetreuerinnendaten.xlsx');
+    let alt = [];
+    if (fs.existsSync(altPath)) {
+      const wbAlt = XLSX.readFile(altPath);
+      const sheetAlt = wbAlt.Sheets[wbAlt.SheetNames[0]];
+      alt = XLSX.utils.sheet_to_json(sheetAlt, { defval: '' });
+    }
+    const getKey = (b) => `${String(b['Vor.Nam']||'').toLowerCase()}__${String(b['Fam. Nam']||'').toLowerCase()}`;
+    const idx = alt.findIndex(b => getKey(b) === __key);
+    if (idx >= 0) {
+      alt.splice(idx, 1);
+      writeExcel(altPath, alt);
+      return true;
+    }
+    return false;
+  });
+
+  // Archiv – Diagnose: Pfade und Existenz prüfen
+  ipcMain.handle('archiv:debug', () => {
+    const cfg = readConfig();
+    const altDir = cfg.altDatenDir || path.join(__dirname, 'AlteDaten');
+    const kundenPath = path.join(altDir, 'ALTkundendaten.xlsx');
+    const betreuerPath = path.join(altDir, 'ALTbetreuerinnendaten.xlsx');
+    return {
+      altDir,
+      kundenPath,
+      betreuerPath,
+      altDirExists: fs.existsSync(altDir),
+      kundenExists: fs.existsSync(kundenPath),
+      betreuerExists: fs.existsSync(betreuerPath),
+    };
+  });
+
   // Vorlagen
   ipcMain.handle('vorlagen:getTree', () => {
     const cfg = readConfig();
@@ -394,10 +654,10 @@ app.whenReady().then(() => {
   ipcMain.handle('docs:generate', async (_e, args) => {
     const { ordnerName, targetDir, selectedVorlagen, kunde, betreuer, alsPdf } = args || {};
     if (!Array.isArray(selectedVorlagen) || selectedVorlagen.length === 0) throw new Error('Keine Vorlagen ausgewählt');
-    if (!ordnerName || !targetDir) throw new Error('Zielordner oder Name fehlt');
+    if (!targetDir) throw new Error('Kein Zielordner');
     const cfg = readConfig();
     const vorlagenRoot = cfg.vorlagenDir || path.join(__dirname, 'Vorlagen');
-    const zielOrdner = path.join(targetDir, ordnerName);
+    const zielOrdner = ordnerName ? path.join(targetDir, ordnerName) : targetDir;
     if (!fs.existsSync(zielOrdner)) fs.mkdirSync(zielOrdner, { recursive: true });
     const data = { ...(kunde || {}), ...(betreuer || {}) };
     if (kunde) Object.keys(kunde).forEach(key => { if (key.startsWith('a')) data[key] = kunde[key]; });
@@ -432,14 +692,14 @@ app.whenReady().then(() => {
   ipcMain.handle('docs:generateHtmlPdf', async (_e, args) => {
     const { ordnerName, targetDir, selectedVorlagen, kunde, betreuer, alsPdf, selectedKundenKeys, month, year, individualRanges } = args || {};
     if (!Array.isArray(selectedVorlagen) || selectedVorlagen.length === 0) throw new Error('Keine Vorlagen ausgewählt');
-    if (!ordnerName || !targetDir) throw new Error('Zielordner oder Name fehlt');
+    if (!targetDir) throw new Error('Kein Zielordner');
     const cfg = readConfig();
     
     // Prüfe ob es sich um Rechnungen handelt
     const isRechnung = selectedKundenKeys && selectedKundenKeys.length > 0;
     const vorlagenRoot = isRechnung ? (cfg.rechnungsvorlageDir || path.join(__dirname, 'RechnungsVorlagen')) : (cfg.vorlagenDir || path.join(__dirname, 'Vorlagen'));
     
-    const zielOrdner = path.join(targetDir, ordnerName);
+    const zielOrdner = ordnerName ? path.join(targetDir, ordnerName) : targetDir;
     if (!fs.existsSync(zielOrdner)) fs.mkdirSync(zielOrdner, { recursive: true });
     
     let currentRechnungsnummer = Number(cfg.currentRechnungsnummer || 1);

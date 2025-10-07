@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { EU_VORWAHLEN, findeVorwahlLabel } from '../daten/vorwahlen-europa'
 import type { SpaltenGruppe } from './useTableSettings'
 
 type Props = {
@@ -15,7 +16,7 @@ type Props = {
   betreuerListe?: any[]
 }
 
-export default function NeuerEintragDialog({ offen, onClose, keys, displayNames = {}, titel = 'Neuer Eintrag', onSpeichern, initialValues, gruppen = {}, vorhandeneVorwahlen = [], vorlagenWerte = {}, betreuerListe = [] }: Props) {
+export default function NeuerEintragDialog({ offen, onClose, keys, displayNames = {}, titel = 'Neuer Eintrag', onSpeichern, initialValues, gruppen = {}, vorlagenWerte = {}, betreuerListe = [] }: Props) {
   const felder = useMemo(()=> keys.filter(k=> !k.startsWith('__')), [keys])
   const [werte, setWerte] = useState<Record<string, any>>({})
 
@@ -95,7 +96,15 @@ export default function NeuerEintragDialog({ offen, onClose, keys, displayNames 
     return onSpeichern(result)
   }
 
-  const uniqueVorwahlen = useMemo(() => Array.from(new Set(vorhandeneVorwahlen.filter(Boolean))).sort(), [vorhandeneVorwahlen])
+  const vorwahlOptionen = useMemo(() => {
+    // feste EU-Liste; optional bereits gesetzte benutzerdefinierte Vorwahl aufnehmen, falls nicht vorhanden
+    const list = [...EU_VORWAHLEN]
+    if (telVorwahl && !list.some(v => v.prefix === telVorwahl)) {
+      list.push({ iso2: 'XX', name: 'Benutzerdefiniert', prefix: telVorwahl })
+    }
+    // sortiert nach Name, dann Prefix
+    return list.sort((a,b)=> (a.name.localeCompare(b.name) || a.prefix.localeCompare(b.prefix)))
+  }, [telVorwahl])
 
   if (!offen) return null
   return (
@@ -156,7 +165,9 @@ export default function NeuerEintragDialog({ offen, onClose, keys, displayNames 
                     <div style={{ display: 'grid', gridTemplateColumns: '140px 1fr', gap: 8 }}>
                       <select name={`${k}-vorwahl`} value={telVorwahl} onChange={e=> setTelVorwahl(e?.currentTarget?.value ?? '')}>
                         <option value=""></option>
-                        {uniqueVorwahlen.map(v => <option key={v} value={v}>{v}</option>)}
+                        {vorwahlOptionen.map(v => (
+                          <option key={`${v.iso2}-${v.prefix}`} value={v.prefix}>{findeVorwahlLabel(v)}</option>
+                        ))}
                       </select>
                       <input name={`${k}-rest`} value={telRest} onChange={e=> setTelRest(e.currentTarget.value.replace(/\D+/g,''))} inputMode="numeric" />
                     </div>

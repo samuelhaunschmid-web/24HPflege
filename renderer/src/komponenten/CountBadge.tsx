@@ -7,7 +7,7 @@ type Props = {
 
 export default function CountBadge({ count, title }: Props) {
   return (
-    <div title={title || String(count)} style={{ position: 'absolute', right: 10, top: 10 }}>
+    <div title={title || String(count)} style={{ position: 'absolute', right: 10, top: 15 }}>
       <div style={{
         display: 'inline-flex',
         alignItems: 'center',
