@@ -124,11 +124,13 @@ export default function BetreuerZuweisungDialog({
               }}
               style={{
                 width: '100%',
+                maxWidth: '100%',
                 padding: '8px 12px',
                 border: '1px solid #d1d5db',
                 borderRadius: '6px',
                 fontSize: '14px',
-                backgroundColor: 'white'
+                backgroundColor: 'white',
+                boxSizing: 'border-box'
               }}
               required
             >
@@ -157,10 +159,12 @@ export default function BetreuerZuweisungDialog({
               onChange={(e) => setAnfangsdatum(parseDate(e.target.value))}
               style={{
                 width: '100%',
+                maxWidth: '100%',
                 padding: '8px 12px',
                 border: '1px solid #d1d5db',
                 borderRadius: '6px',
-                fontSize: '14px'
+                fontSize: '14px',
+                boxSizing: 'border-box'
               }}
               required
             />

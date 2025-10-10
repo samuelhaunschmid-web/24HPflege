@@ -173,7 +173,15 @@ export default function Betreuer() {
         }, [sorted, knownKeys, isInGruppe])}
         titel="Neuer Betreuer"
         onSpeichern={async (row)=>{
-          await window.db?.betreuerAdd?.(row)
+          // Setze automatisches Anfangsdatum, falls Zuordnung vorhanden und Feld leer
+          const updates = { ...row }
+          Object.keys(settings.gruppen || {}).forEach(k => {
+            if ((settings.gruppen[k]||[]).includes('anfang') && !updates[k]) {
+              const d = new Date(); const dd = String(d.getDate()).padStart(2,'0'); const mm = String(d.getMonth()+1).padStart(2,'0'); const yyyy = String(d.getFullYear());
+              updates[k] = `${dd}.${mm}.${yyyy}`
+            }
+          })
+          await window.db?.betreuerAdd?.(updates)
           const lists = await window.docgen?.getLists?.(); if (lists?.betreuer) setBetreuer(lists.betreuer)
           return true
         }}

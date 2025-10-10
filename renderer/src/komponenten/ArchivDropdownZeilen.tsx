@@ -32,12 +32,20 @@ export default function ArchivDropdownZeilen({ daten, ausblenden = ['__display',
             {isOpen && (
               <div style={{ padding: '0 14px 12px 14px' }}>
                 <div style={{ display: 'grid', gridTemplateColumns: '200px 1fr', gap: 8 }}>
-                  {sichtbareKeys.map(key => (
-                    <>
-                      <div style={{ color: '#64748b' }}>{key}</div>
-                      <div style={{ whiteSpace: 'pre-wrap' }}>{String(row[key] ?? '')}</div>
-                    </>
-                  ))}
+                  {sichtbareKeys.map(key => {
+                    let text = String(row[key] ?? '')
+                    // Datum formatieren (inkl. Ende)
+                    if (/ende/i.test(key) || /datum/i.test(key)) {
+                      const digits = text.replace(/\D+/g,'')
+                      if (digits.length === 8) text = `${digits.slice(0,2)}.${digits.slice(2,4)}.${digits.slice(4,8)}`
+                    }
+                    return (
+                      <>
+                        <div style={{ color: '#64748b' }}>{key}</div>
+                        <div style={{ whiteSpace: 'pre-wrap' }}>{text}</div>
+                      </>
+                    )
+                  })}
                 </div>
               </div>
             )}

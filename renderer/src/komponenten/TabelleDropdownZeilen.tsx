@@ -407,6 +407,18 @@ export default function TabelleDropdownZeilen({ daten, displayNames = {}, wichti
                         if (!tableId) return
                         if (!confirm('Diesen Eintrag wirklich löschen?')) return
                         const __key = row.__key
+                        // Falls eine Ende-Zuordnung existiert, setze Datum vor dem Archivieren
+                        const endeKey = keys.find(k => (gruppen[k] || []).includes('ende'))
+                        if (endeKey) {
+                          const d = new Date()
+                          const dd = String(d.getDate()).padStart(2,'0')
+                          const mm = String(d.getMonth()+1).padStart(2,'0')
+                          const yyyy = String(d.getFullYear())
+                          const heute = `${dd}.${mm}.${yyyy}`
+                          const updates: any = { [endeKey]: heute }
+                          if (tableId === 'kunden') await window.db?.kundenUpdate?.({ __key, updates })
+                          if (tableId === 'betreuer') await window.db?.betreuerUpdate?.({ __key, updates })
+                        }
                         if (tableId === 'kunden') await window.db?.kundenDelete?.(__key)
                         if (tableId === 'betreuer') await window.db?.betreuerDelete?.(__key)
                         onChanged?.()
@@ -457,8 +469,8 @@ export default function TabelleDropdownZeilen({ daten, displayNames = {}, wichti
                           fontWeight: highlightFilled ? '500' : 'normal'
                         } as React.CSSProperties
                         let text = isEmpty ? '' : String(value)
-                        // format display for datum
-                        if ((gruppen[k]||[]).includes('datum') && text) {
+                        // format display for datum / anfang / ende
+                        if (((gruppen[k]||[]).includes('datum') || (gruppen[k]||[]).includes('anfang') || (gruppen[k]||[]).includes('ende')) && text) {
                           const digits = text.replace(/\D+/g,'')
                           if (digits.length === 8) text = `${digits.slice(0,2)}.${digits.slice(2,4)}.${digits.slice(4,8)}`
                         }

@@ -170,7 +170,15 @@ export default function Kunden() {
         }, [sorted, knownKeys, isInGruppe])}
         titel="Neuer Kunde"
         onSpeichern={async (row)=>{
-          await window.db?.kundenAdd?.(row)
+          // Setze automatisches Anfangsdatum, falls Zuordnung vorhanden und Feld leer
+          const updates = { ...row }
+          Object.keys(settings.gruppen || {}).forEach(k => {
+            if ((settings.gruppen[k]||[]).includes('anfang') && !updates[k]) {
+              const d = new Date(); const dd = String(d.getDate()).padStart(2,'0'); const mm = String(d.getMonth()+1).padStart(2,'0'); const yyyy = String(d.getFullYear());
+              updates[k] = `${dd}.${mm}.${yyyy}`
+            }
+          })
+          await window.db?.kundenAdd?.(updates)
           const lists = await window.docgen?.getLists?.(); if (lists?.kunden) setKunden(lists.kunden)
           return true
         }}

@@ -20,9 +20,18 @@ export default function NeuerEintragDialog({ offen, onClose, keys, displayNames 
   const felder = useMemo(()=> keys.filter(k=> !k.startsWith('__')), [keys])
   const [werte, setWerte] = useState<Record<string, any>>({})
 
-  // Split helpers for Telefon and SVNR
-  const [telVorwahl, setTelVorwahl] = useState('')
-  const [telRest, setTelRest] = useState('')
+  // Standardisierte Input-Styles für konsistentes Design
+  const inputStyle = {
+    padding: '8px 12px',
+    border: '1px solid #ddd',
+    borderRadius: '4px',
+    fontSize: '14px',
+    width: '100%',
+    boxSizing: 'border-box' as const
+  }
+
+  // Split helpers for Telefon and SVNR - separate state for each phone field
+  const [telefonStates, setTelefonStates] = useState<Record<string, { vorwahl: string; rest: string }>>({})
   const [svnrA, setSvnrA] = useState('')
   const [svnrB, setSvnrB] = useState('')
   // const [geburtsKey] = useState<string | null>(null) // Not used in current implementation
@@ -36,12 +45,22 @@ export default function NeuerEintragDialog({ offen, onClose, keys, displayNames 
       return acc
     }, {} as Record<string, any>)
     setWerte(allFields)
-    // preset split values from initialValues for telefon/svnr
-    const telKey = felder.find(k => (gruppen[k]||[]).some(g => g.includes('telefon')))
-    if (telKey && typeof init[telKey] === 'string') {
-      const m = String(init[telKey]).trim().match(/^(\+?[\d]+)\s*(.*)$/)
-      if (m) { setTelVorwahl(m[1] || ''); setTelRest((m[2] || '').replace(/\s+/g,'')) } else { setTelVorwahl(''); setTelRest(String(init[telKey]||'')) }
-    } else { setTelVorwahl(''); setTelRest('') }
+    // preset split values from initialValues for telefon/svnr - handle multiple phone fields
+    const telefonKeys = felder.filter(k => (gruppen[k]||[]).some(g => g.includes('telefon')))
+    const newTelefonStates: Record<string, { vorwahl: string; rest: string }> = {}
+    telefonKeys.forEach(telKey => {
+      if (typeof init[telKey] === 'string') {
+        const m = String(init[telKey]).trim().match(/^(\+?[\d]+)\s*(.*)$/)
+        if (m) { 
+          newTelefonStates[telKey] = { vorwahl: m[1] || '', rest: (m[2] || '').replace(/\s+/g,'') }
+        } else { 
+          newTelefonStates[telKey] = { vorwahl: '', rest: String(init[telKey]||'') }
+        }
+      } else {
+        newTelefonStates[telKey] = { vorwahl: '', rest: '' }
+      }
+    })
+    setTelefonStates(newTelefonStates)
     const svKey = felder.find(k => (gruppen[k]||[]).some(g => g.includes('svnr')))
     if (svKey && typeof init[svKey] === 'string') {
       const clean = String(init[svKey]).replace(/\D+/g,'')
@@ -67,12 +86,15 @@ export default function NeuerEintragDialog({ offen, onClose, keys, displayNames 
 
   function handleSave() {
     const result: Record<string, any> = { ...werte }
-    // combine telefon
-    const telKey = felder.find(k => (gruppen[k]||[]).some(g => g.includes('telefon')))
-    if (telKey) {
-      const combined = `${telVorwahl}`.trim() + (telRest ? ` ${telRest}` : '')
-      result[telKey] = combined.trim()
-    }
+    // combine telefon for all phone fields
+    const telefonKeys = felder.filter(k => (gruppen[k]||[]).some(g => g.includes('telefon')))
+    telefonKeys.forEach(telKey => {
+      const state = telefonStates[telKey]
+      if (state) {
+        const combined = `${state.vorwahl}`.trim() + (state.rest ? ` ${state.rest}` : '')
+        result[telKey] = combined.trim()
+      }
+    })
     const svKey = felder.find(k => (gruppen[k]||[]).some(g => g.includes('svnr')))
     if (svKey) {
       const a = svnrA.replace(/\D+/g,'').slice(0,4)
@@ -99,12 +121,25 @@ export default function NeuerEintragDialog({ offen, onClose, keys, displayNames 
   const vorwahlOptionen = useMemo(() => {
     // feste EU-Liste; optional bereits gesetzte benutzerdefinierte Vorwahl aufnehmen, falls nicht vorhanden
     const list = [...EU_VORWAHLEN]
-    if (telVorwahl && !list.some(v => v.prefix === telVorwahl)) {
-      list.push({ iso2: 'XX', name: 'Benutzerdefiniert', prefix: telVorwahl })
-    }
-    // sortiert nach Name, dann Prefix
-    return list.sort((a,b)=> (a.name.localeCompare(b.name) || a.prefix.localeCompare(b.prefix)))
-  }, [telVorwahl])
+    // collect all custom prefixes from all phone fields
+    const customPrefixes = Object.values(telefonStates).map(s => s.vorwahl).filter(Boolean)
+    customPrefixes.forEach(prefix => {
+      if (!list.some(v => v.prefix === prefix)) {
+        list.push({ iso2: 'XX', name: 'Benutzerdefiniert', prefix, flag: '🔧' })
+      }
+    })
+    
+    // Priorität für häufig verwendete Länder: Österreich, Deutschland, Rumänien, Slowakei, Tschechien
+    const priorityCountries = ['AT', 'DE', 'RO', 'SK', 'CZ']
+    const priorityList = list.filter(v => priorityCountries.includes(v.iso2))
+    const otherList = list.filter(v => !priorityCountries.includes(v.iso2))
+    
+    // Sortierung: Priorität zuerst, dann alphabetisch
+    return [
+      ...priorityList.sort((a,b) => priorityCountries.indexOf(a.iso2) - priorityCountries.indexOf(b.iso2)),
+      ...otherList.sort((a,b) => (a.name.localeCompare(b.name) || a.prefix.localeCompare(b.prefix)))
+    ]
+  }, [telefonStates])
 
   if (!offen) return null
   return (
@@ -160,24 +195,67 @@ export default function NeuerEintragDialog({ offen, onClose, keys, displayNames 
                         if (d.length === 8) setWerte(prev => ({ ...prev, [k]: `${d.slice(0,2)}.${d.slice(2,4)}.${d.slice(4,8)}` }))
                       }}
                       inputMode="numeric"
+                      style={inputStyle}
                     />
                   ) : isTel ? (
-                    <div style={{ display: 'grid', gridTemplateColumns: '140px 1fr', gap: 8 }}>
-                      <select name={`${k}-vorwahl`} value={telVorwahl} onChange={e=> setTelVorwahl(e?.currentTarget?.value ?? '')}>
-                        <option value=""></option>
+                    <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr', gap: 12, alignItems: 'stretch' }}>
+                      <input
+                        name={`${k}-vorwahl`}
+                        list={`${k}-vorwahl-list`}
+                        value={telefonStates[k]?.vorwahl || ''}
+                        onChange={e=> {
+                          const newValue = e.currentTarget.value
+                          setTelefonStates(prev => ({
+                            ...prev,
+                            [k]: { ...prev[k], vorwahl: newValue }
+                          }))
+                        }}
+                        placeholder="Vorwahl"
+                        style={inputStyle}
+                      />
+                      <datalist id={`${k}-vorwahl-list`}>
                         {vorwahlOptionen.map(v => (
-                          <option key={`${v.iso2}-${v.prefix}`} value={v.prefix}>{findeVorwahlLabel(v)}</option>
+                          <option key={`${v.iso2}-${v.prefix}`} value={v.prefix}>
+                            {findeVorwahlLabel(v)}
+                          </option>
                         ))}
-                      </select>
-                      <input name={`${k}-rest`} value={telRest} onChange={e=> setTelRest(e.currentTarget.value.replace(/\D+/g,''))} inputMode="numeric" />
+                      </datalist>
+                      <input 
+                        name={`${k}-rest`} 
+                        value={telefonStates[k]?.rest || ''} 
+                        onChange={e=> {
+                          const newValue = e.currentTarget.value.replace(/\D+/g,'')
+                          setTelefonStates(prev => ({
+                            ...prev,
+                            [k]: { ...prev[k], rest: newValue }
+                          }))
+                        }} 
+                        inputMode="numeric" 
+                        placeholder="Nummer"
+                        style={inputStyle}
+                      />
                     </div>
                   ) : isSv ? (
-                    <div style={{ display: 'grid', gridTemplateColumns: '100px 120px', gap: 8 }}>
-                      <input name={`${k}-sv-a`} value={svnrA} onChange={e=> setSvnrA(e.currentTarget.value.replace(/\D+/g,'').slice(0,4))} inputMode="numeric" />
-                      <input name={`${k}-sv-b`} value={svnrB} onChange={e=> setSvnrB(e.currentTarget.value.replace(/\D+/g,'').slice(0,6))} inputMode="numeric" />
+                    <div style={{ display: 'grid', gridTemplateColumns: '100px 1fr', gap: 12, alignItems: 'stretch' }}>
+                      <input 
+                        name={`${k}-sv-a`} 
+                        value={svnrA} 
+                        onChange={e=> setSvnrA(e.currentTarget.value.replace(/\D+/g,'').slice(0,4))} 
+                        inputMode="numeric" 
+                        placeholder="1234"
+                        style={inputStyle}
+                      />
+                      <input 
+                        name={`${k}-sv-b`} 
+                        value={svnrB} 
+                        onChange={e=> setSvnrB(e.currentTarget.value.replace(/\D+/g,'').slice(0,6))} 
+                        inputMode="numeric" 
+                        placeholder="123456"
+                        style={inputStyle}
+                      />
                     </div>
                   ) : isVorlage ? (
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 8 }}>
+                    <div>
                       <input
                         name={k}
                         list={`${k}-vorlagen-list`}
@@ -185,6 +263,7 @@ export default function NeuerEintragDialog({ offen, onClose, keys, displayNames 
                         autoComplete="off"
                         onChange={(e)=> setWerte(prev => ({ ...prev, [k]: (e.target as any)?.value ?? '' }))}
                         onInput={(e)=> setWerte(prev => ({ ...prev, [k]: (e.target as any)?.value ?? '' }))}
+                        style={inputStyle}
                       />
                       <datalist id={`${k}-vorlagen-list`}>
                         {(vorlagenWerte[k] || []).map(v => (
@@ -193,19 +272,14 @@ export default function NeuerEintragDialog({ offen, onClose, keys, displayNames 
                       </datalist>
                     </div>
                   ) : (isBetreuer1 || isBetreuer2) ? (
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 8 }}>
+                    <div>
                       <input
                         name={k}
                         list={`${k}-betreuer-list`}
                         value={String(werte[k] ?? '')}
                         onChange={(e)=> setWerte(prev => ({ ...prev, [k]: e.target.value }))}
                         placeholder="Betreuer eingeben oder auswählen"
-                        style={{ 
-                          padding: '8px 12px', 
-                          border: '1px solid #ddd', 
-                          borderRadius: '4px',
-                          fontSize: '14px'
-                        }}
+                        style={inputStyle}
                       />
                       <datalist id={`${k}-betreuer-list`}>
                         {betreuerListe.map(betreuer => (
@@ -215,12 +289,9 @@ export default function NeuerEintragDialog({ offen, onClose, keys, displayNames 
                     </div>
                   ) : isReadonly ? (
                     <div style={{ 
-                      padding: '8px 12px', 
+                      ...inputStyle,
                       background: '#f5f5f5', 
-                      border: '1px solid #ddd', 
-                      borderRadius: '4px',
                       color: '#666',
-                      fontSize: '14px',
                       display: 'flex',
                       flexDirection: 'column',
                       gap: '4px'
@@ -247,12 +318,7 @@ export default function NeuerEintragDialog({ offen, onClose, keys, displayNames 
                         const value = e.target.value
                         setWerte(prev => ({ ...prev, [k]: value }))
                       }}
-                      style={{ 
-                        padding: '8px 12px', 
-                        border: '1px solid #ddd', 
-                        borderRadius: '4px',
-                        fontSize: '14px'
-                      }}
+                      style={inputStyle}
                     />
                   )}
                 </div>

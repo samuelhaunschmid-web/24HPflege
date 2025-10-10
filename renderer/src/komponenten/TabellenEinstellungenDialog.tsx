@@ -31,6 +31,8 @@ export default function TabellenEinstellungenDialog({ offen, onClose, keys, disp
         if (isInGruppe(k,'svnr')) list.push('svnr')
         if (isInGruppe(k,'telefon')) list.push('telefon')
         if (isInGruppe(k,'geburtsdatum')) list.push('geburtsdatum')
+        if (isInGruppe(k,'anfang')) list.push('anfang')
+        if (isInGruppe(k,'ende')) list.push('ende')
         if (isInGruppe(k,'vorlage')) list.push('vorlage')
         if (isInGruppe(k,'wichtig')) list.push('wichtig')
         if (isInGruppe(k,'datum')) list.push('datum')
@@ -79,6 +81,8 @@ export default function TabellenEinstellungenDialog({ offen, onClose, keys, disp
                   { key: 'svnr', label: 'SVNR', color: '#0f766e' },
                   { key: 'telefon', label: 'Telefon', color: '#0f766e' },
                   { key: 'geburtsdatum', label: 'Geburtsdatum', color: '#b45309' },
+                  { key: 'anfang', label: 'Anfang', color: '#b45309' },
+                  { key: 'ende', label: 'Ende', color: '#b45309' },
                   { key: 'vorlage', label: 'Vorlage', color: '#2563eb' },
                   { key: 'betreuer1', label: 'Betreuer 1', color: '#6b7280' },
                   { key: 'betreuer1_anfang', label: 'Betreuer 1 Anfang', color: '#6b7280' },
@@ -89,9 +93,9 @@ export default function TabellenEinstellungenDialog({ offen, onClose, keys, disp
                 ]
                 const name = displayNames[k] || k
                 return (
-                  <div key={k} style={{ display: 'flex', alignItems: 'center', gap: 12, border: '1px solid #eee', borderRadius: 8, padding: '8px 10px', background: '#fafafa' }}>
+                  <div key={k} style={{ display: 'flex', alignItems: 'center', gap: 10, border: '1px solid #eee', borderRadius: 8, padding: '6px 8px', background: '#fafafa' }}>
                     <div style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</div>
-                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'nowrap', overflowX: 'auto', paddingBottom: 2 }}>
                       {chips.map(c => {
                         const active = (draftGruppen[k] || []).includes(c.key)
                         return (
@@ -109,14 +113,39 @@ export default function TabellenEinstellungenDialog({ offen, onClose, keys, disp
                               setDraftGruppen(updated)
                               return
                             }
+                            if (c.key==='anfang') {
+                              const updated: Record<string, SpaltenGruppe[]> = {}
+                              sichtbareKeys.forEach(col => {
+                                const arr = (draftGruppen[col]||[]).filter(g=> g!=='anfang')
+                                if (arr.length) updated[col] = arr
+                              })
+                              const list = updated[k] || []
+                              updated[k] = active ? list : [...list, 'anfang']
+                              setDraftGruppen(updated)
+                              return
+                            }
+                            if (c.key==='ende') {
+                              const updated: Record<string, SpaltenGruppe[]> = {}
+                              sichtbareKeys.forEach(col => {
+                                const arr = (draftGruppen[col]||[]).filter(g=> g!=='ende')
+                                if (arr.length) updated[col] = arr
+                              })
+                              const list = updated[k] || []
+                              updated[k] = active ? list : [...list, 'ende']
+                              setDraftGruppen(updated)
+                              return
+                            }
                             draftToggle(k, c.key)
                           }} style={{
-                            padding: '4px 8px',
+                            padding: '2px 6px',
+                            fontSize: 12,
+                            lineHeight: '18px',
                             borderRadius: 999,
                             border: active ? '0' : '1px solid #ddd',
                             background: active ? c.color : '#fff',
                             color: active ? '#fff' : '#333',
-                            cursor: 'pointer'
+                            cursor: 'pointer',
+                            whiteSpace: 'nowrap'
                           }}>{c.label}</button>
                         )
                       })}
@@ -158,7 +187,7 @@ export default function TabellenEinstellungenDialog({ offen, onClose, keys, disp
               sichtbareKeys.forEach(k => {
                 if (draftNames[k] !== undefined) setDisplayName(k, draftNames[k])
                 const list = draftGruppen[k] || []
-                ;(['vorname','nachname','svnr','telefon','geburtsdatum','vorlage','betreuer1','betreuer1_anfang','betreuer2','betreuer2_anfang','wichtig','datum'] as SpaltenGruppe[]).forEach(g => {
+                ;(['vorname','nachname','svnr','telefon','geburtsdatum','anfang','ende','vorlage','betreuer1','betreuer1_anfang','betreuer2','betreuer2_anfang','wichtig','datum'] as SpaltenGruppe[]).forEach(g => {
                   const has = list.includes(g)
                   const is = isInGruppe(k, g)
                   if (has !== is) toggleGruppe(k, g)

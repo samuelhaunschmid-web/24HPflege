@@ -309,7 +309,14 @@ export default function Rechnungen() {
                           type="radio" 
                           name={`mode-${k.__key}`} 
                           checked={sel?.mode==='ind'} 
-                          onChange={()=> setSelected(p=> ({ ...p, [k.__key]: { mode: 'ind', von: '', bis: '' } }))} 
+                          onChange={()=> {
+                            // Berechne den aktuellen Verrechnungsmonat
+                            const daysInMonth = new Date(jahr, monat, 0).getDate()
+                            const mm = String(monat).padStart(2,'0')
+                            const von = `01.${mm}.${jahr}`
+                            const bis = `${String(daysInMonth).padStart(2,'0')}.${mm}.${jahr}`
+                            setSelected(p=> ({ ...p, [k.__key]: { mode: 'ind', von, bis } }))
+                          }} 
                         /> 
                         Individuell
                       </label>
@@ -319,8 +326,12 @@ export default function Rechnungen() {
                             <label style={{ fontSize: '12px' }}>Von:</label>
                             <input 
                               type="date" 
-                              value={sel.von || ''}
-                              onChange={e=> setSelected(p=> ({ ...p, [k.__key]: { ...sel, von: e.currentTarget.value } }))}
+                              value={sel.von ? sel.von.split('.').reverse().join('-') : ''}
+                              onChange={e=> {
+                                const dateValue = e.currentTarget.value
+                                const formattedDate = dateValue ? dateValue.split('-').reverse().join('.') : ''
+                                setSelected(p=> ({ ...p, [k.__key]: { ...sel, von: formattedDate } }))
+                              }}
                               style={{ 
                                 padding: '4px 6px',
                                 border: '1px solid #ddd',
@@ -333,8 +344,12 @@ export default function Rechnungen() {
                             <label style={{ fontSize: '12px' }}>Bis:</label>
                             <input 
                               type="date" 
-                              value={sel.bis || ''}
-                              onChange={e=> setSelected(p=> ({ ...p, [k.__key]: { ...sel, bis: e.currentTarget.value } }))}
+                              value={sel.bis ? sel.bis.split('.').reverse().join('-') : ''}
+                              onChange={e=> {
+                                const dateValue = e.currentTarget.value
+                                const formattedDate = dateValue ? dateValue.split('-').reverse().join('.') : ''
+                                setSelected(p=> ({ ...p, [k.__key]: { ...sel, bis: formattedDate } }))
+                              }}
                               style={{ 
                                 padding: '4px 6px',
                                 border: '1px solid #ddd',

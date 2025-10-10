@@ -8,6 +8,8 @@ export type SpaltenGruppe =
   | 'wichtig'
   | 'datum'
   | 'geburtsdatum'
+  | 'anfang'
+  | 'ende'
   | 'vorlage'
   | 'betreuer1'
   | 'betreuer1_anfang'

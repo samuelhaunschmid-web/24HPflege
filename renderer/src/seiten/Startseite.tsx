@@ -12,6 +12,10 @@ export default function Startseite() {
   const [kunde, setKunde] = useState<Person | null>(null)
   const [betreuu, setBetreuu] = useState<Person | null>(null)
   const [selected, setSelected] = useState<string[]>([])
+  const [kundenQuery, setKundenQuery] = useState<string>('')
+  const [betreuerQuery, setBetreuerQuery] = useState<string>('')
+  const [showKundenDropdown, setShowKundenDropdown] = useState<boolean>(false)
+  const [showBetreuerDropdown, setShowBetreuerDropdown] = useState<boolean>(false)
   const [ordnerName, setOrdnerName] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [loadingProgress, setLoadingProgress] = useState(0)
@@ -29,8 +33,27 @@ export default function Startseite() {
     })()
   }, [])
 
-  const kundenSorted = useMemo(() => [...kunden].sort((a,b)=> (a.__display||'').localeCompare(b.__display||'')), [kunden])
-  const betreuerSorted = useMemo(() => [...betreuer].sort((a,b)=> (a.__display||'').localeCompare(b.__display||'')), [betreuer])
+  // Anzeige mit Nachnamen zuerst (Kunden: kfname = Nachname, kvname = Vorname)
+  const kundenLabels = useMemo(() => {
+    const list = kunden.map(k => ({ key: k.__key, label: `${String(k.kfname||'').trim()} ${String(k.kvname||'').trim()}`.trim() }))
+    return list.sort((a,b)=> a.label.localeCompare(b.label))
+  }, [kunden])
+  // Anzeige mit Nachnamen zuerst (Betreuer: 'Fam. Nam' = Nachname, 'Vor.Nam' = Vorname)
+  const betreuerLabels = useMemo(() => {
+    const list = betreuer.map(b => ({ key: b.__key, label: `${String(b['Fam. Nam']||'').trim()} ${String(b['Vor.Nam']||'').trim()}`.trim() }))
+    return list.sort((a,b)=> a.label.localeCompare(b.label))
+  }, [betreuer])
+
+  const kundenFiltered = useMemo(() => {
+    const q = kundenQuery.trim().toLowerCase()
+    if (!q) return kundenLabels
+    return kundenLabels.filter(k => k.label.toLowerCase().includes(q))
+  }, [kundenLabels, kundenQuery])
+  const betreuerFiltered = useMemo(() => {
+    const q = betreuerQuery.trim().toLowerCase()
+    if (!q) return betreuerLabels
+    return betreuerLabels.filter(b => b.label.toLowerCase().includes(q))
+  }, [betreuerLabels, betreuerQuery])
 
   function renderTree(nodes: TreeNode[]) {
     return (
@@ -172,36 +195,102 @@ export default function Startseite() {
             <div style={{ display: 'grid', gap: 10 }}>
               <div>
                 <label style={{ display: 'block', marginBottom: 4, fontSize: '14px' }}>Kunde</label>
+                <div style={{ position: 'relative' }}>
                 <input 
-                  list="kunden-list" 
+                  value={kundenQuery}
                   placeholder="Kunde wählen" 
                   onChange={(e) => {
                     const v = e.currentTarget.value
-                    const k = kunden.find(x => x.__display === v)
-                    setKunde(k || null)
+                    setKundenQuery(v)
+                    const found = kundenLabels.find(x => x.label === v)
+                    if (found) {
+                      const k = kunden.find(x => x.__key === found.key)
+                      setKunde(k || null)
+                    } else {
+                      setKunde(null)
+                    }
                   }}
+                  onFocus={() => setShowKundenDropdown(true)}
+                  onBlur={() => setTimeout(() => setShowKundenDropdown(false), 150)}
                   style={{ padding: '6px 8px', border: '1px solid #ddd', borderRadius: 8, width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}
                 />
-                <datalist id="kunden-list">
-                  {kundenSorted.map((k, i) => <option value={k.__display || ''} key={i} />)}
-                </datalist>
+                {/* native datalist entfernt, wir verwenden das benutzerdefinierte Dropdown */}
+                {showKundenDropdown && (
+                  <div style={{ position: 'absolute', zIndex: 20, top: 'calc(100% + 4px)', left: 0, right: 0, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, boxShadow: '0 8px 24px rgba(0,0,0,0.12)', maxHeight: 220, overflowY: 'auto' }}>
+                    {kundenFiltered.length === 0 ? (
+                      <div style={{ padding: '8px 10px', color: '#64748b' }}>Keine Treffer</div>
+                    ) : (
+                      kundenFiltered.map((k, i) => (
+                        <div
+                          key={k.key + String(i)}
+                          onMouseDown={(e)=>{
+                            e.preventDefault()
+                            const match = kunden.find(x => x.__key === k.key)
+                            setKunde(match || null)
+                            setKundenQuery(k.label)
+                            setShowKundenDropdown(false)
+                          }}
+                          style={{ padding: '8px 10px', cursor: 'pointer' }}
+                          onMouseEnter={(e)=>{ (e.currentTarget as HTMLDivElement).style.background = '#f8fafc' }}
+                          onMouseLeave={(e)=>{ (e.currentTarget as HTMLDivElement).style.background = 'transparent' }}
+                        >
+                          {k.label}
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
+                </div>
               </div>
 
               <div>
                 <label style={{ display: 'block', marginBottom: 4, fontSize: '14px' }}>Betreuer</label>
+                <div style={{ position: 'relative' }}>
                 <input 
-                  list="betreuer-list" 
+                  value={betreuerQuery}
                   placeholder="Betreuer wählen" 
                   onChange={(e) => {
                     const v = e.currentTarget.value
-                    const b = betreuer.find(x => x.__display === v)
-                    setBetreuu(b || null)
+                    setBetreuerQuery(v)
+                    const found = betreuerLabels.find(x => x.label === v)
+                    if (found) {
+                      const b = betreuer.find(x => x.__key === found.key)
+                      setBetreuu(b || null)
+                    } else {
+                      setBetreuu(null)
+                    }
                   }}
+                  onFocus={() => setShowBetreuerDropdown(true)}
+                  onBlur={() => setTimeout(() => setShowBetreuerDropdown(false), 150)}
                   style={{ padding: '6px 8px', border: '1px solid #ddd', borderRadius: 8, width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}
                 />
-                <datalist id="betreuer-list">
-                  {betreuerSorted.map((b, i) => <option value={b.__display || ''} key={i} />)}
-                </datalist>
+                {/* native datalist entfernt, wir verwenden das benutzerdefinierte Dropdown */}
+                {showBetreuerDropdown && (
+                  <div style={{ position: 'absolute', zIndex: 20, top: 'calc(100% + 4px)', left: 0, right: 0, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, boxShadow: '0 8px 24px rgba(0,0,0,0.12)', maxHeight: 220, overflowY: 'auto' }}>
+                    {betreuerFiltered.length === 0 ? (
+                      <div style={{ padding: '8px 10px', color: '#64748b' }}>Keine Treffer</div>
+                    ) : (
+                      betreuerFiltered.map((b, i) => (
+                        <div
+                          key={b.key + String(i)}
+                          onMouseDown={(e)=>{
+                            e.preventDefault()
+                            const match = betreuer.find(x => x.__key === b.key)
+                            setBetreuu(match || null)
+                            setBetreuerQuery(b.label)
+                            setShowBetreuerDropdown(false)
+                          }}
+                          style={{ padding: '8px 10px', cursor: 'pointer' }}
+                          onMouseEnter={(e)=>{ (e.currentTarget as HTMLDivElement).style.background = '#f8fafc' }}
+                          onMouseLeave={(e)=>{ (e.currentTarget as HTMLDivElement).style.background = 'transparent' }}
+                        >
+                          {b.label}
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
+                </div>
               </div>
 
               <div>
