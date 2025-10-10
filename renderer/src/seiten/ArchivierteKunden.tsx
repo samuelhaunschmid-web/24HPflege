@@ -102,7 +102,7 @@ export default function ArchivierteKunden() {
                   if (d < 0) { m -= 1; const prevMonth = new Date(eDate.getFullYear(), eDate.getMonth(), 0).getDate(); d += prevMonth }
                   if (m < 0) { y -= 1; m += 12 }
                   const w = Math.floor(d / 7)
-                  diffText = `${y}y ${m}m ${w}w`
+                  diffText = `${y}J ${m}M ${w}W`
                 }
                 const show = (aText || eText)
                 return (

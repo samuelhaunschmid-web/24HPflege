@@ -59,6 +59,22 @@ export default function TabelleDropdownZeilen({ daten, displayNames = {}, wichti
     }
   }, [openRowId, daten])
 
+  // Scroll automatisch zum aktuell geöffneten Eintrag, wenn durch Klick geöffnet
+  useEffect(() => {
+    if (offenIndex == null || !daten || daten.length === 0) return
+    const row = daten[offenIndex]
+    const id = row && row.__key ? `dropdown-${row.__key}` : null
+    if (!id) return
+    // Leicht verzögert, um sicherzustellen, dass der Inhalt gerendert ist
+    const t = setTimeout(() => {
+      const el = document.getElementById(id)
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'nearest' })
+      }
+    }, 50)
+    return () => clearTimeout(t)
+  }, [offenIndex, daten])
+
   function isFieldEmptyForRow(row: Record<string, any>, key: string): boolean {
     const value = row[key]
     if ((gruppen[key]||[]).includes('svnr')) {

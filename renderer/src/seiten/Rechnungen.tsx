@@ -14,6 +14,8 @@ export default function Rechnungen() {
   const [isLoading, setIsLoading] = useState(false)
   const [loadingProgress, setLoadingProgress] = useState(0)
   const [loadingMessage, setLoadingMessage] = useState('')
+  const [editVorlagen, setEditVorlagen] = useState(false)
+  const [vorlagenDisplayNames, setVorlagenDisplayNames] = useState<Record<string,string>>({})
 
   const verrechnungsZeitraum = useMemo(() => {
     const daysInMonth = new Date(jahr, monat, 0).getDate()
@@ -34,10 +36,32 @@ export default function Rechnungen() {
       if (config?.currentRechnungsnummer) {
         setCurrentRechnungsnummer(config.currentRechnungsnummer)
       }
+      if (config?.invoiceTemplateDisplayNames && typeof config.invoiceTemplateDisplayNames === 'object') {
+        setVorlagenDisplayNames(config.invoiceTemplateDisplayNames as Record<string,string>)
+      }
     })()
   }, [])
 
-  const sortedKunden = useMemo(() => [...kunden].sort((a,b)=> (a.__display||'').localeCompare(b.__display||'')), [kunden])
+  function toLastFirst(name: string) {
+    const n = String(name||'').trim()
+    if (!n) return ''
+    const parts = n.split(/\s+/)
+    if (parts.length === 1) return n
+    const last = parts.pop() as string
+    const first = parts.join(' ')
+    return `${last} ${first}`.trim()
+  }
+  const sortedKunden = useMemo(() => {
+    const list = [...kunden]
+    return list.sort((a,b)=> {
+      const an = String(a.__display||'').trim()
+      const bn = String(b.__display||'').trim()
+      const al = an.split(/\s+/).slice(-1)[0].toLowerCase()
+      const bl = bn.split(/\s+/).slice(-1)[0].toLowerCase()
+      if (al === bl) return an.localeCompare(bn)
+      return al.localeCompare(bl)
+    })
+  }, [kunden])
   const selectedKeys = useMemo(()=> Object.entries(selected).filter(([_,v])=> v!=null).map(([k])=>k), [selected])
 
   async function handleGenerate() {
@@ -123,6 +147,26 @@ export default function Rechnungen() {
           <div style={{ background: '#fff', border: '1px solid #eaeaea', borderRadius: 10, padding: 12 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
               <label style={{ fontWeight: 700 }}>Rechnungsvorlagen</label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                {editVorlagen && (
+                  <>
+                    <button onClick={async ()=> {
+                      const cfg = await window.api?.getConfig?.()
+                      const next = { ...(cfg||{}), invoiceTemplateDisplayNames: vorlagenDisplayNames }
+                      await window.api?.setConfig?.(next)
+                      setEditVorlagen(false)
+                    }} style={{ padding: '6px 10px', border: '1px solid #0ea5e9', background: '#e0f2fe', color: '#0369a1', borderRadius: 8, cursor: 'pointer' }}>Speichern</button>
+                    <button onClick={async ()=> {
+                      const cfg = await window.api?.getConfig?.();
+                      setVorlagenDisplayNames((cfg?.invoiceTemplateDisplayNames||{}) as Record<string,string>)
+                      setEditVorlagen(false)
+                    }} style={{ padding: '6px 10px', border: '1px solid #ddd', background: '#fff', borderRadius: 8, cursor: 'pointer' }}>Abbrechen</button>
+                  </>
+                )}
+                <button title={editVorlagen ? 'Namen bearbeiten beenden' : 'Vorlagen-Namen bearbeiten'} onClick={()=> setEditVorlagen(v=>!v)} style={{ width: 32, height: 32, borderRadius: 8, border: '1px solid #ddd', background: '#fff', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <span style={{ fontSize: 16 }}>✎</span>
+                </button>
+              </div>
             </div>
             {files.length === 0 ? (
               <div style={{ 
@@ -146,31 +190,40 @@ export default function Rechnungen() {
                 overflow: 'auto',
                 background: '#fff'
               }}>
-                {files.map(f => (
-                  <label key={f.absPath} style={{ 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    gap: 8, 
-                    padding: '6px 8px',
-                    borderRadius: 6,
-                    border: '1px solid transparent',
-                    cursor: 'pointer'
-                  }}>
-                    <input
-                      type="checkbox"
-                      checked={selectedVorlagen.includes(f.absPath)}
-                      onChange={(e) => {
-                        const checked = e.currentTarget.checked
-                        setSelectedVorlagen(prev => 
-                          checked 
-                            ? [...prev, f.absPath]
-                            : prev.filter(x => x !== f.absPath)
-                        )
-                      }}
-                    />
-                    <span>{f.name}</span>
-                  </label>
-                ))}
+                {files.map(f => {
+                  const disp = vorlagenDisplayNames[f.absPath] ?? f.name
+                  return (
+                    <div key={f.absPath} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px' }}>
+                      {!editVorlagen && (
+                        <label style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, cursor: 'pointer' }}>
+                          <input
+                            type="checkbox"
+                            checked={selectedVorlagen.includes(f.absPath)}
+                            onChange={(e) => {
+                              const checked = e.currentTarget.checked
+                              setSelectedVorlagen(prev => 
+                                checked 
+                                  ? [...prev, f.absPath]
+                                  : prev.filter(x => x !== f.absPath)
+                              )
+                            }}
+                          />
+                          <span>{disp}</span>
+                        </label>
+                      )}
+                      {editVorlagen && (
+                        <input
+                          style={{ flex: 1, padding: '6px 8px', border: '1px solid #ddd', borderRadius: 6 }}
+                          value={disp}
+                          onChange={e=> {
+                            const val = e.currentTarget ? e.currentTarget.value : ''
+                            setVorlagenDisplayNames(prev => ({ ...prev, [f.absPath]: val }))
+                          }}
+                        />
+                      )}
+                    </div>
+                  )
+                })}
               </div>
             )}
           </div>
@@ -282,7 +335,7 @@ export default function Rechnungen() {
                       })}
                     />
                     <span style={{ fontWeight: selected[k.__key] ? 'bold' : 'normal' }}>
-                      {k.__display}
+                      {toLastFirst(k.__display)}
                     </span>
                   </label>
                   {selected[k.__key] && (

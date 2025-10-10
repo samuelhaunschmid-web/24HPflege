@@ -19,6 +19,7 @@ type Props = {
 export default function NeuerEintragDialog({ offen, onClose, keys, displayNames = {}, titel = 'Neuer Eintrag', onSpeichern, initialValues, gruppen = {}, vorlagenWerte = {}, betreuerListe = [] }: Props) {
   const felder = useMemo(()=> keys.filter(k=> !k.startsWith('__')), [keys])
   const [werte, setWerte] = useState<Record<string, any>>({})
+  const [openSuggestKey, setOpenSuggestKey] = useState<string | null>(null)
 
   // Standardisierte Input-Styles für konsistentes Design
   const inputStyle = {
@@ -101,9 +102,11 @@ export default function NeuerEintragDialog({ offen, onClose, keys, displayNames 
       const b = svnrB.replace(/\D+/g,'').slice(0,6)
       result[svKey] = (a + b)
     }
-    // normalize date format DD.MM.YYYY for datum gruppen
+    // normalize date format DD.MM.YYYY for date groups (datum/anfang/ende/betreuer*_anfang)
     felder.forEach(k => {
-      if ((gruppen[k]||[]).some(g => g.includes('datum'))) {
+      const list = (gruppen[k]||[])
+      const isBetAnfang = list.some(g => g.includes('betreuer') && g.includes('anfang'))
+      if (list.includes('datum') || list.includes('anfang') || list.includes('ende') || isBetAnfang) {
         const raw = String(result[k] || '').trim()
         if (raw) {
           const only = raw.replace(/[^\d]/g,'')
@@ -152,14 +155,16 @@ export default function NeuerEintragDialog({ offen, onClose, keys, displayNames 
         <div style={{ padding: 12, overflow: 'auto', flex: '1 1 auto' }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {felder.map(k => {
-              const isDatum = (gruppen[k]||[]).some(g => g.includes('datum'))
-              const isTel = (gruppen[k]||[]).some(g => g.includes('telefon'))
-              const isSv = (gruppen[k]||[]).some(g => g.includes('svnr'))
-              const isVorlage = (gruppen[k]||[]).some(g => g.includes('vorlage'))
-              const isBetreuer1 = (gruppen[k]||[]).some(g => g.includes('betreuer1') && !g.includes('anfang'))
-              const isBetreuer2 = (gruppen[k]||[]).some(g => g.includes('betreuer2') && !g.includes('anfang'))
-              const isBetreuerAnfang = (gruppen[k]||[]).some(g => g.includes('betreuer') && g.includes('anfang'))
-              const isReadonly = isBetreuerAnfang || k.startsWith('__') // Nur Betreuer-Anfangs-Felder und interne Felder sind nicht direkt editierbar
+              const gruppenList = (gruppen[k]||[])
+              const isTel = gruppenList.some(g => g.includes('telefon'))
+              const isSv = gruppenList.some(g => g.includes('svnr'))
+              const isVorlage = gruppenList.some(g => g.includes('vorlage'))
+              const isBetreuer1 = gruppenList.some(g => g.includes('betreuer1') && !g.includes('anfang'))
+              const isBetreuer2 = gruppenList.some(g => g.includes('betreuer2') && !g.includes('anfang'))
+              const isBetreuerAnfang = gruppenList.some(g => g.includes('betreuer') && g.includes('anfang'))
+              const isGenericDate = gruppenList.includes('datum') || gruppenList.includes('anfang') || gruppenList.includes('ende') || isBetreuerAnfang
+              const isDatum = isGenericDate
+              const isReadonly = k.startsWith('__')
               const label = displayNames[k] || k
               
               return (
@@ -272,20 +277,41 @@ export default function NeuerEintragDialog({ offen, onClose, keys, displayNames 
                       </datalist>
                     </div>
                   ) : (isBetreuer1 || isBetreuer2) ? (
-                    <div>
+                    <div style={{ position: 'relative' }}>
                       <input
                         name={k}
-                        list={`${k}-betreuer-list`}
                         value={String(werte[k] ?? '')}
-                        onChange={(e)=> setWerte(prev => ({ ...prev, [k]: e.target.value }))}
+                        onChange={(e)=> { setWerte(prev => ({ ...prev, [k]: e.target.value })); setOpenSuggestKey(k) }}
+                        onFocus={()=> setOpenSuggestKey(k)}
+                        onBlur={()=> setTimeout(()=> setOpenSuggestKey(prev => prev===k ? null : prev), 120)}
                         placeholder="Betreuer eingeben oder auswählen"
                         style={inputStyle}
+                        autoComplete="off"
                       />
-                      <datalist id={`${k}-betreuer-list`}>
-                        {betreuerListe.map(betreuer => (
-                          <option key={betreuer.__key} value={betreuer.__display || ''} />
-                        ))}
-                      </datalist>
+                      {openSuggestKey === k && (
+                        <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 2000, background: '#fff', border: '1px solid #ddd', borderRadius: 6, maxHeight: 260, overflowY: 'auto', boxShadow: '0 8px 20px rgba(0,0,0,0.15)', marginTop: 4 }}>
+                          {betreuerListe
+                            .filter(b => String(b.__display||'').toLowerCase().includes(String(werte[k]||'').toLowerCase()))
+                            .slice()
+                            .sort((a,b)=>{
+                              const an = String(a.__display||'').trim();
+                              const bn = String(b.__display||'').trim();
+                              const al = an.split(/\s+/).slice(-1)[0].toLowerCase();
+                              const bl = bn.split(/\s+/).slice(-1)[0].toLowerCase();
+                              if (al === bl) return an.localeCompare(bn);
+                              return al.localeCompare(bl);
+                            })
+                            .map(b => (
+                              <div
+                                key={b.__key}
+                                onMouseDown={(e)=> { e.preventDefault(); setWerte(prev => ({ ...prev, [k]: b.__display || '' })); setOpenSuggestKey(null) }}
+                                style={{ padding: '8px 12px', cursor: 'pointer', borderBottom: '1px solid #f1f5f9' }}
+                              >
+                                {b.__display || ''}
+                              </div>
+                            ))}
+                        </div>
+                      )}
                     </div>
                   ) : isReadonly ? (
                     <div style={{ 

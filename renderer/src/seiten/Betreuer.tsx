@@ -130,7 +130,25 @@ export default function Betreuer() {
           const vor = vorCol ? String(row[vorCol]||'') : ''
           const nach = nachCol ? String(row[nachCol]||'') : ''
           const full = `${nach} ${vor}`.trim()
-          return full || row.__display || ''
+          const anfangKey = knownKeys.find(k => isInGruppe(k,'anfang'))
+          let seit = ''
+          if (anfangKey) {
+            const raw = String(row[anfangKey]||'').replace(/\D+/g,'')
+            if (raw.length === 8) {
+              const a = new Date(Number(raw.slice(4,8)), Number(raw.slice(2,4))-1, Number(raw.slice(0,2)))
+              const now = new Date()
+              if (!isNaN(a.getTime()) && now >= a) {
+                let y = now.getFullYear() - a.getFullYear()
+                let m = now.getMonth() - a.getMonth()
+                let d = now.getDate() - a.getDate()
+                if (d < 0) { m -= 1; const prevMonthDays = new Date(now.getFullYear(), now.getMonth(), 0).getDate(); d += prevMonthDays }
+                if (m < 0) { y -= 1; m += 12 }
+                const w = Math.floor(d / 7)
+                seit = ` (${y}J ${m}M ${w}W)`
+              }
+            }
+          }
+          return (full || row.__display || '') + seit
         }}
         onChanged={async () => {
           const lists = await window.docgen?.getLists?.(); 
