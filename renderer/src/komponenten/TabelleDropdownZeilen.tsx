@@ -50,7 +50,7 @@ export default function TabelleDropdownZeilen({ daten, displayNames = {}, wichti
           if (element) {
             element.scrollIntoView({ 
               behavior: 'smooth', 
-              block: 'center',
+              block: 'start',
               inline: 'nearest'
             })
           }
