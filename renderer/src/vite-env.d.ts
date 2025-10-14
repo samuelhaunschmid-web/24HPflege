@@ -18,6 +18,13 @@ declare global {
       installHomebrew?: () => Promise<{ ok: boolean; alreadyInstalled?: boolean; code?: number; stdout?: string; stderr?: string; message?: string }>
       getPlatform?: () => Promise<string>
       checkChocolatey?: () => Promise<boolean>
+      mail?: {
+        googleStartAuth?: () => Promise<{ ok?: boolean; message?: string }>
+        googleStoreTokens?: (tokens: { access_token?: string; refresh_token?: string; expiry_date?: number; scope?: string; token_type?: string }) => Promise<{ ok?: boolean; message?: string }>
+        googleDisconnect?: () => Promise<{ ok?: boolean; message?: string }>
+        send?: (payload: { to: string; subject: string; text?: string; html?: string; attachments?: Array<{ path: string; filename?: string }>; fromName?: string; fromAddress?: string }) => Promise<{ ok?: boolean; message?: string }>
+        sendBatch?: (list: Array<{ to: string; subject: string; text?: string; html?: string; attachments?: Array<{ path: string; filename?: string }>; fromName?: string; fromAddress?: string }>) => Promise<{ ok?: boolean; message?: string }>
+      }
     }
     docgen?: {
       getLists?: () => Promise<{ kunden: any[]; betreuer: any[] }>

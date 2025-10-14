@@ -122,7 +122,7 @@ export default function Startseite() {
     return files
   }
 
-  const [modus, setModus] = useState<'docx'|'pdf'>('docx')
+  const [modus, setModus] = useState<'docx'|'pdf'>('pdf')
 
   async function handleGenerate() {
     if (selected.length === 0) return alert('Bitte mindestens eine Vorlage wählen.')

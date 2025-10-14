@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const XLSX = require('xlsx');
@@ -116,6 +116,27 @@ async function replaceFilenamePlaceholders(filename, data) {
   return filename.replace(/\[\[(.*?)\]\]/g, (m, key) => (data[key] == null ? m : String(data[key])));
 }
 
+// Datum: Parser/Formatter für DD.MM.YYYY
+function parseDateDDMMYYYY(value) {
+  if (!value) return null;
+  const s = String(value).trim();
+  const m = s.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
+  if (m) {
+    const day = Number(m[1]);
+    const monthIndex = Number(m[2]) - 1; // 0-basierter Monat
+    const year = Number(m[3]);
+    return new Date(year, monthIndex, day);
+  }
+  try { return new Date(value); } catch { return null; }
+}
+function formatDateDDMMYYYY(date) {
+  if (!(date instanceof Date) || isNaN(date.getTime())) return '';
+  const d = String(date.getDate()).padStart(2, '0');
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const y = date.getFullYear();
+  return `${d}.${m}.${y}`;
+}
+
 app.whenReady().then(() => {
   const win = createWindow();
 
@@ -137,6 +158,173 @@ app.whenReady().then(() => {
     const next = { ...current, ...partial };
     writeConfig(next);
     return next;
+  });
+  
+  // Mail – Google OAuth Platzhalter & Versand-Stubs
+  ipcMain.handle('mail:google:startAuth', async () => {
+    const cfg = readConfig();
+    const clientId = cfg.googleClientId;
+    const clientSecret = cfg.googleClientSecret;
+    if (!clientId || !clientSecret) {
+      return { ok: false, message: 'Bitte Google Client ID & Client Secret in den Einstellungen eintragen.' };
+    }
+    // Starte echten OAuth-Login über lokalen Redirect (Loopback)
+    const http = require('http');
+    const crypto = require('crypto');
+    const port = 53219 + Math.floor(Math.random()*1000);
+    const redirectUri = `http://127.0.0.1:${port}/callback`;
+    const state = crypto.randomBytes(16).toString('hex');
+    const scope = encodeURIComponent('https://mail.google.com/ https://www.googleapis.com/auth/gmail.send openid email profile');
+    const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?response_type=code&client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scope}&access_type=offline&prompt=consent&state=${state}`;
+
+    return await new Promise((resolve) => {
+      const server = http.createServer(async (req, res) => {
+        try {
+          if (!req.url) return;
+          const urlObj = new URL(req.url, `http://127.0.0.1:${port}`);
+          if (urlObj.pathname !== '/callback') return;
+          const code = urlObj.searchParams.get('code');
+          const returnedState = urlObj.searchParams.get('state');
+          if (!code || returnedState !== state) {
+            res.writeHead(400, { 'Content-Type': 'text/plain' });
+            res.end('OAuth Fehler');
+            server.close();
+            return resolve({ ok: false, message: 'Ungültiger Code/State' });
+          }
+          // Tausche Code gegen Tokens
+          const data = new URLSearchParams();
+          data.set('code', code);
+          data.set('client_id', clientId);
+          data.set('client_secret', clientSecret);
+          data.set('redirect_uri', redirectUri);
+          data.set('grant_type', 'authorization_code');
+          const https = require('https');
+          const tokenRes = await new Promise((res2, rej2) => {
+            const req2 = https.request('https://oauth2.googleapis.com/token', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }, (r) => {
+              const chunks = [];
+              r.on('data', c => chunks.push(c));
+              r.on('end', () => {
+                try { res2(JSON.parse(Buffer.concat(chunks).toString('utf-8'))); } catch (e) { rej2(e); }
+              });
+            });
+            req2.on('error', rej2);
+            req2.write(data.toString());
+            req2.end();
+          });
+          const accessToken = tokenRes.access_token;
+          const refreshToken = tokenRes.refresh_token;
+          // Userinfo abfragen (E-Mail)
+          let email = '';
+          if (accessToken) {
+            try {
+              const userinfo = await new Promise((res2, rej2) => {
+                const req3 = https.request('https://www.googleapis.com/oauth2/v3/userinfo', { method: 'GET', headers: { Authorization: `Bearer ${accessToken}` } }, (r) => {
+                  const chunks = [];
+                  r.on('data', c => chunks.push(c));
+                  r.on('end', () => {
+                    try { res2(JSON.parse(Buffer.concat(chunks).toString('utf-8'))); } catch (e) { rej2(e); }
+                  });
+                });
+                req3.on('error', rej2);
+                req3.end();
+              });
+              email = userinfo && userinfo.email ? String(userinfo.email) : '';
+            } catch {}
+          }
+          const current2 = readConfig();
+          const next2 = { ...current2, googleOAuthTokens: tokenRes || null, googleRefreshToken: refreshToken || current2.googleRefreshToken, fromAddress: email || current2.fromAddress };
+          writeConfig(next2);
+          res.writeHead(200, { 'Content-Type': 'text/html' });
+          res.end('<html><body><h3>Login erfolgreich. Sie können dieses Fenster schließen.</h3></body></html>');
+          server.close();
+          return resolve({ ok: true, email: email || null });
+        } catch (e) {
+          try { res.writeHead(500, { 'Content-Type': 'text/plain' }); res.end('Fehler'); } catch {}
+          server.close();
+          return resolve({ ok: false, message: String(e) });
+        }
+      });
+      server.listen(port, async () => {
+        try { await shell.openExternal(authUrl); } catch {}
+      });
+    });
+  });
+  ipcMain.handle('mail:google:storeTokens', async (_e, tokens) => {
+    const current = readConfig();
+    const next = { ...current, googleOAuthTokens: tokens || null, googleRefreshToken: tokens?.refresh_token || current.googleRefreshToken };
+    writeConfig(next);
+    return { ok: true };
+  });
+  ipcMain.handle('mail:google:disconnect', async () => {
+    const current = readConfig();
+    const next = { ...current, googleOAuthTokens: null };
+    writeConfig(next);
+    return { ok: true };
+  });
+  ipcMain.handle('mail:send', async (_e, payload) => {
+    // payload: { to, subject, text, html, attachments, fromName, fromAddress }
+    const cfg = readConfig();
+    if (!cfg.googleOAuthTokens) {
+      return { ok: false, message: 'Mail nicht konfiguriert (Google nicht verbunden)' };
+    }
+    try {
+      const { sendMailWithOAuth2 } = require('./mailService');
+      return await sendMailWithOAuth2(app, cfg, payload || {});
+    } catch (e) {
+      return { ok: false, message: String(e) };
+    }
+  });
+  ipcMain.handle('mail:sendBatch', async (_e, list) => {
+    const cfg = readConfig();
+    if (!cfg.googleOAuthTokens) {
+      return { ok: false, message: 'Mail nicht konfiguriert (Google nicht verbunden)' };
+    }
+    try {
+      const { sendMailWithOAuth2 } = require('./mailService');
+      const results = [];
+      const arr = Array.isArray(list) ? list : [];
+      for (const item of arr) {
+        // eslint-disable-next-line no-await-in-loop
+        const r = await sendMailWithOAuth2(app, cfg, item || {});
+        results.push(r);
+      }
+      const ok = results.every(r => r && r.ok);
+      return { ok, results };
+    } catch (e) {
+      return { ok: false, message: String(e) };
+    }
+  });
+  ipcMain.handle('mail:logs', async () => {
+    try {
+      const userDataPath = app.getPath('userData');
+      const p = path.join(userDataPath, 'mail-log.json');
+      if (!fs.existsSync(p)) return [];
+      const data = JSON.parse(fs.readFileSync(p, 'utf-8')) || [];
+      return Array.isArray(data) ? data.slice(-200).reverse() : [];
+    } catch (e) {
+      return [];
+    }
+  });
+  ipcMain.handle('mail:logs:delete', async (_e, timeIso) => {
+    try {
+      const p = path.join(app.getPath('userData'), 'mail-log.json');
+      if (!fs.existsSync(p)) return { ok: true };
+      const arr = JSON.parse(fs.readFileSync(p, 'utf-8')) || [];
+      const next = arr.filter((x) => x && x.time !== timeIso);
+      fs.writeFileSync(p, JSON.stringify(next, null, 2));
+      return { ok: true };
+    } catch (e) {
+      return { ok: false, message: String(e) };
+    }
+  });
+  ipcMain.handle('mail:logs:clear', async () => {
+    try {
+      const p = path.join(app.getPath('userData'), 'mail-log.json');
+      fs.writeFileSync(p, JSON.stringify([], null, 2));
+      return { ok: true };
+    } catch (e) {
+      return { ok: false, message: String(e) };
+    }
   });
   ipcMain.handle('dialog:chooseDirectory', async (_e, title) => {
     const res = await dialog.showOpenDialog({ title: title || 'Ordner wählen', properties: ['openDirectory'] });
@@ -211,6 +399,17 @@ app.whenReady().then(() => {
   // Plattform abrufen
   ipcMain.handle('api:getPlatform', async () => {
     try { return require('os').platform(); } catch { return process.platform; }
+  });
+
+  // App neu starten
+  ipcMain.handle('app:restart', async () => {
+    try {
+      app.relaunch();
+      app.exit(0);
+      return true;
+    } catch (e) {
+      return false;
+    }
   });
 
   // Windows: Chocolatey prüfen
@@ -719,8 +918,8 @@ app.whenReady().then(() => {
       function getVerrechnungszeitraum(m, y) { const d=getDaysInMonth(m,y); return `01.${String(m).padStart(2,'0')}.${y}-${String(d).padStart(2,'0')}.${String(m).padStart(2,'0')}.${y}`; }
       function getMonatstage(m, y) { return getDaysInMonth(m, y); }
       function getMonatende(m, y) { const d=getDaysInMonth(m,y); for(let day=d; day>=1; day--){const date=new Date(y,m-1,day); const dow=date.getDay(); if(dow>=1&&dow<=5) return `${String(day).padStart(2,'0')}.${String(m).padStart(2,'0')}.${y}`;} return `${String(d).padStart(2,'0')}.${String(m).padStart(2,'0')}.${y}`; }
-      function getIndividuelleTage(von, bis) { const d1=new Date(von), d2=new Date(bis); return Math.floor((d2-d1)/(1000*60*60*24))+1; }
-      function getIndividuellerZeitraum(von, bis) { const f=(d)=>`${String(d.getDate()).padStart(2,'0')}.${String(d.getMonth()+1).padStart(2,'0')}.${d.getFullYear()}`; const d1=new Date(von), d2=new Date(bis); return `${f(d1)}-${f(d2)}`; }
+      function getIndividuelleTage(von, bis) { const d1=parseDateDDMMYYYY(von), d2=parseDateDDMMYYYY(bis); if(!d1||!d2) return 0; return Math.floor((d2-d1)/(1000*60*60*24))+1; }
+      function getIndividuellerZeitraum(von, bis) { const d1=parseDateDDMMYYYY(von), d2=parseDateDDMMYYYY(bis); return `${formatDateDDMMYYYY(d1)}-${formatDateDDMMYYYY(d2)}`; }
       function calculateGesamtsumme(k, tage) { const perDay = parseFloat(k.Money) || 0; return perDay * (tage || 0); }
       function calculateVorsteuer(sum) { return sum / 1.2; }
       function calculateSteuer(vst) { return vst * 0.2; }
@@ -895,14 +1094,15 @@ app.whenReady().then(() => {
     function getVerrechnungszeitraum(m, y) { const d=getDaysInMonth(m,y); return `01.${String(m).padStart(2,'0')}.${y}-${String(d).padStart(2,'0')}.${String(m).padStart(2,'0')}.${y}`; }
     function getMonatstage(m, y) { return getDaysInMonth(m, y); }
     function getMonatende(m, y) { const d=getDaysInMonth(m,y); for(let day=d; day>=1; day--){const date=new Date(y,m-1,day); const dow=date.getDay(); if(dow>=1&&dow<=5) return `${String(day).padStart(2,'0')}.${String(m).padStart(2,'0')}.${y}`;} return `${String(d).padStart(2,'0')}.${String(m).padStart(2,'0')}.${y}`; }
-    function getIndividuelleTage(von, bis) { const d1=new Date(von), d2=new Date(bis); return Math.floor((d2-d1)/(1000*60*60*24))+1; }
-    function getIndividuellerZeitraum(von, bis) { const f=(d)=>`${String(d.getDate()).padStart(2,'0')}.${String(d.getMonth()+1).padStart(2,'0')}.${d.getFullYear()}`; const d1=new Date(von), d2=new Date(bis); return `${f(d1)}-${f(d2)}`; }
+    function getIndividuelleTage(von, bis) { const d1=parseDateDDMMYYYY(von), d2=parseDateDDMMYYYY(bis); if(!d1||!d2) return 0; return Math.floor((d2-d1)/(1000*60*60*24))+1; }
+    function getIndividuellerZeitraum(von, bis) { const d1=parseDateDDMMYYYY(von), d2=parseDateDDMMYYYY(bis); return `${formatDateDDMMYYYY(d1)}-${formatDateDDMMYYYY(d2)}`; }
     function calculateGesamtsumme(k, tage) { const perDay = parseFloat(k.Money) || 0; return perDay * (tage || 0); }
     function calculateVorsteuer(sum) { return sum / 1.2; }
     function calculateSteuer(vst) { return vst * 0.2; }
 
     let currentRechnungsnummer = Number(cfg.currentRechnungsnummer || 1);
     const used = [];
+    const usedByKey = {};
     const generatedFiles = [];
     
     for (const key of selectedKundenKeys) {
@@ -926,6 +1126,8 @@ app.whenReady().then(() => {
         fs.writeFileSync(zielDatei, outputBuffer);
         generatedFiles.push(zielDatei);
         used.push(zielDatei);
+        if (!usedByKey[key]) usedByKey[key] = [];
+        usedByKey[key].push(zielDatei);
         currentRechnungsnummer++;
       }
     }
@@ -992,10 +1194,30 @@ app.whenReady().then(() => {
           }
         }
         
-        // Ersetze used-Liste mit PDF-Dateien
+        // Ersetze used-Liste mit PDF-Dateien und aktualisiere Mapping
         if (pdfFiles.length > 0) {
-          used.length = 0; // Leere das Array
-          used.push(...pdfFiles); // Füge PDF-Dateien hinzu
+          // Mapping neu aufbauen anhand von Basenamen
+          const pdfByBase = Object.fromEntries(pdfFiles.map(p => [path.basename(p, path.extname(p)), p]));
+          const newUsed = [];
+          const newUsedByKey = {};
+          for (const [k, files] of Object.entries(usedByKey)) {
+            for (const f of files) {
+              const base = path.basename(f, path.extname(f));
+              const pdf = pdfByBase[base];
+              if (pdf) {
+                if (!newUsedByKey[k]) newUsedByKey[k] = [];
+                newUsedByKey[k].push(pdf);
+                newUsed.push(pdf);
+              } else {
+                if (!newUsedByKey[k]) newUsedByKey[k] = [];
+                newUsedByKey[k].push(f);
+                newUsed.push(f);
+              }
+            }
+          }
+          used.length = 0;
+          used.push(...newUsed);
+          Object.keys(usedByKey).forEach(key => { usedByKey[key] = newUsedByKey[key] || []; });
         }
       } catch (error) {
         console.error('PDF conversion error:', error);
@@ -1003,7 +1225,7 @@ app.whenReady().then(() => {
     }
     
     writeConfig({ ...cfg, currentRechnungsnummer });
-    return { ok: true, files: used, currentRechnungsnummer };
+    return { ok: true, files: used, byKey: usedByKey, currentRechnungsnummer };
   });
 
   if (!isDev) autoUpdater.checkForUpdatesAndNotify();

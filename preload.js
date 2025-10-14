@@ -16,6 +16,19 @@ contextBridge.exposeInMainWorld('api', {
   installHomebrew: () => ipcRenderer.invoke('api:installHomebrew'),
   getPlatform: () => ipcRenderer.invoke('api:getPlatform'),
   checkChocolatey: () => ipcRenderer.invoke('api:checkChocolatey'),
+  restartApp: () => ipcRenderer.invoke('app:restart'),
+  
+  // Mail
+  mail: {
+    googleStartAuth: () => ipcRenderer.invoke('mail:google:startAuth'),
+    googleStoreTokens: (tokens) => ipcRenderer.invoke('mail:google:storeTokens', tokens),
+    googleDisconnect: () => ipcRenderer.invoke('mail:google:disconnect'),
+    send: (payload) => ipcRenderer.invoke('mail:send', payload),
+    sendBatch: (list) => ipcRenderer.invoke('mail:sendBatch', list),
+    logs: () => ipcRenderer.invoke('mail:logs'),
+    deleteLog: (time) => ipcRenderer.invoke('mail:logs:delete', time),
+    clearLogs: () => ipcRenderer.invoke('mail:logs:clear'),
+  }
 });
 
 contextBridge.exposeInMainWorld('docgen', {

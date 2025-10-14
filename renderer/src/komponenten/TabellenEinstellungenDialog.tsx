@@ -34,6 +34,7 @@ export default function TabellenEinstellungenDialog({ offen, onClose, keys, disp
         if (isInGruppe(k,'anfang')) list.push('anfang')
         if (isInGruppe(k,'ende')) list.push('ende')
         if (isInGruppe(k,'vorlage')) list.push('vorlage')
+        if (isInGruppe(k,'rechnungsmail')) list.push('rechnungsmail')
         if (isInGruppe(k,'wichtig')) list.push('wichtig')
         if (isInGruppe(k,'datum')) list.push('datum')
         if (isInGruppe(k,'betreuer1')) list.push('betreuer1')
@@ -84,6 +85,7 @@ export default function TabellenEinstellungenDialog({ offen, onClose, keys, disp
                   { key: 'anfang', label: 'Anfang', color: '#b45309' },
                   { key: 'ende', label: 'Ende', color: '#b45309' },
                   { key: 'vorlage', label: 'Vorlage', color: '#2563eb' },
+                  { key: 'rechnungsmail', label: 'Rechnungsmail', color: '#0d9488' },
                   { key: 'betreuer1', label: 'Betreuer 1', color: '#6b7280' },
                   { key: 'betreuer1_anfang', label: 'Betreuer 1 Anfang', color: '#6b7280' },
                   { key: 'betreuer2', label: 'Betreuer 2', color: '#6b7280' },
@@ -187,7 +189,7 @@ export default function TabellenEinstellungenDialog({ offen, onClose, keys, disp
               sichtbareKeys.forEach(k => {
                 if (draftNames[k] !== undefined) setDisplayName(k, draftNames[k])
                 const list = draftGruppen[k] || []
-                ;(['vorname','nachname','svnr','telefon','geburtsdatum','anfang','ende','vorlage','betreuer1','betreuer1_anfang','betreuer2','betreuer2_anfang','wichtig','datum'] as SpaltenGruppe[]).forEach(g => {
+                ;(['vorname','nachname','svnr','telefon','geburtsdatum','anfang','ende','vorlage','rechnungsmail','betreuer1','betreuer1_anfang','betreuer2','betreuer2_anfang','wichtig','datum'] as SpaltenGruppe[]).forEach(g => {
                   const has = list.includes(g)
                   const is = isInGruppe(k, g)
                   if (has !== is) toggleGruppe(k, g)

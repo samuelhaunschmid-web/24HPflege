@@ -15,6 +15,7 @@ export type SpaltenGruppe =
   | 'betreuer1_anfang'
   | 'betreuer2'
   | 'betreuer2_anfang'
+  | 'rechnungsmail'
 
 export type TableSettings = {
   displayNames: Record<string, string>

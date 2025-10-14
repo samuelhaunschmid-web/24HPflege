@@ -32,7 +32,7 @@ export default function NeuerEintragDialog({ offen, onClose, keys, displayNames 
   }
 
   // Split helpers for Telefon and SVNR - separate state for each phone field
-  const [telefonStates, setTelefonStates] = useState<Record<string, { vorwahl: string; rest: string }>>({})
+  const [telefonStates, setTelefonStates] = useState<Record<string, { vorwahl: string; rest: string; oesterreich: { vorwahl: string; bereich: string; nummer: string } }>>({})
   const [svnrA, setSvnrA] = useState('')
   const [svnrB, setSvnrB] = useState('')
   // const [geburtsKey] = useState<string | null>(null) // Not used in current implementation
@@ -48,17 +48,46 @@ export default function NeuerEintragDialog({ offen, onClose, keys, displayNames 
     setWerte(allFields)
     // preset split values from initialValues for telefon/svnr - handle multiple phone fields
     const telefonKeys = felder.filter(k => (gruppen[k]||[]).some(g => g.includes('telefon')))
-    const newTelefonStates: Record<string, { vorwahl: string; rest: string }> = {}
+    const newTelefonStates: Record<string, { vorwahl: string; rest: string; oesterreich: { vorwahl: string; bereich: string; nummer: string } }> = {}
     telefonKeys.forEach(telKey => {
       if (typeof init[telKey] === 'string') {
-        const m = String(init[telKey]).trim().match(/^(\+?[\d]+)\s*(.*)$/)
-        if (m) { 
-          newTelefonStates[telKey] = { vorwahl: m[1] || '', rest: (m[2] || '').replace(/\s+/g,'') }
-        } else { 
-          newTelefonStates[telKey] = { vorwahl: '', rest: String(init[telKey]||'') }
+        const fullNumber = String(init[telKey]).trim()
+        
+               // Check for Austrian format: +43 XXX XXXXXXX or +43 XXXX XXXXXX etc.
+               const austrianMatch = fullNumber.match(/^(\+43)\s+(\d+)\s+(\d+)$/)
+               if (austrianMatch) {
+                 newTelefonStates[telKey] = { 
+                   vorwahl: '+43', 
+                   rest: '', 
+                   oesterreich: { 
+                     vorwahl: austrianMatch[1], 
+                     bereich: austrianMatch[2], 
+                     nummer: austrianMatch[3] 
+                   }
+                 }
+               } else {
+          // Regular format: +43 123456789 or similar
+          const m = fullNumber.match(/^(\+?[\d]+)\s*(.*)$/)
+          if (m) { 
+            newTelefonStates[telKey] = { 
+              vorwahl: m[1] || '', 
+              rest: (m[2] || '').replace(/\s+/g,''),
+              oesterreich: { vorwahl: '', bereich: '', nummer: '' }
+            }
+          } else { 
+            newTelefonStates[telKey] = { 
+              vorwahl: '', 
+              rest: fullNumber,
+              oesterreich: { vorwahl: '', bereich: '', nummer: '' }
+            }
+          }
         }
       } else {
-        newTelefonStates[telKey] = { vorwahl: '', rest: '' }
+        newTelefonStates[telKey] = { 
+          vorwahl: '', 
+          rest: '', 
+          oesterreich: { vorwahl: '', bereich: '', nummer: '' }
+        }
       }
     })
     setTelefonStates(newTelefonStates)
@@ -92,8 +121,13 @@ export default function NeuerEintragDialog({ offen, onClose, keys, displayNames 
     telefonKeys.forEach(telKey => {
       const state = telefonStates[telKey]
       if (state) {
-        const combined = `${state.vorwahl}`.trim() + (state.rest ? ` ${state.rest}` : '')
-        result[telKey] = combined.trim()
+        // Check if Austrian format should be used
+        if (state.vorwahl === '+43' && state.oesterreich.bereich && state.oesterreich.nummer) {
+          result[telKey] = `+43 ${state.oesterreich.bereich} ${state.oesterreich.nummer}`
+        } else {
+          const combined = `${state.vorwahl}`.trim() + (state.rest ? ` ${state.rest}` : '')
+          result[telKey] = combined.trim()
+        }
       }
     })
     const svKey = felder.find(k => (gruppen[k]||[]).some(g => g.includes('svnr')))
@@ -203,42 +237,101 @@ export default function NeuerEintragDialog({ offen, onClose, keys, displayNames 
                       style={inputStyle}
                     />
                   ) : isTel ? (
-                    <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr', gap: 12, alignItems: 'stretch' }}>
-                      <input
-                        name={`${k}-vorwahl`}
-                        list={`${k}-vorwahl-list`}
-                        value={telefonStates[k]?.vorwahl || ''}
-                        onChange={e=> {
-                          const newValue = e.currentTarget.value
-                          setTelefonStates(prev => ({
-                            ...prev,
-                            [k]: { ...prev[k], vorwahl: newValue }
-                          }))
-                        }}
-                        placeholder="Vorwahl"
-                        style={inputStyle}
-                      />
-                      <datalist id={`${k}-vorwahl-list`}>
-                        {vorwahlOptionen.map(v => (
-                          <option key={`${v.iso2}-${v.prefix}`} value={v.prefix}>
-                            {findeVorwahlLabel(v)}
-                          </option>
-                        ))}
-                      </datalist>
-                      <input 
-                        name={`${k}-rest`} 
-                        value={telefonStates[k]?.rest || ''} 
-                        onChange={e=> {
-                          const newValue = e.currentTarget.value.replace(/\D+/g,'')
-                          setTelefonStates(prev => ({
-                            ...prev,
-                            [k]: { ...prev[k], rest: newValue }
-                          }))
-                        }} 
-                        inputMode="numeric" 
-                        placeholder="Nummer"
-                        style={inputStyle}
-                      />
+                    <div>
+                      {telefonStates[k]?.vorwahl === '+43' ? (
+                        // Austrian format: +43 XXX XXXXXXX
+                        <div style={{ display: 'grid', gridTemplateColumns: '80px 80px 1fr', gap: 8, alignItems: 'stretch' }}>
+                          <input
+                            name={`${k}-vorwahl`}
+                            value="+43"
+                            disabled
+                            style={{ ...inputStyle, background: '#f5f5f5', color: '#666' }}
+                          />
+                          <input
+                            name={`${k}-bereich`}
+                            value={telefonStates[k]?.oesterreich?.bereich || ''}
+                            onChange={e=> {
+                              const newValue = e.currentTarget.value.replace(/\D+/g,'')
+                              setTelefonStates(prev => ({
+                                ...prev,
+                                [k]: { 
+                                  ...prev[k], 
+                                  oesterreich: { 
+                                    ...prev[k]?.oesterreich, 
+                                    bereich: newValue 
+                                  }
+                                }
+                              }))
+                            }}
+                            inputMode="numeric"
+                            placeholder="699"
+                            style={inputStyle}
+                          />
+                          <input
+                            name={`${k}-nummer`}
+                            value={telefonStates[k]?.oesterreich?.nummer || ''}
+                            onChange={e=> {
+                              const newValue = e.currentTarget.value.replace(/\D+/g,'')
+                              setTelefonStates(prev => ({
+                                ...prev,
+                                [k]: { 
+                                  ...prev[k], 
+                                  oesterreich: { 
+                                    ...prev[k]?.oesterreich, 
+                                    nummer: newValue 
+                                  }
+                                }
+                              }))
+                            }}
+                            inputMode="numeric"
+                            placeholder="1234567"
+                            style={inputStyle}
+                          />
+                        </div>
+                      ) : (
+                        // Regular format: Vorwahl + Nummer
+                        <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr', gap: 12, alignItems: 'stretch' }}>
+                          <input
+                            name={`${k}-vorwahl`}
+                            list={`${k}-vorwahl-list`}
+                            value={telefonStates[k]?.vorwahl || ''}
+                            onChange={e=> {
+                              const newValue = e.currentTarget.value
+                              setTelefonStates(prev => ({
+                                ...prev,
+                                [k]: { 
+                                  ...prev[k], 
+                                  vorwahl: newValue,
+                                  oesterreich: { vorwahl: '', bereich: '', nummer: '' }
+                                }
+                              }))
+                            }}
+                            placeholder="Vorwahl"
+                            style={inputStyle}
+                          />
+                          <datalist id={`${k}-vorwahl-list`}>
+                            {vorwahlOptionen.map(v => (
+                              <option key={`${v.iso2}-${v.prefix}`} value={v.prefix}>
+                                {findeVorwahlLabel(v)}
+                              </option>
+                            ))}
+                          </datalist>
+                          <input 
+                            name={`${k}-rest`} 
+                            value={telefonStates[k]?.rest || ''} 
+                            onChange={e=> {
+                              const newValue = e.currentTarget.value.replace(/\D+/g,'')
+                              setTelefonStates(prev => ({
+                                ...prev,
+                                [k]: { ...prev[k], rest: newValue }
+                              }))
+                            }} 
+                            inputMode="numeric" 
+                            placeholder="Nummer"
+                            style={inputStyle}
+                          />
+                        </div>
+                      )}
                     </div>
                   ) : isSv ? (
                     <div style={{ display: 'grid', gridTemplateColumns: '100px 1fr', gap: 12, alignItems: 'stretch' }}>
@@ -260,21 +353,32 @@ export default function NeuerEintragDialog({ offen, onClose, keys, displayNames 
                       />
                     </div>
                   ) : isVorlage ? (
-                    <div>
+                    <div style={{ position: 'relative' }}>
                       <input
                         name={k}
-                        list={`${k}-vorlagen-list`}
                         value={String(werte[k] ?? '')}
-                        autoComplete="off"
-                        onChange={(e)=> setWerte(prev => ({ ...prev, [k]: (e.target as any)?.value ?? '' }))}
-                        onInput={(e)=> setWerte(prev => ({ ...prev, [k]: (e.target as any)?.value ?? '' }))}
+                        onChange={(e)=> { setWerte(prev => ({ ...prev, [k]: e.target.value })); setOpenSuggestKey(k) }}
+                        onFocus={()=> setOpenSuggestKey(k)}
+                        onBlur={()=> setTimeout(()=> setOpenSuggestKey(prev => prev===k ? null : prev), 120)}
+                        placeholder="Vorlage eingeben oder auswählen"
                         style={inputStyle}
+                        autoComplete="off"
                       />
-                      <datalist id={`${k}-vorlagen-list`}>
-                        {(vorlagenWerte[k] || []).map(v => (
-                          <option key={v} value={v} />
-                        ))}
-                      </datalist>
+                      {openSuggestKey === k && (
+                        <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 2000, background: '#fff', border: '1px solid #ddd', borderRadius: 6, maxHeight: 260, overflowY: 'auto', boxShadow: '0 8px 20px rgba(0,0,0,0.15)', marginTop: 4 }}>
+                          {(vorlagenWerte[k] || [])
+                            .filter(v => String(v||'').toLowerCase().includes(String(werte[k]||'').toLowerCase()))
+                            .map(v => (
+                              <div
+                                key={v}
+                                onMouseDown={(e)=> { e.preventDefault(); setWerte(prev => ({ ...prev, [k]: v || '' })); setOpenSuggestKey(null) }}
+                                style={{ padding: '8px 12px', cursor: 'pointer', borderBottom: '1px solid #f1f5f9' }}
+                              >
+                                {v}
+                              </div>
+                            ))}
+                        </div>
+                      )}
                     </div>
                   ) : (isBetreuer1 || isBetreuer2) ? (
                     <div style={{ position: 'relative' }}>
