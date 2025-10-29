@@ -9,14 +9,20 @@ contextBridge.exposeInMainWorld('api', {
   quitAndInstall: () => ipcRenderer.invoke('update:install'),
   getConfig: () => ipcRenderer.invoke('config:get'),
   setConfig: (partial) => ipcRenderer.invoke('config:set', partial),
+  exportSettings: () => ipcRenderer.invoke('settings:export'),
+  importSettings: (payload) => ipcRenderer.invoke('settings:import', payload),
   chooseDirectory: (title) => ipcRenderer.invoke('dialog:chooseDirectory', title),
+  chooseFile: (title, filters) => ipcRenderer.invoke('dialog:chooseFile', { title, filters }),
   checkLibreOffice: () => ipcRenderer.invoke('api:checkLibreOffice'),
+  checkLibreOfficeDetailed: () => ipcRenderer.invoke('api:checkLibreOfficeDetailed'),
   installLibreOffice: () => ipcRenderer.invoke('api:installLibreOffice'),
   checkHomebrew: () => ipcRenderer.invoke('api:checkHomebrew'),
   installHomebrew: () => ipcRenderer.invoke('api:installHomebrew'),
   getPlatform: () => ipcRenderer.invoke('api:getPlatform'),
   checkChocolatey: () => ipcRenderer.invoke('api:checkChocolatey'),
   restartApp: () => ipcRenderer.invoke('app:restart'),
+  onLibreInstallProgress: (cb) => ipcRenderer.on('libre:install:progress', (_e, p) => cb(p)),
+  offLibreInstallProgress: (cb) => ipcRenderer.removeListener('libre:install:progress', cb),
   
   // Mail
   mail: {

@@ -14,9 +14,20 @@ export default function Layout({ children }: Props) {
       return false
     }
   })
+  const [rechnungenOpen, setRechnungenOpen] = useState(() => {
+    try {
+      const raw = localStorage.getItem('sidebar:rechnungenOpen')
+      return raw === '1'
+    } catch {
+      return false
+    }
+  })
   useEffect(() => {
     try { localStorage.setItem('sidebar:archivOpen', archivOpen ? '1' : '0') } catch {}
   }, [archivOpen])
+  useEffect(() => {
+    try { localStorage.setItem('sidebar:rechnungenOpen', rechnungenOpen ? '1' : '0') } catch {}
+  }, [rechnungenOpen])
   return (
     <div style={{ display: 'flex', height: '100vh', width: '100vw', overflow: 'hidden' }}>
       <nav style={{ 
@@ -142,21 +153,57 @@ export default function Layout({ children }: Props) {
             )}
           </li>
           <li>
-            <NavLink 
-              to={'/rechnungen'}
-              style={({ isActive }) => ({
-                display: 'block',
-                padding: '10px 12px',
-                borderRadius: 10,
-                textDecoration: 'none',
-                color: isActive ? '#0b4de0' : '#334155',
-                fontWeight: 600,
-                background: isActive ? '#eef4ff' : 'transparent',
-                border: isActive ? '1px solid #dbe6ff' : '1px solid transparent'
-              })}
-            >
+            <button onClick={()=> { const next = !rechnungenOpen; setRechnungenOpen(next); try { localStorage.setItem('sidebar:rechnungenOpen', next ? '1' : '0') } catch {} }} style={{
+              width: '100%',
+              textAlign: 'left',
+              padding: '10px 12px',
+              borderRadius: 10,
+              border: '1px solid transparent',
+              background: 'transparent',
+              color: '#334155',
+              fontWeight: 600,
+              cursor: 'pointer'
+            }}>
               Rechnungen
-            </NavLink>
+            </button>
+            {rechnungenOpen && (
+              <ul style={{ listStyle: 'none', padding: 0, margin: '4px 0 0 8px', display: 'grid', gap: 4 }}>
+                <li>
+                  <NavLink 
+                    to={'/rechnungen/manuell'}
+                    style={({ isActive }) => ({
+                      display: 'block',
+                      padding: '8px 10px',
+                      borderRadius: 8,
+                      textDecoration: 'none',
+                      color: isActive ? '#0b4de0' : '#334155',
+                      fontWeight: 600,
+                      background: isActive ? '#eef4ff' : 'transparent',
+                      border: isActive ? '1px solid #dbe6ff' : '1px solid transparent'
+                    })}
+                  >
+                    Manuell
+                  </NavLink>
+                </li>
+                <li>
+                  <NavLink 
+                    to={'/rechnungen/automatisch'}
+                    style={({ isActive }) => ({
+                      display: 'block',
+                      padding: '8px 10px',
+                      borderRadius: 8,
+                      textDecoration: 'none',
+                      color: isActive ? '#0b4de0' : '#334155',
+                      fontWeight: 600,
+                      background: isActive ? '#eef4ff' : 'transparent',
+                      border: isActive ? '1px solid #dbe6ff' : '1px solid transparent'
+                    })}
+                  >
+                    Automatisch
+                  </NavLink>
+                </li>
+              </ul>
+            )}
           </li>
         </ul>
         <div style={{ marginTop: 'auto' }}>

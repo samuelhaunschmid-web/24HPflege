@@ -62,13 +62,21 @@ async function sendMailWithOAuth2(app, cfg, payload) {
     },
   })
 
+  // Normalisiere Attachment-Namen: nie absolute Pfade im Dateinamen
+  const attachments = Array.isArray(payload?.attachments) ? payload.attachments.map(att => {
+    try {
+      const filename = att?.filename || path.basename(att?.path || '') || 'Anhang';
+      return { ...att, filename };
+    } catch { return att }
+  }) : undefined
+
   const mailOptions = {
     from: fromName ? `${fromName} <${fromAddress}>` : fromAddress,
     to: payload?.to,
     subject: payload?.subject || '',
     text: payload?.text || undefined,
     html: payload?.html || undefined,
-    attachments: Array.isArray(payload?.attachments) ? payload.attachments : undefined,
+    attachments,
   }
 
   const maxAttempts = 3

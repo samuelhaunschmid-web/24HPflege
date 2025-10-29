@@ -6,9 +6,12 @@
     "start": "electron .",
     "dev": "concurrently \"npm:renderer:dev\" \"npm:electron:dev\"",
     "renderer:dev": "npm --prefix renderer run dev",
-    "electron:dev": "wait-on tcp:5173 && ELECTRON_START_URL=http://localhost:5173 electron .",
+    "electron:dev": "wait-on tcp:5173 && cross-env ELECTRON_START_URL=http://localhost:5173 electron .",
     "build": "npm run build:renderer && electron-builder",
     "build:renderer": "npm --prefix renderer run build",
+    "build:installer": "npm run build:renderer && electron-builder --win nsis",
+    "build:portable": "npm run build:renderer && electron-builder --win portable",
+    "build:all": "npm run build:renderer && electron-builder --win",
     "icons": "node scripts/gen-icons.mjs",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -23,14 +26,15 @@
     "nodemailer": "^7.0.9",
     "officegen": "^0.6.5",
     "pizzip": "^3.2.0",
-    "xlsx": "^0.18.5"
+    "xlsx": "^0.18.5",
+    "electron-updater": "^6.6.2"
   },
   "devDependencies": {
     "concurrently": "^9.2.1",
+    "cross-env": "^7.0.3",
     "electron": "^36.4.0",
     "electron-builder": "^26.0.12",
     "electron-reload": "^2.0.0-alpha.1",
-    "electron-updater": "^6.6.2",
     "sharp": "^0.34.4",
     "wait-on": "^9.0.1"
   },
@@ -40,19 +44,42 @@
     "files": [
       "main.js",
       "preload.js",
+      "mailService.js",
       "renderer/dist/**",
+      "node_modules/**",
       "app-icon.*",
       "config.json",
       "RechnungsVorlagen/**"
     ],
     "directories": {
-      "buildResources": "."
+      "buildResources": ".",
+      "output": "releases"
     },
     "win": {
-      "target": "portable",
-      "icon": "app-icon.ico",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        },
+        {
+          "target": "portable",
+          "arch": ["x64"]
+        }
+      ],
+      "icon": "app-icon-512.png",
+      "requestedExecutionLevel": "asInvoker",
       "forceCodeSigning": false,
       "signAndEditExecutable": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "24h Pflege",
+      "displayLanguageSelector": false,
+      "deleteAppDataOnUninstall": false,
+      "include": "installer.nsh"
     },
     "mac": {
       "icon": "app-icon-512.png"

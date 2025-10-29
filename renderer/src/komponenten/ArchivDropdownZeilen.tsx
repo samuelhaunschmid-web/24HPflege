@@ -22,8 +22,8 @@ export default function ArchivDropdownZeilen({ daten, ausblenden = ['__display',
         const isOpen = openId === row.__key
         return (
           <div key={row.__key || i} style={{ borderBottom: '1px solid #f1f5f9' }}>
-            <button onClick={()=> setOpenId(isOpen ? null : (row.__key || String(i)))} style={{ width: '100%', textAlign: 'left', padding: '12px 14px', background: 'transparent', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }}>
-              <div style={{ fontWeight: 600 }}>{title}</div>
+            <button onClick={()=> setOpenId(isOpen ? null : (row.__key || String(i)))} style={{ width: '100%', textAlign: 'left', padding: '12px 14px', background: 'transparent', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', color: '#1f2937', WebkitFontSmoothing: 'subpixel-antialiased', MozOsxFontSmoothing: 'auto', textRendering: 'optimizeLegibility' }}>
+              <div style={{ fontWeight: 600, color: '#1f2937' }}>{title}</div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 {typeof rechtsAktionen === 'function' ? rechtsAktionen(row) : null}
                 <span style={{ color: '#64748b' }}>{isOpen ? '▾' : '▸'}</span>
@@ -42,7 +42,7 @@ export default function ArchivDropdownZeilen({ daten, ausblenden = ['__display',
                     return (
                       <>
                         <div style={{ color: '#64748b' }}>{key}</div>
-                        <div style={{ whiteSpace: 'pre-wrap' }}>{text}</div>
+                        <div style={{ whiteSpace: 'pre-wrap', color: '#1f2937' }}>{text}</div>
                       </>
                     )
                   })}

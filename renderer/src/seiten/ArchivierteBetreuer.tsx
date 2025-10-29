@@ -45,7 +45,16 @@ export default function ArchivierteBetreuer() {
           <h2 style={{ margin: 0 }}>Archivierte Betreuer</h2>
           <CountBadge count={gefiltert.length} />
           <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
-            <input placeholder="Suchen" value={query} onChange={e=> setQuery(e.target.value)} style={{ padding: '6px 8px', border: '1px solid #ddd', borderRadius: 8 }} />
+            <input placeholder="Suchen" value={query} onChange={e=> setQuery(e.target.value)} style={{ 
+              padding: '8px 12px', 
+              border: '1px solid #d1d5db', 
+              borderRadius: 8,
+              fontSize: '14px',
+              fontFamily: 'inherit',
+              backgroundColor: '#ffffff',
+              color: '#1f2937',
+              boxSizing: 'border-box'
+            }} />
           </div>
         </div>
 

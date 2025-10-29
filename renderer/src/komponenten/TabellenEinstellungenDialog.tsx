@@ -41,6 +41,7 @@ export default function TabellenEinstellungenDialog({ offen, onClose, keys, disp
         if (isInGruppe(k,'betreuer1_anfang')) list.push('betreuer1_anfang')
         if (isInGruppe(k,'betreuer2')) list.push('betreuer2')
         if (isInGruppe(k,'betreuer2_anfang')) list.push('betreuer2_anfang')
+        if (isInGruppe(k,'altbetreuer')) list.push('altbetreuer')
         if (list.length) g[k] = list
       })
       setDraftGruppen(g)
@@ -66,8 +67,8 @@ export default function TabellenEinstellungenDialog({ offen, onClose, keys, disp
         </div>
         <div style={{ padding: 12, overflow: 'auto', flex: '1 1 auto' }}>
           <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-            <button onClick={()=>setTab('zuordnung')} style={{ padding: '6px 10px', background: tab==='zuordnung' ? '#005bd1' : '#f2f2f2', color: tab==='zuordnung' ? '#fff':'#333', border: 0, borderRadius: 6 }}>Zuordnung</button>
-            <button onClick={()=>setTab('name')} style={{ padding: '6px 10px', background: tab==='name' ? '#005bd1' : '#f2f2f2', color: tab==='name' ? '#fff':'#333', border: 0, borderRadius: 6 }}>Name</button>
+            <button onClick={()=>setTab('zuordnung')} style={{ padding: '6px 10px', background: tab==='zuordnung' ? '#005bd1' : '#f2f2f2', color: tab==='zuordnung' ? '#fff':'#1f2937', border: 0, borderRadius: 6, fontWeight: '600', WebkitFontSmoothing: 'subpixel-antialiased', MozOsxFontSmoothing: 'auto', textRendering: 'optimizeLegibility' }}>Zuordnung</button>
+            <button onClick={()=>setTab('name')} style={{ padding: '6px 10px', background: tab==='name' ? '#005bd1' : '#f2f2f2', color: tab==='name' ? '#fff':'#1f2937', border: 0, borderRadius: 6, fontWeight: '600', WebkitFontSmoothing: 'subpixel-antialiased', MozOsxFontSmoothing: 'auto', textRendering: 'optimizeLegibility' }}>Name</button>
           </div>
 
           {tab==='zuordnung' && (
@@ -92,11 +93,12 @@ export default function TabellenEinstellungenDialog({ offen, onClose, keys, disp
                   { key: 'betreuer2_anfang', label: 'Betreuer 2 Anfang', color: '#6b7280' },
                   { key: 'wichtig', label: 'Wichtig', color: '#9333ea' },
                   { key: 'datum', label: 'Datum', color: '#b45309' },
+                  { key: 'altbetreuer', label: 'Altbetreuer', color: '#7c3aed' },
                 ]
                 const name = displayNames[k] || k
                 return (
                   <div key={k} style={{ display: 'flex', alignItems: 'center', gap: 10, border: '1px solid #eee', borderRadius: 8, padding: '6px 8px', background: '#fafafa' }}>
-                    <div style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</div>
+                    <div style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#1f2937', fontWeight: '600', WebkitFontSmoothing: 'subpixel-antialiased', MozOsxFontSmoothing: 'auto', textRendering: 'optimizeLegibility' }}>{name}</div>
                     <div style={{ display: 'flex', gap: 6, flexWrap: 'nowrap', overflowX: 'auto', paddingBottom: 2 }}>
                       {chips.map(c => {
                         const active = (draftGruppen[k] || []).includes(c.key)
@@ -189,7 +191,7 @@ export default function TabellenEinstellungenDialog({ offen, onClose, keys, disp
               sichtbareKeys.forEach(k => {
                 if (draftNames[k] !== undefined) setDisplayName(k, draftNames[k])
                 const list = draftGruppen[k] || []
-                ;(['vorname','nachname','svnr','telefon','geburtsdatum','anfang','ende','vorlage','rechnungsmail','betreuer1','betreuer1_anfang','betreuer2','betreuer2_anfang','wichtig','datum'] as SpaltenGruppe[]).forEach(g => {
+                ;(['vorname','nachname','svnr','telefon','geburtsdatum','anfang','ende','vorlage','rechnungsmail','betreuer1','betreuer1_anfang','betreuer2','betreuer2_anfang','wichtig','datum','altbetreuer'] as SpaltenGruppe[]).forEach(g => {
                   const has = list.includes(g)
                   const is = isInGruppe(k, g)
                   if (has !== is) toggleGruppe(k, g)

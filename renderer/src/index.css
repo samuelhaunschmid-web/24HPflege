@@ -1,16 +1,19 @@
 :root {
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
   line-height: 1.5;
   font-weight: 400;
 
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
+  /* Erzwinge helle Controls (verhindert schwarze Checkboxen/Radio) */
+  color-scheme: light;
+  color: #213547;
+  background-color: #ffffff;
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 a {
@@ -35,6 +38,31 @@ body {
 h1 {
   font-size: 3.2em;
   line-height: 1.1;
+  color: #1f2937;
+  font-weight: 700;
+  -webkit-font-smoothing: subpixel-antialiased;
+  -moz-osx-font-smoothing: auto;
+  text-rendering: optimizeLegibility;
+}
+
+h2 {
+  color: #1f2937;
+  font-weight: 700;
+  font-size: 1.5em;
+  line-height: 1.3;
+  -webkit-font-smoothing: subpixel-antialiased;
+  -moz-osx-font-smoothing: auto;
+  text-rendering: optimizeLegibility;
+}
+
+h3 {
+  color: #1f2937;
+  font-weight: 600;
+  font-size: 1.25em;
+  line-height: 1.4;
+  -webkit-font-smoothing: subpixel-antialiased;
+  -moz-osx-font-smoothing: auto;
+  text-rendering: optimizeLegibility;
 }
 
 button {
@@ -45,15 +73,23 @@ button {
   font-weight: 500;
   font-family: inherit;
   background-color: #1a1a1a;
+  color: #ffffff;
   cursor: pointer;
   transition: border-color 0.25s;
+  -webkit-font-smoothing: subpixel-antialiased;
+  -moz-osx-font-smoothing: auto;
+  text-rendering: optimizeLegibility;
 }
 button:hover {
   border-color: #646cff;
+  background-color: #2a2a2a;
 }
 button:focus,
 button:focus-visible {
   outline: 4px auto -webkit-focus-ring-color;
+}
+button:active {
+  background-color: #0a0a0a;
 }
 
 @media (prefers-color-scheme: light) {
@@ -66,5 +102,225 @@ button:focus-visible {
   }
   button {
     background-color: #f9f9f9;
+    color: #1f2937;
+    border: 1px solid #d1d5db;
+  }
+  button:hover {
+    background-color: #e5e7eb;
+    border-color: #9ca3af;
+  }
+  button:active {
+    background-color: #d1d5db;
   }
 }
+
+/* Native Checkboxen und Radios klar und hell darstellen */
+input[type="checkbox"], input[type="radio"] {
+  accent-color: #2563eb; /* blau */
+  background-color: #ffffff;
+  border: 1px solid #cbd5e1;
+  width: 16px;
+  height: 16px;
+}
+input[type="checkbox"]:disabled, input[type="radio"]:disabled {
+  accent-color: #93c5fd;
+  opacity: 0.8;
+}
+
+/* Windows-spezifische Optimierungen */
+@media screen and (-webkit-min-device-pixel-ratio: 1) {
+  * {
+    -webkit-font-smoothing: subpixel-antialiased;
+    -moz-osx-font-smoothing: auto;
+  }
+}
+
+/* Bessere Lesbarkeit für Windows */
+input, textarea, select {
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.4;
+  -webkit-font-smoothing: subpixel-antialiased;
+  -moz-osx-font-smoothing: auto;
+}
+
+/* Verbesserte Kontraste für Windows */
+label {
+  color: #1f2937;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+/* Bessere Button-Darstellung auf Windows */
+button {
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  -webkit-font-smoothing: subpixel-antialiased;
+  -moz-osx-font-smoothing: auto;
+  text-rendering: optimizeLegibility;
+  line-height: 1.4;
+  letter-spacing: 0.025em;
+}
+
+/* Spezifische Button-Styles für bessere Lesbarkeit */
+button[style*="background: #fff"] {
+  color: #1f2937 !important;
+  font-weight: 600 !important;
+  border: 1px solid #d1d5db !important;
+}
+
+button[style*="background: #005bd1"] {
+  color: #ffffff !important;
+  font-weight: 700 !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+button[style*="background: #e0f2fe"] {
+  color: #0369a1 !important;
+  font-weight: 600 !important;
+}
+
+button[style*="background: #f0fdf4"] {
+  color: #166534 !important;
+  font-weight: 600 !important;
+}
+
+button[style*="background: #fef2f2"] {
+  color: #991b1b !important;
+  font-weight: 600 !important;
+}
+
+/* Zusätzliche Button-Styles für bessere Lesbarkeit */
+button[style*="border: 1px solid #ddd"] {
+  color: #1f2937 !important;
+  font-weight: 600 !important;
+  background-color: #ffffff !important;
+  border: 1px solid #d1d5db !important;
+}
+
+button[style*="border: 1px solid #0ea5e9"] {
+  color: #0369a1 !important;
+  font-weight: 600 !important;
+  background-color: #e0f2fe !important;
+}
+
+button[style*="border: 1px solid #16a34a"] {
+  color: #166534 !important;
+  font-weight: 600 !important;
+  background-color: #f0fdf4 !important;
+}
+
+button[style*="border: 1px solid #ef4444"] {
+  color: #991b1b !important;
+  font-weight: 600 !important;
+  background-color: #fef2f2 !important;
+}
+
+/* Spezielle Styles für kleine Buttons */
+button[style*="width: 36"] {
+  font-size: 12px !important;
+  font-weight: 700 !important;
+}
+
+button[style*="width: 32"] {
+  font-size: 12px !important;
+  font-weight: 700 !important;
+}
+
+/* Seitentitel optimieren */
+h2[style*="margin: 0"] {
+  color: #1f2937 !important;
+  font-weight: 700 !important;
+  font-size: 1.5em !important;
+  line-height: 1.3 !important;
+  -webkit-font-smoothing: subpixel-antialiased !important;
+  -moz-osx-font-smoothing: auto !important;
+  text-rendering: optimizeLegibility !important;
+}
+
+/* Navigation-Titel optimieren */
+h3[style*="margin: 0"] {
+  color: #1f2937 !important;
+  font-weight: 600 !important;
+  font-size: 1.25em !important;
+  line-height: 1.4 !important;
+  -webkit-font-smoothing: subpixel-antialiased !important;
+  -moz-osx-font-smoothing: auto !important;
+  text-rendering: optimizeLegibility !important;
+}
+
+/* Label-Titel optimieren */
+label[style*="fontWeight: 700"] {
+  color: #1f2937 !important;
+  font-weight: 700 !important;
+  -webkit-font-smoothing: subpixel-antialiased !important;
+  -moz-osx-font-smoothing: auto !important;
+  text-rendering: optimizeLegibility !important;
+}
+
+    /* Alle Titel-Elemente optimieren */
+    h1, h2, h3, h4, h5, h6 {
+      color: #1f2937 !important;
+      -webkit-font-smoothing: subpixel-antialiased !important;
+      -moz-osx-font-smoothing: auto !important;
+      text-rendering: optimizeLegibility !important;
+    }
+
+    /* Tabellen-Lesbarkeit verbessern */
+    table, tbody, thead, tr, td, th {
+      color: #1f2937 !important;
+      background-color: #ffffff !important;
+      -webkit-font-smoothing: subpixel-antialiased !important;
+      -moz-osx-font-smoothing: auto !important;
+      text-rendering: optimizeLegibility !important;
+    }
+
+    /* Dropdown-Listen Lesbarkeit */
+    select, option {
+      color: #1f2937 !important;
+      background-color: #ffffff !important;
+      -webkit-font-smoothing: subpixel-antialiased !important;
+      -moz-osx-font-smoothing: auto !important;
+      text-rendering: optimizeLegibility !important;
+    }
+
+    /* Custom Dropdown-Listen */
+    [style*="background: #fff"], [style*="background: #ffffff"] {
+      color: #1f2937 !important;
+    }
+
+    /* Tabellen-Zeilen */
+    [style*="background: #fff"] div, [style*="background: #ffffff"] div {
+      color: #1f2937 !important;
+    }
+
+    /* Dropdown-Items */
+    [style*="padding: '8px 10px'"] {
+      color: #1f2937 !important;
+    }
+
+    /* Tabellen-Dropdown-Zeilen */
+    [style*="background: #fafafa"] {
+      color: #1f2937 !important;
+    }
+
+    /* Tabellen-Einstellungen */
+    [style*="background: #f2f2f2"] {
+      color: #1f2937 !important;
+    }
+
+    /* Alle weißen Hintergründe mit dunkler Schrift */
+    [style*="background: #fff"], [style*="background: #ffffff"], [style*="background: #fafafa"], [style*="background: #f2f2f2"] {
+      color: #1f2937 !important;
+    }
+
+    /* Spezifische Tabellen-Styles */
+    [style*="border: '1px solid #eee'"] {
+      color: #1f2937 !important;
+    }
+
+    /* Dropdown-Hover-Effekte */
+    [style*="background: #f8fafc"] {
+      color: #1f2937 !important;
+    }

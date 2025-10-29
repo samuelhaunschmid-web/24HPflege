@@ -133,7 +133,10 @@ export default function TabelleDropdownZeilen({ daten, displayNames = {}, wichti
   }
 
   function getAltbetreuerFieldKey(): string | undefined {
-    // Heuristik: Spalte heißt typischerweise "Altbetreuer"
+    // 1) Konfiguration bevorzugen
+    const cfgKey = keys.find(k => (gruppen[k] || []).includes('altbetreuer'))
+    if (cfgKey) return cfgKey
+    // 2) Heuristik als Fallback
     const k = keys.find(k => /alt\s*betreuer/i.test(k) || /^altbetreuer$/i.test(k))
     return k
   }
@@ -196,7 +199,7 @@ export default function TabelleDropdownZeilen({ daten, displayNames = {}, wichti
             style={{ border: '1px solid #e5e7eb', borderRadius: 8, overflow: 'hidden', width: '100%' }}
           >
             <div style={{ width: '100%', padding: '10px 12px', background: '#f7f9fc', position: 'relative' }}>
-              <div onClick={() => setOffenIndex(istOffen ? null : i)} style={{ fontWeight: 600, cursor: 'pointer', userSelect: 'none', paddingRight: 56, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{title}</div>
+              <div onClick={() => setOffenIndex(istOffen ? null : i)} style={{ fontWeight: 600, cursor: 'pointer', userSelect: 'none', paddingRight: 56, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: '#1f2937', WebkitFontSmoothing: 'subpixel-antialiased', MozOsxFontSmoothing: 'auto', textRendering: 'optimizeLegibility' }}>{title}</div>
               
               {/* Betreuer-Anzeige in der Mitte für Kunden (auch wenn offen) */}
               {tableId === 'kunden' && (
@@ -209,7 +212,7 @@ export default function TabelleDropdownZeilen({ daten, displayNames = {}, wichti
                   gap: '12px',
                   alignItems: 'center',
                   fontSize: '12px',
-                  color: '#666'
+                  color: '#1f2937'
                 }}>
                   {(() => {
                     const betreuer1Key = getBetreuerFieldKey(1)
@@ -357,7 +360,7 @@ export default function TabelleDropdownZeilen({ daten, displayNames = {}, wichti
                           borderRadius: '50%', 
                           background: position === 1 ? '#4caf50' : '#ff9800'
                         }} />
-                        <span>{kunde.__display || ''}</span>
+                        <span style={{ color: '#1f2937', fontWeight: '500' }}>{kunde.__display || ''}</span>
                         <span style={{ fontSize: '10px', opacity: 0.7 }}>({position})</span>
                       </div>
                     ))}
@@ -473,16 +476,22 @@ export default function TabelleDropdownZeilen({ daten, displayNames = {}, wichti
                           borderRight: '1px solid #eee',
                           borderBottom: '1px solid #eee',
                           background: highlightEmpty ? '#fee2e2' : highlightFilled ? '#dcfce7' : '#fafafa',
-                          color: highlightEmpty ? '#dc2626' : highlightFilled ? '#16a34a' : '#444',
-                          fontWeight: (highlightEmpty || highlightFilled) ? '600' : 'normal'
+                          color: highlightEmpty ? '#dc2626' : highlightFilled ? '#16a34a' : '#1f2937',
+                          fontWeight: (highlightEmpty || highlightFilled) ? '600' : 'normal',
+                          WebkitFontSmoothing: 'subpixel-antialiased',
+                          MozOsxFontSmoothing: 'auto',
+                          textRendering: 'optimizeLegibility'
                         } as React.CSSProperties
                         const valueStyle = {
                           padding: '6px 8px',
                           borderBottom: '1px solid #eee',
                           whiteSpace: 'pre-wrap',
                           background: highlightEmpty ? '#fee2e2' : highlightFilled ? '#dcfce7' : '#fff',
-                          color: highlightEmpty ? '#dc2626' : highlightFilled ? '#16a34a' : '#333',
-                          fontWeight: highlightFilled ? '500' : 'normal'
+                          color: highlightEmpty ? '#dc2626' : highlightFilled ? '#16a34a' : '#1f2937',
+                          fontWeight: highlightFilled ? '500' : 'normal',
+                          WebkitFontSmoothing: 'subpixel-antialiased',
+                          MozOsxFontSmoothing: 'auto',
+                          textRendering: 'optimizeLegibility'
                         } as React.CSSProperties
                         let text = isEmpty ? '' : String(value)
                         // format display for datum / anfang / ende

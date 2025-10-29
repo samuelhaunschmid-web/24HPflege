@@ -21,9 +21,12 @@ export default function Rechnungen() {
   const [mailText, setMailText] = useState<string>('Guten Tag,\n\nim Anhang finden Sie die Rechnung.\n\nMit freundlichen Grüßen')
   const [empfaenger, setEmpfaenger] = useState<Record<string,string>>({})
   const [emailTemplates, setEmailTemplates] = useState<Record<string, { subject: string; text: string; name: string }>>({})
-  const [selectedTemplate, setSelectedTemplate] = useState<string>('')
+  const NEW_TEMPLATE_ID = '__NEUE_EMAIL__'
+  const [selectedTemplate, setSelectedTemplate] = useState<string>(NEW_TEMPLATE_ID)
   const [showTemplateDialog, setShowTemplateDialog] = useState<boolean>(false)
   const [newTemplateName, setNewTemplateName] = useState<string>('')
+  const [newTemplateSubject, setNewTemplateSubject] = useState<string>('')
+  const [newTemplateText, setNewTemplateText] = useState<string>('')
 
 
   const verrechnungsZeitraum = useMemo(() => {
@@ -53,6 +56,14 @@ export default function Rechnungen() {
       if (config?.emailTemplates && typeof config.emailTemplates === 'object') {
         setEmailTemplates(config.emailTemplates as Record<string, { subject: string; text: string; name: string }>)
       }
+      // Wenn "Neue-Email" aktiv ist, Felder leer halten
+      setSelectedTemplate(prev => {
+        if (prev === NEW_TEMPLATE_ID) {
+          setMailSubject('')
+          setMailText('')
+        }
+        return prev
+      })
       
       // Auto-Fill E-Mail-Adressen aus Rechnungsmail-Spalte
       if (lists?.kunden && Array.isArray(lists.kunden)) {
@@ -96,14 +107,18 @@ export default function Rechnungen() {
     if (!newTemplateName.trim()) return
     const templateId = `template_${Date.now()}`
     const newTemplate = {
-      subject: mailSubject,
-      text: mailText,
+      subject: newTemplateSubject,
+      text: newTemplateText,
       name: newTemplateName.trim()
     }
     const updatedTemplates = { ...emailTemplates, [templateId]: newTemplate }
     setEmailTemplates(updatedTemplates)
     setSelectedTemplate(templateId)
+    setMailSubject(newTemplateSubject)
+    setMailText(newTemplateText)
     setNewTemplateName('')
+    setNewTemplateSubject('')
+    setNewTemplateText('')
     setShowTemplateDialog(false)
     
     // Speichere in Config
@@ -113,6 +128,12 @@ export default function Rechnungen() {
   }
 
   const loadTemplate = (templateId: string) => {
+    if (templateId === NEW_TEMPLATE_ID) {
+      setMailSubject('')
+      setMailText('')
+      setSelectedTemplate(NEW_TEMPLATE_ID)
+      return
+    }
     const template = emailTemplates[templateId]
     if (template) {
       setMailSubject(template.subject)
@@ -126,7 +147,9 @@ export default function Rechnungen() {
     delete updatedTemplates[templateId]
     setEmailTemplates(updatedTemplates)
     if (selectedTemplate === templateId) {
-      setSelectedTemplate('')
+      setSelectedTemplate(NEW_TEMPLATE_ID)
+      setMailSubject('')
+      setMailText('')
     }
     
     // Speichere in Config
@@ -247,6 +270,10 @@ export default function Rechnungen() {
               setIsLoading(false)
               if (mailRes?.ok) {
                 alert('Rechnungen erstellt und E-Mails versendet.')
+                if (selectedTemplate === NEW_TEMPLATE_ID) {
+                  setMailSubject('')
+                  setMailText('')
+                }
               } else {
                 alert('Rechnungen erstellt, aber Mailversand fehlgeschlagen.')
               }
@@ -282,7 +309,17 @@ export default function Rechnungen() {
         <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <label style={{ fontSize: 13, fontWeight: 700 }}>Rechnungsnummer</label>
-            <input type="number" value={currentRechnungsnummer} onChange={e => setCurrentRechnungsnummer(Number(e.currentTarget.value))} min={1} style={{ width: 90, padding: '6px 8px', border: '1px solid #ddd', borderRadius: 8, fontSize: 14 }} />
+            <input type="number" value={currentRechnungsnummer} onChange={e => setCurrentRechnungsnummer(Number(e.currentTarget.value))} min={1} style={{ 
+              width: 90, 
+              padding: '8px 12px', 
+              border: '1px solid #d1d5db', 
+              borderRadius: 8, 
+              fontSize: 14,
+              fontFamily: 'inherit',
+              backgroundColor: '#ffffff',
+              color: '#1f2937',
+              boxSizing: 'border-box'
+            }} />
           </div>
           <div style={{ background: '#0f172a', color: '#fff', padding: '6px 10px', borderRadius: 999, fontSize: 12, fontWeight: 700 }}>Nächste: {currentRechnungsnummer}</div>
         </div>
@@ -310,10 +347,10 @@ export default function Rechnungen() {
                       const cfg = await window.api?.getConfig?.();
                       setVorlagenDisplayNames((cfg?.invoiceTemplateDisplayNames||{}) as Record<string,string>)
                       setEditVorlagen(false)
-                    }} style={{ padding: '6px 10px', border: '1px solid #ddd', background: '#fff', borderRadius: 8, cursor: 'pointer' }}>Abbrechen</button>
+                    }} style={{ padding: '6px 10px', border: '1px solid #ddd', background: '#fff', color: '#1f2937', borderRadius: 8, cursor: 'pointer' }}>Abbrechen</button>
                   </>
                 )}
-                <button title={editVorlagen ? 'Namen bearbeiten beenden' : 'Vorlagen-Namen bearbeiten'} onClick={()=> setEditVorlagen(v=>!v)} style={{ width: 32, height: 32, borderRadius: 8, border: '1px solid #ddd', background: '#fff', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                <button title={editVorlagen ? 'Namen bearbeiten beenden' : 'Vorlagen-Namen bearbeiten'} onClick={()=> setEditVorlagen(v=>!v)} style={{ width: 32, height: 32, borderRadius: 8, border: '1px solid #ddd', background: '#fff', color: '#1f2937', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
                   <span style={{ fontSize: 16 }}>✎</span>
                 </button>
               </div>
@@ -389,9 +426,14 @@ export default function Rechnungen() {
                 max={12} 
                 style={{ 
                   width: 80, 
-                  padding: '6px 8px',
-                  border: '1px solid #ddd',
-                  borderRadius: 8
+                  padding: '8px 12px',
+                  border: '1px solid #d1d5db',
+                  borderRadius: 8,
+                  fontSize: '14px',
+                  fontFamily: 'inherit',
+                  backgroundColor: '#ffffff',
+                  color: '#1f2937',
+                  boxSizing: 'border-box'
                 }} 
               />
             </div>
@@ -405,9 +447,14 @@ export default function Rechnungen() {
                 max={2100} 
                 style={{ 
                   width: 100, 
-                  padding: '6px 8px',
-                  border: '1px solid #ddd',
-                  borderRadius: 8
+                  padding: '8px 12px',
+                  border: '1px solid #d1d5db',
+                  borderRadius: 8,
+                  fontSize: '14px',
+                  fontFamily: 'inherit',
+                  backgroundColor: '#ffffff',
+                  color: '#1f2937',
+                  boxSizing: 'border-box'
                 }} 
               />
             </div>
@@ -456,23 +503,25 @@ export default function Rechnungen() {
                       onChange={e => loadTemplate(e.currentTarget.value)}
                       style={{ padding: '4px 8px', border: '1px solid #ddd', borderRadius: 6, fontSize: 14 }}
                     >
-                      <option value="">Neue Nachricht</option>
+                      <option value={NEW_TEMPLATE_ID}>Neue-Email</option>
                       {Object.entries(emailTemplates).map(([id, template]) => (
                         <option key={id} value={id}>{template.name}</option>
                       ))}
                     </select>
                     <button 
-                      onClick={() => setShowTemplateDialog(true)}
-                      style={{ padding: '4px 8px', border: '1px solid #0ea5e9', background: '#e0f2fe', color: '#0369a1', borderRadius: 6, fontSize: 12, cursor: 'pointer' }}
+                      title="Neue Vorlage speichern"
+                      onClick={() => { setNewTemplateName(''); setNewTemplateSubject(mailSubject); setNewTemplateText(mailText); setShowTemplateDialog(true) }}
+                      style={{ width: 28, height: 28, border: '1px solid #0ea5e9', background: '#e0f2fe', color: '#0369a1', borderRadius: 6, fontSize: 16, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
                     >
-                      Speichern
+                      +
                     </button>
-                    {selectedTemplate && (
+                    {selectedTemplate && selectedTemplate !== NEW_TEMPLATE_ID && (
                       <button 
                         onClick={() => deleteTemplate(selectedTemplate)}
-                        style={{ padding: '4px 8px', border: '1px solid #dc2626', background: '#fef2f2', color: '#dc2626', borderRadius: 6, fontSize: 12, cursor: 'pointer' }}
+                        title="Vorlage löschen"
+                        style={{ width: 28, height: 28, border: '1px solid #dc2626', background: '#fef2f2', color: '#dc2626', borderRadius: 6, fontSize: 16, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
                       >
-                        Löschen
+                        🗑
                       </button>
                     )}
                   </div>
@@ -482,16 +531,41 @@ export default function Rechnungen() {
                   <input value={mailSubject} onChange={e=> {
                     const v = e && e.currentTarget ? (e.currentTarget.value ?? '') : ((e as any)?.target?.value ?? '')
                     setMailSubject(v)
-                    window.api?.setConfig?.({ mailSubjectTemplate: v })
-                  }} style={{ width: '95%', padding: '6px 8px', border: '1px solid #ddd', borderRadius: 8 }} />
+                    if (selectedTemplate !== NEW_TEMPLATE_ID) {
+                      window.api?.setConfig?.({ mailSubjectTemplate: v })
+                    }
+                  }} style={{ 
+                    width: '95%', 
+                    padding: '8px 12px', 
+                    border: '1px solid #d1d5db', 
+                    borderRadius: 8,
+                    fontSize: '14px',
+                    fontFamily: 'inherit',
+                    backgroundColor: '#ffffff',
+                    color: '#1f2937',
+                    boxSizing: 'border-box'
+                  }} />
                 </div>
                 <div>
                   <label style={{ display: 'block', marginBottom: 4, fontSize: '14px' }}>Nachricht</label>
                   <textarea value={mailText} onChange={e=> {
                     const v = e && e.currentTarget ? (e.currentTarget.value ?? '') : ((e as any)?.target?.value ?? '')
                     setMailText(v)
-                    window.api?.setConfig?.({ mailTextTemplate: v })
-                  }} rows={4} style={{ width: '95%', padding: '6px 8px', border: '1px solid #ddd', borderRadius: 8 }} />
+                    if (selectedTemplate !== NEW_TEMPLATE_ID) {
+                      window.api?.setConfig?.({ mailTextTemplate: v })
+                    }
+                  }} rows={4} style={{ 
+                    width: '95%', 
+                    padding: '8px 12px', 
+                    border: '1px solid #d1d5db', 
+                    borderRadius: 8,
+                    fontSize: '14px',
+                    fontFamily: 'inherit',
+                    backgroundColor: '#ffffff',
+                    color: '#1f2937',
+                    boxSizing: 'border-box',
+                    resize: 'vertical'
+                  }} />
                 </div>
                 <div style={{ fontSize: 12, color: '#64748b' }}>Empfänger pro Kunde unten eingeben.</div>
               </div>
@@ -504,8 +578,8 @@ export default function Rechnungen() {
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
               <label style={{ fontWeight: 700 }}>Kundenauswahl</label>
               <div style={{ display: 'flex', gap: 8 }}>
-                <button onClick={()=> setSelected(Object.fromEntries(sortedKunden.map(k=> [k.__key, { mode: 'monat' as const }])))} style={{ padding: '6px 10px', border: '1px solid #ddd', background: '#fff', borderRadius: 8, cursor: 'pointer' }}>Alle auswählen</button>
-                <button onClick={()=> setSelected({})} style={{ padding: '6px 10px', border: '1px solid #ddd', background: '#fff', borderRadius: 8, cursor: 'pointer' }}>Alle abwählen</button>
+                <button onClick={()=> setSelected(Object.fromEntries(sortedKunden.map(k=> [k.__key, { mode: 'monat' as const }])))} style={{ padding: '6px 10px', border: '1px solid #ddd',color: '#1f2937', background: '#fff', borderRadius: 8, cursor: 'pointer' }}>Alle auswählen</button>
+                <button onClick={()=> setSelected({})} style={{ padding: '6px 10px', border: '1px solid #ddd',color: '#1f2937', background: '#fff', borderRadius: 8, cursor: 'pointer' }}>Alle abwählen</button>
               </div>
             </div>
             <div style={{ 
@@ -689,11 +763,33 @@ export default function Rechnungen() {
                 autoFocus
               />
             </div>
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ display: 'block', marginBottom: 8, fontSize: 14, fontWeight: 500 }}>Betreff:</label>
+              <input
+                type="text"
+                value={newTemplateSubject}
+                onChange={e => setNewTemplateSubject(e.currentTarget.value)}
+                placeholder="Betreff der E-Mail"
+                style={{ width: '95%', padding: '8px 12px', border: '1px solid #ddd', borderRadius: 8, fontSize: 14 }}
+              />
+            </div>
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ display: 'block', marginBottom: 8, fontSize: 14, fontWeight: 500 }}>Nachricht:</label>
+              <textarea
+                value={newTemplateText}
+                onChange={e => setNewTemplateText(e.currentTarget.value)}
+                placeholder="Nachrichtentext der E-Mail"
+                rows={5}
+                style={{ width: '95%', padding: '8px 12px', border: '1px solid #ddd', borderRadius: 8, fontSize: 14, resize: 'vertical' }}
+              />
+            </div>
             <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
               <button
                 onClick={() => {
                   setShowTemplateDialog(false)
                   setNewTemplateName('')
+                  setNewTemplateSubject('')
+                  setNewTemplateText('')
                 }}
                 style={{ padding: '8px 16px', border: '1px solid #ddd', background: '#fff', borderRadius: 8, cursor: 'pointer' }}
               >

@@ -89,7 +89,17 @@ export default function Kunden() {
           value={suche}
           onChange={(e)=> setSuche(e.currentTarget.value)}
           placeholder="Suchen…"
-          style={{ flex: 1, padding: '8px 10px', border: '1px solid #ddd', borderRadius: 10 }}
+          style={{ 
+            flex: 1, 
+            padding: '8px 12px', 
+            border: '1px solid #d1d5db', 
+            borderRadius: 10,
+            fontSize: '14px',
+            fontFamily: 'inherit',
+            backgroundColor: '#ffffff',
+            color: '#1f2937',
+            boxSizing: 'border-box'
+          }}
         />
         <button 
           title="Neu"

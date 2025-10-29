@@ -61,7 +61,16 @@ export default function Startseite() {
         {nodes.map(n => n.type === 'folder' ? (
           <li key={n.relPath}>
             <details>
-              <summary style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <summary style={{ 
+                display: 'flex', 
+                gap: 8, 
+                alignItems: 'center',
+                color: '#1f2937',
+                fontWeight: '600',
+                WebkitFontSmoothing: 'subpixel-antialiased',
+                MozOsxFontSmoothing: 'auto',
+                textRendering: 'optimizeLegibility'
+              }}>
                 <input
                   type="checkbox"
                   checked={isFolderSelected(n)}
@@ -86,7 +95,16 @@ export default function Startseite() {
           </li>
         ) : (
           <li key={n.relPath}>
-            <label style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <label style={{ 
+              display: 'flex', 
+              gap: 8, 
+              alignItems: 'center',
+              color: '#1f2937',
+              fontWeight: '500',
+              WebkitFontSmoothing: 'subpixel-antialiased',
+              MozOsxFontSmoothing: 'auto',
+              textRendering: 'optimizeLegibility'
+            }}>
               <input
                 type="checkbox"
                 checked={selected.includes(n.relPath)}
@@ -194,7 +212,7 @@ export default function Startseite() {
           <div style={{ background: '#fff', border: '1px solid #eaeaea', borderRadius: 10, padding: 12 }}>
             <div style={{ display: 'grid', gap: 10 }}>
               <div>
-                <label style={{ display: 'block', marginBottom: 4, fontSize: '14px' }}>Kunde</label>
+                <label style={{ display: 'block', marginBottom: 4, fontSize: '14px', fontWeight: 600, color: '#1f2937' }}>Kunde</label>
                 <div style={{ position: 'relative' }}>
                 <input 
                   value={kundenQuery}
@@ -212,13 +230,24 @@ export default function Startseite() {
                   }}
                   onFocus={() => setShowKundenDropdown(true)}
                   onBlur={() => setTimeout(() => setShowKundenDropdown(false), 150)}
-                  style={{ padding: '6px 8px', border: '1px solid #ddd', borderRadius: 8, width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}
+                  style={{ 
+                    padding: '8px 12px', 
+                    border: '1px solid #d1d5db', 
+                    borderRadius: 8, 
+                    width: '100%', 
+                    maxWidth: '100%', 
+                    boxSizing: 'border-box',
+                    fontSize: '14px',
+                    fontFamily: 'inherit',
+                    backgroundColor: '#ffffff',
+                    color: '#1f2937'
+                  }}
                 />
                 {/* native datalist entfernt, wir verwenden das benutzerdefinierte Dropdown */}
                 {showKundenDropdown && (
                   <div style={{ position: 'absolute', zIndex: 20, top: 'calc(100% + 4px)', left: 0, right: 0, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, boxShadow: '0 8px 24px rgba(0,0,0,0.12)', maxHeight: 220, overflowY: 'auto' }}>
                     {kundenFiltered.length === 0 ? (
-                      <div style={{ padding: '8px 10px', color: '#64748b' }}>Keine Treffer</div>
+                      <div style={{ padding: '8px 10px', color: '#64748b', fontWeight: '600', WebkitFontSmoothing: 'subpixel-antialiased', MozOsxFontSmoothing: 'auto', textRendering: 'optimizeLegibility' }}>Keine Treffer</div>
                     ) : (
                       kundenFiltered.map((k, i) => (
                         <div
@@ -230,7 +259,7 @@ export default function Startseite() {
                             setKundenQuery(k.label)
                             setShowKundenDropdown(false)
                           }}
-                          style={{ padding: '8px 10px', cursor: 'pointer' }}
+                          style={{ padding: '8px 10px', cursor: 'pointer', color: '#1f2937', fontWeight: '600', WebkitFontSmoothing: 'subpixel-antialiased', MozOsxFontSmoothing: 'auto', textRendering: 'optimizeLegibility' }}
                           onMouseEnter={(e)=>{ (e.currentTarget as HTMLDivElement).style.background = '#f8fafc' }}
                           onMouseLeave={(e)=>{ (e.currentTarget as HTMLDivElement).style.background = 'transparent' }}
                         >
@@ -244,7 +273,7 @@ export default function Startseite() {
               </div>
 
               <div>
-                <label style={{ display: 'block', marginBottom: 4, fontSize: '14px' }}>Betreuer</label>
+                <label style={{ display: 'block', marginBottom: 4, fontSize: '14px', fontWeight: 600, color: '#1f2937' }}>Betreuer</label>
                 <div style={{ position: 'relative' }}>
                 <input 
                   value={betreuerQuery}
@@ -262,13 +291,24 @@ export default function Startseite() {
                   }}
                   onFocus={() => setShowBetreuerDropdown(true)}
                   onBlur={() => setTimeout(() => setShowBetreuerDropdown(false), 150)}
-                  style={{ padding: '6px 8px', border: '1px solid #ddd', borderRadius: 8, width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}
+                  style={{ 
+                    padding: '8px 12px', 
+                    border: '1px solid #d1d5db', 
+                    borderRadius: 8, 
+                    width: '100%', 
+                    maxWidth: '100%', 
+                    boxSizing: 'border-box',
+                    fontSize: '14px',
+                    fontFamily: 'inherit',
+                    backgroundColor: '#ffffff',
+                    color: '#1f2937'
+                  }}
                 />
                 {/* native datalist entfernt, wir verwenden das benutzerdefinierte Dropdown */}
                 {showBetreuerDropdown && (
                   <div style={{ position: 'absolute', zIndex: 20, top: 'calc(100% + 4px)', left: 0, right: 0, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, boxShadow: '0 8px 24px rgba(0,0,0,0.12)', maxHeight: 220, overflowY: 'auto' }}>
                     {betreuerFiltered.length === 0 ? (
-                      <div style={{ padding: '8px 10px', color: '#64748b' }}>Keine Treffer</div>
+                      <div style={{ padding: '8px 10px', color: '#64748b', fontWeight: '600', WebkitFontSmoothing: 'subpixel-antialiased', MozOsxFontSmoothing: 'auto', textRendering: 'optimizeLegibility' }}>Keine Treffer</div>
                     ) : (
                       betreuerFiltered.map((b, i) => (
                         <div
@@ -280,7 +320,7 @@ export default function Startseite() {
                             setBetreuerQuery(b.label)
                             setShowBetreuerDropdown(false)
                           }}
-                          style={{ padding: '8px 10px', cursor: 'pointer' }}
+                          style={{ padding: '8px 10px', cursor: 'pointer', color: '#1f2937', fontWeight: '600', WebkitFontSmoothing: 'subpixel-antialiased', MozOsxFontSmoothing: 'auto', textRendering: 'optimizeLegibility' }}
                           onMouseEnter={(e)=>{ (e.currentTarget as HTMLDivElement).style.background = '#f8fafc' }}
                           onMouseLeave={(e)=>{ (e.currentTarget as HTMLDivElement).style.background = 'transparent' }}
                         >
@@ -294,12 +334,23 @@ export default function Startseite() {
               </div>
 
               <div>
-                <label style={{ display: 'block', marginBottom: 4, fontSize: '14px' }}>Neuer Ordnername</label>
+                <label style={{ display: 'block', marginBottom: 4, fontSize: '14px', fontWeight: 600, color: '#1f2937' }}>Neuer Ordnername</label>
                 <input 
                   value={ordnerName} 
                   onChange={(e)=> setOrdnerName(e.currentTarget.value)} 
                   placeholder="Ordnernamen"
-                  style={{ padding: '6px 8px', border: '1px solid #ddd', borderRadius: 8, width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}
+                  style={{ 
+                    padding: '8px 12px', 
+                    border: '1px solid #d1d5db', 
+                    borderRadius: 8, 
+                    width: '100%', 
+                    maxWidth: '100%', 
+                    boxSizing: 'border-box',
+                    fontSize: '14px',
+                    fontFamily: 'inherit',
+                    backgroundColor: '#ffffff',
+                    color: '#1f2937'
+                  }}
                 />
               </div>
             </div>

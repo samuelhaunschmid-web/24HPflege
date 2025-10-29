@@ -9,11 +9,101 @@ const { autoUpdater } = require('electron-updater');
 
 const isDev = process.env.VITE_DEV_SERVER_URL || process.env.ELECTRON_START_URL;
 
-function createWindow () {
-  const win = new BrowserWindow({
+let splashWindow = null;
+let mainWindow = null;
+
+function createSplashWindow() {
+  splashWindow = new BrowserWindow({
+    width: 400,
+    height: 300,
+    frame: false,
+    alwaysOnTop: true,
+    resizable: false,
+    icon: path.join(__dirname, 'app-icon.png'),
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+    }
+  });
+
+  // Erstelle HTML für Splash Screen
+  const splashHTML = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <style>
+        body {
+          margin: 0;
+          padding: 0;
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+          align-items: center;
+          height: 100vh;
+          font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+          color: white;
+        }
+        .logo {
+          font-size: 48px;
+          font-weight: bold;
+          margin-bottom: 20px;
+          text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        .subtitle {
+          font-size: 18px;
+          margin-bottom: 30px;
+          opacity: 0.9;
+        }
+        .loading {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+        }
+        .spinner {
+          width: 20px;
+          height: 20px;
+          border: 2px solid rgba(255,255,255,0.3);
+          border-top: 2px solid white;
+          border-radius: 50%;
+          animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+        .progress-text {
+          font-size: 14px;
+          opacity: 0.8;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="logo">24h Pflege</div>
+      <div class="subtitle">Verwaltungs-App</div>
+      <div class="loading">
+        <div class="spinner"></div>
+        <div class="progress-text">App wird gestartet...</div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  splashWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(splashHTML)}`);
+  
+  // Zentriere das Fenster
+  splashWindow.center();
+  
+  return splashWindow;
+}
+
+function createMainWindow() {
+  mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
     icon: path.join(__dirname, 'app-icon.png'),
+    show: false, // Verstecke das Hauptfenster zunächst
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -23,13 +113,41 @@ function createWindow () {
 
   if (isDev) {
     const devUrl = process.env.VITE_DEV_SERVER_URL || process.env.ELECTRON_START_URL || 'http://localhost:5173';
-    win.loadURL(devUrl);
+    mainWindow.loadURL(devUrl);
   } else {
     const indexHtml = path.join(__dirname, 'renderer', 'dist', 'index.html');
-    win.loadFile(indexHtml);
+    mainWindow.loadFile(indexHtml);
   }
 
-  return win;
+  // Zeige das Hauptfenster, sobald es geladen ist
+  mainWindow.once('ready-to-show', () => {
+    if (splashWindow) {
+      splashWindow.close();
+      splashWindow = null;
+    }
+    mainWindow.show();
+  });
+
+  // Timeout für Splash Screen (falls Hauptfenster nicht lädt)
+  setTimeout(() => {
+    if (splashWindow && !mainWindow.isVisible()) {
+      if (splashWindow) {
+        splashWindow.close();
+        splashWindow = null;
+      }
+      mainWindow.show();
+    }
+  }, 20000); // 20 Sekunden Timeout
+
+  return mainWindow;
+}
+
+function createWindow() {
+  // Erstelle zuerst den Splash Screen
+  createSplashWindow();
+  
+  // Erstelle dann das Hauptfenster (versteckt)
+  return createMainWindow();
 }
 
 function getConfigPath() {
@@ -86,7 +204,15 @@ function buildDocxTree(dir, rel = '') {
   if (!fs.existsSync(dir)) return tree;
   const list = fs.readdirSync(dir);
   for (const file of list) {
-    if (file.startsWith('~$')) continue;
+    // Temp-/Systemdateien ausblenden
+    if (
+      file.startsWith('~$') || // Office-Temp
+      file.startsWith('._') || // macOS Resource Fork
+      file === '.DS_Store' ||
+      file === 'Thumbs.db' ||
+      file === 'desktop.ini' ||
+      file.startsWith('.') // versteckte Ordner/Dateien
+    ) continue;
     const filePath = path.join(dir, file);
     const relPath = rel ? path.join(rel, file) : file;
     const stat = fs.statSync(filePath);
@@ -116,6 +242,78 @@ async function replaceFilenamePlaceholders(filename, data) {
   return filename.replace(/\[\[(.*?)\]\]/g, (m, key) => (data[key] == null ? m : String(data[key])));
 }
 
+// Finde LibreOffice (soffice) ausführbare Datei oder Kommando
+function findSofficeExecutable() {
+  try {
+    const { spawnSync } = require('child_process');
+    const os = require('os');
+    const pathMod = require('path');
+
+    // 1) Windows: bevorzugt absolute Pfade aus Program Files (auch wenn PATH-Binaries existieren)
+    try {
+      if (os.platform() === 'win32') {
+        const pf = process.env['ProgramFiles'];
+        const pfx86 = process.env['ProgramFiles(x86)'];
+        const bases = [pf, pfx86].filter(Boolean);
+        for (const base of bases) {
+          try {
+            const candidates = [];
+            // Versioned folders
+            try {
+              const entries = fs.readdirSync(base, { withFileTypes: true });
+              for (const e of entries) {
+                if (e.isDirectory() && /^LibreOffice/i.test(e.name)) {
+                  const prg = pathMod.join(base, e.name, 'program');
+                  candidates.push(pathMod.join(prg, 'soffice.exe'));
+                  candidates.push(pathMod.join(prg, 'soffice.com'));
+                }
+              }
+            } catch {}
+            // Standard folder
+            candidates.push(pathMod.join(base, 'LibreOffice', 'program', 'soffice.exe'));
+            candidates.push(pathMod.join(base, 'LibreOffice', 'program', 'soffice.com'));
+            for (const c of candidates) {
+              if (c && fs.existsSync(c)) return c;
+            }
+          } catch {}
+        }
+      }
+    } catch {}
+
+    // 2) Versuche absolute Pfade über where/which zu bekommen
+    const tryResolve = (cmd) => {
+      try {
+        if (os.platform() === 'win32') {
+          const w = spawnSync('where', [cmd], { stdio: 'pipe', shell: true });
+          const out = String(w.stdout || '').trim();
+          const exe = out.split(/\r?\n/).find(Boolean);
+          if (w.status === 0 && exe && fs.existsSync(exe)) return exe;
+        } else {
+          const w = spawnSync('which', [cmd], { stdio: 'pipe' });
+          const out = String(w.stdout || '').trim();
+          if (w.status === 0 && out && fs.existsSync(out)) return out;
+        }
+      } catch {}
+      return null;
+    };
+    const resolvedSoffice = tryResolve('soffice');
+    if (resolvedSoffice) return resolvedSoffice;
+    const resolvedLowriter = tryResolve('lowriter');
+    if (resolvedLowriter) return resolvedLowriter;
+    const resolvedSofficeCom = tryResolve('soffice.com');
+    if (resolvedSofficeCom) return resolvedSofficeCom;
+
+    // 3) Fallback: Kommando-Namen (kein absoluter Pfad)
+    const tryCmd = (cmd) => {
+      try { const r = spawnSync(cmd, ['--version'], { stdio: 'pipe', shell: true }); return r.status === 0; } catch { return false; }
+    };
+    if (tryCmd('soffice')) return 'soffice';
+    if (tryCmd('lowriter')) return 'lowriter';
+    if (tryCmd('soffice.com')) return 'soffice.com';
+  } catch {}
+  return null;
+}
+
 // Datum: Parser/Formatter für DD.MM.YYYY
 function parseDateDDMMYYYY(value) {
   if (!value) return null;
@@ -140,10 +338,10 @@ function formatDateDDMMYYYY(date) {
 app.whenReady().then(() => {
   const win = createWindow();
 
-  autoUpdater.on('update-available', () => win.webContents.send('update:available'));
-  autoUpdater.on('download-progress', (p) => win.webContents.send('update:progress', p));
-  autoUpdater.on('update-downloaded', () => win.webContents.send('update:downloaded'));
-  autoUpdater.on('error', (err) => win.webContents.send('update:error', err == null ? '' : String(err)));
+  autoUpdater.on('update-available', () => mainWindow?.webContents.send('update:available'));
+  autoUpdater.on('download-progress', (p) => mainWindow?.webContents.send('update:progress', p));
+  autoUpdater.on('update-downloaded', () => mainWindow?.webContents.send('update:downloaded'));
+  autoUpdater.on('error', (err) => mainWindow?.webContents.send('update:error', err == null ? '' : String(err)));
 
   ipcMain.handle('update:check', async () => {
     if (isDev) return { dev: true };
@@ -158,6 +356,65 @@ app.whenReady().then(() => {
     const next = { ...current, ...partial };
     writeConfig(next);
     return next;
+  });
+  // Einstellungen exportieren
+  ipcMain.handle('settings:export', async () => {
+    const cfg = readConfig();
+    // Baue Export-Payload mit relevanten Feldern
+    const payload = {
+      tableSettings: cfg.tableSettings || {},
+      invoiceTemplateDisplayNames: cfg.invoiceTemplateDisplayNames || {},
+      emailTemplates: cfg.emailTemplates || {},
+      autoInvoicePrefs: cfg.autoInvoicePrefs || {},
+      mail: {
+        googleClientId: cfg.googleClientId || null,
+        googleClientSecret: cfg.googleClientSecret || null,
+      },
+      paths: {
+        datenDir: cfg.datenDir || null,
+        altDatenDir: cfg.altDatenDir || null,
+        vorlagenDir: cfg.vorlagenDir || null,
+        rechnungsvorlageDir: cfg.rechnungsvorlageDir || null,
+        libreOfficePath: cfg.libreOfficePath || null,
+      }
+    };
+    return { ok: true, payload };
+  });
+  // Einstellungen importieren (Merge)
+  ipcMain.handle('settings:import', async (_e, imported) => {
+    try {
+      const current = readConfig();
+      const src = imported || {};
+      const next = { ...current };
+      if (src.tableSettings && typeof src.tableSettings === 'object') {
+        next.tableSettings = { ...(current.tableSettings || {}), ...src.tableSettings };
+      }
+      if (src.invoiceTemplateDisplayNames && typeof src.invoiceTemplateDisplayNames === 'object') {
+        next.invoiceTemplateDisplayNames = { ...(current.invoiceTemplateDisplayNames || {}), ...src.invoiceTemplateDisplayNames };
+      }
+      if (src.emailTemplates && typeof src.emailTemplates === 'object') {
+        next.emailTemplates = { ...(current.emailTemplates || {}), ...src.emailTemplates };
+      }
+      if (src.mail && typeof src.mail === 'object') {
+        if (typeof src.mail.googleClientId === 'string') next.googleClientId = src.mail.googleClientId;
+        if (typeof src.mail.googleClientSecret === 'string') next.googleClientSecret = src.mail.googleClientSecret;
+      }
+      if (src.autoInvoicePrefs && typeof src.autoInvoicePrefs === 'object') {
+        next.autoInvoicePrefs = { ...(current.autoInvoicePrefs || {}), ...src.autoInvoicePrefs };
+      }
+      if (src.paths && typeof src.paths === 'object') {
+        const p = src.paths;
+        if (p.datenDir) next.datenDir = p.datenDir;
+        if (p.altDatenDir) next.altDatenDir = p.altDatenDir;
+        if (p.vorlagenDir) next.vorlagenDir = p.vorlagenDir;
+        if (p.rechnungsvorlageDir) next.rechnungsvorlageDir = p.rechnungsvorlageDir;
+        if (p.libreOfficePath) next.libreOfficePath = p.libreOfficePath;
+      }
+      writeConfig(next);
+      return { ok: true, next };
+    } catch (e) {
+      return { ok: false, message: String(e) };
+    }
   });
   
   // Mail – Google OAuth Platzhalter & Versand-Stubs
@@ -331,20 +588,194 @@ app.whenReady().then(() => {
     if (res.canceled || !res.filePaths || res.filePaths.length === 0) return null;
     return res.filePaths[0];
   });
+  ipcMain.handle('dialog:chooseFile', async (_e, args) => {
+    const opts = { title: (args && args.title) || 'Datei wählen', properties: ['openFile'], filters: (args && args.filters) || undefined };
+    const res = await dialog.showOpenDialog(opts);
+    if (res.canceled || !res.filePaths || res.filePaths.length === 0) return null;
+    return res.filePaths[0];
+  });
 
   // LibreOffice Installation
   ipcMain.handle('api:checkLibreOffice', async () => {
     const { spawnSync } = require('child_process');
     try {
-      // Prüfe soffice
-      const result1 = spawnSync('soffice', ['--version'], { stdio: 'pipe' });
+      // Auto-Detect und speichern, falls gefunden
+      try {
+        const detected = findSofficeExecutable();
+        if (detected) {
+          const cfg = readConfig();
+          if (!cfg.libreOfficePath) writeConfig({ ...cfg, libreOfficePath: detected });
+        }
+      } catch {}
+      // Wenn bereits in config gesetzt und Datei existiert → installiert
+      try {
+        const cfg0 = readConfig();
+        if (cfg0.libreOfficePath && fs.existsSync(cfg0.libreOfficePath)) return true;
+      } catch {}
+      // 1) Direkt über PATH
+      const result1 = spawnSync('soffice', ['--version'], { stdio: 'pipe', shell: true });
       if (result1.status === 0) return true;
-      
-      // Prüfe lowriter
-      const result2 = spawnSync('lowriter', ['--version'], { stdio: 'pipe' });
-      return result2.status === 0;
+
+      const result2 = spawnSync('lowriter', ['--version'], { stdio: 'pipe', shell: true });
+      if (result2.status === 0) return true;
+
+      // soffice.com (CLI-Stub auf Windows)
+      const result3 = spawnSync('soffice.com', ['--version'], { stdio: 'pipe', shell: true });
+      if (result3.status === 0) return true;
+
+      // 2) Windows: versuche 'where' und Standard-Installpfade
+      try {
+        const os = require('os');
+        if (os.platform() === 'win32') {
+          // Schneller Existenz-Check der Standardpfade
+          const pf = process.env['ProgramFiles'] || 'C\\\\Program Files';
+          const pfx86 = process.env['ProgramFiles(x86)'];
+          const pathMod = require('path');
+          const stdCandidates = [
+            pathMod.join(pf, 'LibreOffice', 'program', 'soffice.exe'),
+            pathMod.join(pf, 'LibreOffice', 'program', 'soffice.com'),
+            pfx86 ? pathMod.join(pfx86, 'LibreOffice', 'program', 'soffice.exe') : null,
+            pfx86 ? pathMod.join(pfx86, 'LibreOffice', 'program', 'soffice.com') : null,
+          ].filter(Boolean);
+          for (const c of stdCandidates) {
+            try { if (fs.existsSync(c)) return true; } catch {}
+          }
+          const tryWhere = (cmd) => {
+            const w = spawnSync('where', [cmd], { stdio: 'pipe', shell: true });
+            const out = String(w.stdout || '').trim();
+            if (w.status === 0 && out) {
+              const exe = out.split(/\r?\n/).find(Boolean);
+              if (exe) {
+                const r = spawnSync(exe, ['--version'], { stdio: 'pipe', shell: true });
+                if (r.status === 0) return true;
+              }
+            }
+            return false;
+          };
+          if (tryWhere('soffice') || tryWhere('soffice.exe') || tryWhere('soffice.com')) return true;
+          const baseDirs = [pf, pfx86].filter(Boolean);
+          const candidates = [];
+          for (const base of baseDirs) {
+            try {
+              // Finde Ordner, die mit "LibreOffice" beginnen (z.B. LibreOffice, LibreOffice 24, etc.)
+              const entries = fs.readdirSync(base, { withFileTypes: true });
+              for (const e of entries) {
+                if (e.isDirectory() && /^LibreOffice/i.test(e.name)) {
+                  const prg = pathMod.join(base, e.name, 'program');
+                  candidates.push(pathMod.join(prg, 'soffice.exe'));
+                  candidates.push(pathMod.join(prg, 'soffice.com'));
+                }
+              }
+            } catch {}
+            // Standardordner ohne Versionssuffix
+            candidates.push(pathMod.join(base, 'LibreOffice', 'program', 'soffice.exe'));
+            candidates.push(pathMod.join(base, 'LibreOffice', 'program', 'soffice.com'));
+          }
+          for (const c of candidates) {
+            try {
+              if (c && fs.existsSync(c)) {
+                // Pfad mit Leerzeichen: zuerst ohne Shell ausführen
+                let r = spawnSync(c, ['--version'], { stdio: 'pipe', shell: false });
+                if (r.status !== 0) {
+                  // Fallback: über cmd.exe mit komplett gequoteter Befehlszeile
+                  const cmdline = '"' + c.replace(/"/g, '""') + '" --version';
+                  r = spawnSync('cmd', ['/c', cmdline], { stdio: 'pipe', shell: false });
+                }
+                if (r.status === 0) return true;
+              }
+            } catch {}
+          }
+        }
+      } catch {}
+
+      // 3) macOS/Linux: nothing else to check here beyond PATH
+      return false;
     } catch (error) {
       return false;
+    }
+  });
+
+  // Detaillierter LibreOffice-Check mit Logging
+  ipcMain.handle('api:checkLibreOfficeDetailed', async () => {
+    const { spawnSync } = require('child_process');
+    const os = require('os');
+    const pathMod = require('path');
+    const steps = {};
+    let ok = false;
+    try {
+      // PATH Checks
+      const r1 = spawnSync('soffice', ['--version'], { stdio: 'pipe', shell: true });
+      steps.path_soffice = { code: r1.status, out: String(r1.stdout||''), err: String(r1.stderr||'') };
+      if (r1.status === 0) ok = true;
+      if (!ok) {
+        const r2 = spawnSync('lowriter', ['--version'], { stdio: 'pipe', shell: true });
+        steps.path_lowriter = { code: r2.status, out: String(r2.stdout||''), err: String(r2.stderr||'') };
+        if (r2.status === 0) ok = true;
+      }
+      if (!ok) {
+        const r3 = spawnSync('soffice.com', ['--version'], { stdio: 'pipe', shell: true });
+        steps.path_soffice_com = { code: r3.status, out: String(r3.stdout||''), err: String(r3.stderr||'') };
+        if (r3.status === 0) ok = true;
+      }
+
+      // Windows: where und Standardpfade
+      const candidates = [];
+      if (os.platform() === 'win32') {
+        const tryWhere = (cmdKey) => {
+          const w = spawnSync('where', [cmdKey], { stdio: 'pipe', shell: true });
+          steps['where_'+cmdKey] = { code: w.status, out: String(w.stdout||''), err: String(w.stderr||'') };
+          const out = String(w.stdout||'').trim();
+          if (w.status === 0 && out) {
+            const exe = out.split(/\r?\n/).find(Boolean);
+            if (exe) candidates.push(exe);
+          }
+        };
+        tryWhere('soffice');
+        tryWhere('soffice.exe');
+        tryWhere('soffice.com');
+        const pf = process.env['ProgramFiles'] || 'C\\\\Program Files';
+        const pfx86 = process.env['ProgramFiles(x86)'];
+        const baseDirs = [pf, pfx86].filter(Boolean);
+        for (const base of baseDirs) {
+          try {
+            const entries = fs.readdirSync(base, { withFileTypes: true });
+            for (const e of entries) {
+              if (e.isDirectory() && /^LibreOffice/i.test(e.name)) {
+                const prg = pathMod.join(base, e.name, 'program');
+                candidates.push(pathMod.join(prg, 'soffice.exe'));
+                candidates.push(pathMod.join(prg, 'soffice.com'));
+              }
+            }
+          } catch {}
+          candidates.push(pathMod.join(base, 'LibreOffice', 'program', 'soffice.exe'));
+          candidates.push(pathMod.join(base, 'LibreOffice', 'program', 'soffice.com'));
+        }
+      }
+      const tested = [];
+      for (const c of Array.from(new Set(candidates))) {
+        try {
+          if (c && fs.existsSync(c)) {
+            const r = spawnSync(c, ['--version'], { stdio: 'pipe', shell: true });
+            steps['exec_'+c] = { code: r.status, out: String(r.stdout||''), err: String(r.stderr||'') };
+            tested.push(c);
+            if (r.status === 0) { ok = true; break; }
+          } else if (c) {
+            steps['exists_'+c] = { exists: false };
+          }
+        } catch (e) {
+          steps['exec_'+c] = { code: -1, err: String(e) };
+        }
+      }
+
+      const logObj = { ok, steps, tested };
+      try {
+        const logPath = pathMod.join(app.getPath('userData'), 'libreoffice-check.json');
+        fs.writeFileSync(logPath, JSON.stringify(logObj, null, 2));
+        logObj.logPath = logPath;
+      } catch {}
+      return logObj;
+    } catch (error) {
+      return { ok: false, error: String(error), steps };
     }
   });
 
@@ -429,104 +860,160 @@ app.whenReady().then(() => {
     const { spawnSync } = require('child_process');
     const os = require('os');
     const platform = os.platform();
-    
-    try {
-      if (platform === 'darwin') {
-        // macOS: LibreOffice via Homebrew installieren (nur Brew, kein DMG)
-        try { if (fs.existsSync('/Applications/LibreOffice.app')) return true; } catch {}
-        // Finde Homebrew Pfad (GUI-Apps haben oft kein PATH)
-        let brewPath = 'brew';
-        const whichBrew = spawnSync('which', ['brew'], { stdio: 'pipe' });
-        if (whichBrew.status === 0) {
-          brewPath = String(whichBrew.stdout || '').toString().trim() || 'brew';
-        } else if (fs.existsSync('/opt/homebrew/bin/brew')) {
-          brewPath = '/opt/homebrew/bin/brew';
-        } else if (fs.existsSync('/usr/local/bin/brew')) {
-          brewPath = '/usr/local/bin/brew';
-        } else {
-          return { ok: false, message: 'Homebrew not found', brewPath: null };
-        }
-        // Versuche vorherige fehlerhafte Cask-Installation zu entfernen
-        const uninst = spawnSync(brewPath, ['uninstall', '--cask', '--force', 'libreoffice'], {
-          stdio: 'pipe',
-          timeout: 300000
-        });
-        const inst = spawnSync(brewPath, ['install', '--cask', 'libreoffice'], { 
-          stdio: 'pipe',
-          timeout: 900000
-        });
-        return {
-          ok: inst.status === 0,
-          brewPath,
-          uninstall: {
-            code: uninst.status,
-            stdout: String(uninst.stdout || '').toString(),
-            stderr: String(uninst.stderr || '').toString(),
-          },
-          install: {
-            code: inst.status,
-            stdout: String(inst.stdout || '').toString(),
-            stderr: String(inst.stderr || '').toString(),
-          }
-        };
-      } else if (platform === 'win32') {
-        // Windows - Chocolatey Installation LibreOffice; falls choco fehlt, versuchen zu installieren
-        const ensureChoco = () => {
-          const chk = spawnSync('choco', ['-v'], { stdio: 'pipe', shell: true });
-          if (chk.status === 0) {
-            return { ok: true, installed: false, stdout: String(chk.stdout||''), stderr: String(chk.stderr||'') };
-          }
-          // Installiere Chocolatey (benötigt erhöhte Rechte)
-          const psCmd = 'Set-ExecutionPolicy Bypass -Scope Process -Force; ' +
-            "[System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; " +
-            'iwr https://community.chocolatey.org/install.ps1 -UseBasicParsing | iex';
-          const inst = spawnSync('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', psCmd], { stdio: 'pipe', shell: false, timeout: 600000 });
-          const verify = spawnSync('choco', ['-v'], { stdio: 'pipe', shell: true });
-          return { ok: verify.status === 0, installed: true, stdout: String(inst.stdout||'') + String(verify.stdout||''), stderr: String(inst.stderr||'') + String(verify.stderr||'') };
-        };
-        const chocoRes = ensureChoco();
-        if (!chocoRes.ok) {
-          return { ok: false, message: 'Chocolatey installation failed or requires admin privileges', chocolatey: chocoRes };
-        }
-        const inst = spawnSync('choco', ['install', 'libreoffice', '-y'], { stdio: 'pipe', shell: true, timeout: 900000 });
-        return {
-          ok: inst.status === 0,
-          chocolatey: chocoRes,
-          install: {
-            code: inst.status,
-            stdout: String(inst.stdout || ''),
-            stderr: String(inst.stderr || ''),
-          }
-        };
-      } else {
-        // Linux - apt/yum/dnf
-        let result;
-        if (spawnSync('which', ['apt'], { stdio: 'pipe' }).status === 0) {
-          result = spawnSync('sudo', ['apt', 'update', '&&', 'sudo', 'apt', 'install', '-y', 'libreoffice'], { 
-            stdio: 'pipe',
-            timeout: 300000,
-            shell: true
+    const https = require('https');
+    const { URL } = require('url');
+    async function downloadFileWithProgress(fileUrl, destPath) {
+      return await new Promise((resolve) => {
+        try {
+          const urlObj = new URL(fileUrl);
+          const req = https.get({ protocol: urlObj.protocol, hostname: urlObj.hostname, path: urlObj.pathname + (urlObj.search || '') }, (res) => {
+            if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+              return resolve(downloadFileWithProgress(res.headers.location, destPath));
+            }
+            const total = Number(res.headers['content-length'] || 0);
+            let received = 0;
+            const out = fs.createWriteStream(destPath);
+            res.on('data', (chunk) => {
+              received += chunk.length;
+              try { if (total > 0) { const percent = Math.min(99, Math.floor((received / total) * 100)); mainWindow?.webContents.send('libre:install:progress', { step: 'download', message: 'Lade Installer herunter...', percent }); } } catch {}
+              out.write(chunk);
+            });
+            res.on('end', () => { try { out.end(); } catch {}; try { mainWindow?.webContents.send('libre:install:progress', { step: 'download', message: 'Download abgeschlossen', percent: 100 }); } catch {}; resolve({ ok: true }); });
+            res.on('error', (e) => { try { out.destroy(); } catch {}; resolve({ ok: false, error: String(e) }); });
           });
-        } else if (spawnSync('which', ['yum'], { stdio: 'pipe' }).status === 0) {
-          result = spawnSync('sudo', ['yum', 'install', '-y', 'libreoffice'], { 
-            stdio: 'pipe',
-            timeout: 300000
-          });
-        } else if (spawnSync('which', ['dnf'], { stdio: 'pipe' }).status === 0) {
-          result = spawnSync('sudo', ['dnf', 'install', '-y', 'libreoffice'], { 
-            stdio: 'pipe',
-            timeout: 300000
-          });
-        } else {
-          return false;
-        }
-        return result.status === 0;
-      }
-    } catch (error) {
-      console.error('LibreOffice installation error:', error);
-      return { ok: false, message: String(error) };
+          req.on('error', (e) => resolve({ ok: false, error: String(e) }));
+        } catch (e) { resolve({ ok: false, error: String(e) }); }
+      });
     }
-  });
+ 
+     
+     try {
+       if (platform === 'darwin') {
+         // macOS: LibreOffice via Homebrew installieren (nur Brew, kein DMG)
+         try { if (fs.existsSync('/Applications/LibreOffice.app')) return true; } catch {}
+         // Finde Homebrew Pfad (GUI-Apps haben oft kein PATH)
+         let brewPath = 'brew';
+         const whichBrew = require('child_process').spawnSync('which', ['brew'], { stdio: 'pipe' });
+         if (whichBrew.status === 0) {
+           brewPath = String(whichBrew.stdout || '').toString().trim() || 'brew';
+         } else if (fs.existsSync('/opt/homebrew/bin/brew')) {
+           brewPath = '/opt/homebrew/bin/brew';
+         } else if (fs.existsSync('/usr/local/bin/brew')) {
+           brewPath = '/usr/local/bin/brew';
+         } else {
+           return { ok: false, message: 'Homebrew not found', brewPath: null };
+         }
+         // Versuche vorherige fehlerhafte Cask-Installation zu entfernen
+         const uninst = require('child_process').spawnSync(brewPath, ['uninstall', '--cask', '--force', 'libreoffice'], {
+           stdio: 'pipe',
+           timeout: 300000
+         });
+         const inst = require('child_process').spawnSync(brewPath, ['install', '--cask', 'libreoffice'], { 
+           stdio: 'pipe',
+           timeout: 900000
+         });
+         return {
+           ok: inst.status === 0,
+           brewPath,
+           uninstall: {
+             code: uninst.status,
+             stdout: String(uninst.stdout || '').toString(),
+             stderr: String(uninst.stderr || '').toString(),
+           },
+           install: {
+             code: inst.status,
+             stdout: String(inst.stdout || '').toString(),
+             stderr: String(inst.stderr || '').toString(),
+           }
+         };
+       } else if (platform === 'win32') {
+         // Windows – mehrstufiger Installer (Chocolatey → Winget → Direkter MSI Download)
+         const result = { steps: {} };
+ 
+         // 1) Versuche Chocolatey zu finden/zu installieren
+         const ensureChoco = () => {
+          try { mainWindow?.webContents.send('libre:install:progress', { step: 'choco-check', message: 'Prüfe Chocolatey...', percent: 5 }); } catch {}
+           const chk = require('child_process').spawnSync('choco', ['-v'], { stdio: 'pipe', shell: true });
+           if (chk.status === 0) {
+             return { ok: true, installed: false, stdout: String(chk.stdout||''), stderr: String(chk.stderr||'') };
+           }
+           // Versuche erhöhte Installation via UAC-Prompt
+          try { mainWindow?.webContents.send('libre:install:progress', { step: 'choco-install', message: 'Installiere Chocolatey...', percent: 10 }); } catch {}
+           const elevated = require('child_process').spawnSync('powershell.exe', [
+             '-NoProfile',
+             '-ExecutionPolicy', 'Bypass',
+             '-Command',
+             'Start-Process powershell -Verb RunAs -Wait -ArgumentList "-NoProfile -ExecutionPolicy Bypass -Command \"[Net.ServicePointManager]::SecurityProtocol=[Net.ServicePointManager]::SecurityProtocol -bor 3072; iwr https://community.chocolatey.org/install.ps1 -UseBasicParsing | iex\""'
+           ], { stdio: 'pipe', shell: false, timeout: 900000 });
+           const verify = require('child_process').spawnSync('choco', ['-v'], { stdio: 'pipe', shell: true });
+           return { ok: verify.status === 0, installed: true, stdout: String(elevated.stdout||'') + String(verify.stdout||''), stderr: String(elevated.stderr||'') + String(verify.stderr||'') };
+         };
+ 
+         const chocoRes = ensureChoco();
+         result.steps.chocolatey = chocoRes;
+         if (chocoRes.ok) {
+          try { mainWindow?.webContents.send('libre:install:progress', { step: 'choco-libreo', message: 'Installiere LibreOffice über Chocolatey...', percent: 25 }); } catch {}
+           const inst = require('child_process').spawnSync('choco', ['install', 'libreoffice', '-y'], { stdio: 'pipe', shell: true, timeout: 1200000 });
+           result.steps.chocoInstall = { code: inst.status, stdout: String(inst.stdout||''), stderr: String(inst.stderr||'') };
+           if (inst.status === 0) return { ok: true, ...result };
+         }
+ 
+         // 2) Fallback: Winget
+         try { mainWindow?.webContents.send('libre:install:progress', { step: 'winget-check', message: 'Prüfe Winget...', percent: 35 }); } catch {}
+         const wingetChk = require('child_process').spawnSync('winget', ['--version'], { stdio: 'pipe', shell: true });
+         result.steps.wingetCheck = { code: wingetChk.status, stdout: String(wingetChk.stdout||''), stderr: String(wingetChk.stderr||'') };
+         if (wingetChk.status === 0) {
+          try { mainWindow?.webContents.send('libre:install:progress', { step: 'winget-install', message: 'Installiere LibreOffice über Winget...', percent: 45 }); } catch {}
+           const wg = require('child_process').spawnSync('winget', ['install', '--id', 'TheDocumentFoundation.LibreOffice', '-e', '--silent', '--accept-package-agreements', '--accept-source-agreements'], { stdio: 'pipe', shell: true, timeout: 1200000 });
+           result.steps.wingetInstall = { code: wg.status, stdout: String(wg.stdout||''), stderr: String(wg.stderr||'') };
+           if (wg.status === 0) return { ok: true, ...result };
+         }
+ 
+         // 3) Fallback: Direkter Download + MSI Silent Install
+         try { mainWindow?.webContents.send('libre:install:progress', { step: 'download-start', message: 'Starte direkten Download...', percent: 55 }); } catch {}
+         const tmpDir = app.getPath('temp');
+         const msiPath = path.join(tmpDir, 'LibreOffice_Win_x64.msi');
+         const fileUrl = 'https://download.documentfoundation.org/libreoffice/stable/7.6.7/win/x86_64/LibreOffice_7.6.7_Win_x86-64.msi';
+         const dlRes = await downloadFileWithProgress(fileUrl, msiPath);
+         result.steps.directDownload = { code: dlRes.ok ? 0 : 1, error: dlRes.error || null };
+         if (dlRes.ok && fs.existsSync(msiPath)) {
+           try { mainWindow?.webContents.send('libre:install:progress', { step: 'msi-install', message: 'Installiere LibreOffice...', percent: 90 }); } catch {}
+           // Silent install
+           const msiexec = require('child_process').spawnSync('msiexec', ['/i', msiPath, '/qn', 'ALLUSERS=1'], { stdio: 'pipe', shell: true, timeout: 1200000 });
+           result.steps.msiexec = { code: msiexec.status, stdout: String(msiexec.stdout||''), stderr: String(msiexec.stderr||'') };
+           if (msiexec.status === 0) return { ok: true, ...result };
+         }
+ 
+         return { ok: false, message: 'LibreOffice installation failed (need admin?)', ...result };
+       } else {
+         // Linux - apt/yum/dnf
+         let result;
+         if (require('child_process').spawnSync('which', ['apt'], { stdio: 'pipe' }).status === 0) {
+           result = require('child_process').spawnSync('sudo', ['apt', 'update', '&&', 'sudo', 'apt', 'install', '-y', 'libreoffice'], { 
+             stdio: 'pipe',
+             timeout: 300000,
+             shell: true
+           });
+         } else if (require('child_process').spawnSync('which', ['yum'], { stdio: 'pipe' }).status === 0) {
+           result = require('child_process').spawnSync('sudo', ['yum', 'install', '-y', 'libreoffice'], { 
+             stdio: 'pipe',
+             timeout: 300000
+           });
+         } else if (require('child_process').spawnSync('which', ['dnf'], { stdio: 'pipe' }).status === 0) {
+           result = require('child_process').spawnSync('sudo', ['dnf', 'install', '-y', 'libreoffice'], { 
+             stdio: 'pipe',
+             timeout: 300000
+           });
+         } else {
+           return false;
+         }
+         return result.status === 0;
+       }
+     } catch (error) {
+       console.error('LibreOffice installation error:', error);
+       return { ok: false, message: String(error) };
+     }
+   });
 
   // Data lists
   ipcMain.handle('data:getLists', () => {
@@ -845,7 +1332,18 @@ app.whenReady().then(() => {
     const dir = cfg.rechnungsvorlageDir || path.join(__dirname, 'RechnungsVorlagen');
     if (!fs.existsSync(dir)) return [];
     return fs.readdirSync(dir)
-      .filter(file => file.toLowerCase().endsWith('.docx') && !file.startsWith('~$'))
+      .filter(file => {
+        // ausblenden: Temp/Systemdateien und versteckte Dateien
+        if (
+          file.startsWith('~$') ||
+          file.startsWith('._') ||
+          file === '.DS_Store' ||
+          file === 'Thumbs.db' ||
+          file === 'desktop.ini' ||
+          file.startsWith('.')
+        ) return false;
+        return file.toLowerCase().endsWith('.docx');
+      })
       .map(file => ({ name: file, absPath: path.join(dir, file) }));
   });
 
@@ -875,7 +1373,15 @@ app.whenReady().then(() => {
         const { spawnSync } = require('child_process')
         for (const file of generatedFiles) {
           // Convert using LibreOffice if available
-          const res = spawnSync('soffice', ['--headless', '--convert-to', 'pdf', '--outdir', zielOrdner, file], { stdio: 'ignore' })
+          const cfg2 = readConfig();
+          const manual = cfg2.libreOfficePath && fs.existsSync(cfg2.libreOfficePath) ? cfg2.libreOfficePath : null;
+          const detected = findSofficeExecutable();
+          const soffice = manual || detected || 'soffice'
+          // Wenn erkannt und noch nicht gespeichert, automatisch merken
+          if (detected && !cfg2.libreOfficePath) {
+            try { writeConfig({ ...cfg2, libreOfficePath: detected }); } catch {}
+          }
+          const res = spawnSync(soffice, ['--headless', '--convert-to', 'pdf', '--outdir', zielOrdner, file], { stdio: 'ignore' })
           if (res.error) {
             // Try lowriter alias
             const res2 = spawnSync('lowriter', ['--headless', '--convert-to', 'pdf', '--outdir', zielOrdner, file], { stdio: 'ignore' })
@@ -953,7 +1459,11 @@ app.whenReady().then(() => {
             try {
               // LibreOffice für PDF-Konvertierung verwenden
               const { spawnSync } = require('child_process');
-              const result = spawnSync('soffice', [
+              const cfg3 = readConfig();
+              const manual2 = cfg3.libreOfficePath && fs.existsSync(cfg3.libreOfficePath) ? cfg3.libreOfficePath : null;
+              const detected2 = findSofficeExecutable();
+              const soffice = manual2 || detected2 || 'soffice';
+              const result = spawnSync(soffice, [
                 '--headless',
                 '--convert-to', 'pdf',
                 '--outdir', zielOrdner,
@@ -1021,7 +1531,11 @@ app.whenReady().then(() => {
         try {
           // LibreOffice für PDF-Konvertierung verwenden
           const { spawnSync } = require('child_process');
-          const result = spawnSync('soffice', [
+          const cfg4 = readConfig();
+          const manual3 = cfg4.libreOfficePath && fs.existsSync(cfg4.libreOfficePath) ? cfg4.libreOfficePath : null;
+          const detected3 = findSofficeExecutable() || 'soffice';
+          const soffice = manual3 || detected3;
+          const result = spawnSync(soffice, [
             '--headless',
             '--convert-to', 'pdf',
             '--outdir', zielOrdner,
@@ -1141,7 +1655,8 @@ app.whenReady().then(() => {
         for (const file of generatedFiles) {
           try {
             // LibreOffice für PDF-Konvertierung verwenden (wie in generateHtmlPdf)
-            const result = spawnSync('soffice', [
+            const soffice = findSofficeExecutable() || 'soffice';
+            const result = spawnSync(soffice, [
               '--headless',
               '--convert-to', 'pdf',
               '--outdir', targetDir,
