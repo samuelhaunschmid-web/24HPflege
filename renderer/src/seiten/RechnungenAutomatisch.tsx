@@ -43,6 +43,7 @@ export default function RechnungenAutomatisch()
   const [isLoading, setIsLoading] = useState(false)
   const [loadingProgress, setLoadingProgress] = useState(0)
   const [loadingMessage, setLoadingMessage] = useState('')
+  const [protokollAktiv, setProtokollAktiv] = useState(false)
 
   const saveTimer = useRef<number | null>(null)
 
@@ -184,6 +185,8 @@ export default function RechnungenAutomatisch()
       }, 500)
 
       const batches: Array<{ to: string; subject: string; text: string; attachments: Array<{ path: string }> }> = []
+      const protokollEintraege: Array<{ rechnungsnummer: number; nachname: string; vorname: string; name: string; gesamtsumme: string; datum: string; batchIndex?: number }> = []
+      const batchIndexToEintraege: Record<number, Array<{ rechnungsnummer: number; nachname: string; vorname: string; name: string; gesamtsumme: string; datum: string }>> = {}
 
       // Für jeden Kunden einzeln erzeugen, damit Vorlage/Zeitraum individuell sind
       for (const key of selectedKeys) {
@@ -206,6 +209,27 @@ export default function RechnungenAutomatisch()
         if (res?.ok) {
           const byKey = (res as any).byKey || {}
           const files = Array.isArray(byKey[key]) ? byKey[key] : []
+          
+          // Sammle Rechnungsdaten für Protokoll, falls aktiviert
+          const kunde = kunden.find(k => k.__key === key)
+          const kundeName = kunde ? getName(kunde) : ''
+          const vorCol = kunde ? resolveColByGroup(kunde, 'vorname') : ''
+          const nachCol = kunde ? resolveColByGroup(kunde, 'nachname') : ''
+          const kundeVor = kunde && vorCol ? String(kunde[vorCol] || '').trim() : ''
+          const kundeNach = kunde && nachCol ? String(kunde[nachCol] || '').trim() : ''
+          
+          let invoiceDataForKey: Array<{ rechnungsnummer: number; nachname: string; vorname: string; name: string; gesamtsumme: string; datum: string }> = []
+          if (protokollAktiv && res.invoiceData && res.invoiceData[key]) {
+            // Erweitere invoiceData um Vorname und vollständigen Namen
+            invoiceDataForKey = res.invoiceData[key].map((entry: any) => ({
+              ...entry,
+              vorname: kundeVor,
+              nachname: entry.nachname || kundeNach, // Falls Backend bereits nachname liefert, verwende das, sonst aus Kunde
+              name: kundeName
+            }))
+            protokollEintraege.push(...invoiceDataForKey)
+          }
+          
           if (files.length) {
             const template = p.emailTemplateId ? emailTemplates[p.emailTemplateId] : null
             const subject = template ? personalize(template.subject || '', key) : 'Ihre Rechnung'
@@ -216,7 +240,12 @@ export default function RechnungenAutomatisch()
             if (!to) to = getEmail(kunden.find(k => k.__key === key) as any)
 
             if (to) {
+              const batchIndex = batches.length
               batches.push({ to, subject, text, attachments: files.map((p: string) => ({ path: p })) })
+              // Verknüpfe Batch-Index mit Rechnungsdaten für Fehler-Tracking
+              if (protokollAktiv && invoiceDataForKey.length > 0) {
+                batchIndexToEintraege[batchIndex] = invoiceDataForKey
+              }
             }
           }
         }
@@ -224,13 +253,87 @@ export default function RechnungenAutomatisch()
 
       if (progressInterval) window.clearInterval(progressInterval)
       setLoadingProgress(100)
+      
+      // Protokoll erstellen VOR dem E-Mail-Versand, falls aktiviert
+      let protokollFilePath: string | null = null
+      if (protokollAktiv && protokollEintraege.length > 0) {
+        try {
+          const heute = new Date()
+          const dateStr = `${String(heute.getDate()).padStart(2, '0')}.${String(heute.getMonth() + 1).padStart(2, '0')}.${heute.getFullYear()}`
+          const defaultName = `Rechnungsprotokoll_${dateStr.replace(/\./g, '_')}.txt`
+          protokollFilePath = await window.api?.saveFile?.('Rechnungsprotokoll speichern', defaultName) || null
+          
+          if (protokollFilePath) {
+            // Erstelle Textinhalt: Rechnungsnummer, Nachname, Vorname, Gesamtsumme, Datum
+            const header = 'Rechnungsnummer\tNachname\tVorname\tGesamtsumme\tDatum\tStatus\n'
+            const lines = protokollEintraege.map(e => 
+              `${e.rechnungsnummer}\t${e.nachname}\t${e.vorname || ''}\t${e.gesamtsumme}\t${e.datum}\t`
+            ).join('\n')
+            const content = header + lines
+            
+            await window.api?.writeTextFile?.(protokollFilePath, content)
+          }
+        } catch (protokollError) {
+          console.error('Fehler beim Erstellen des Protokolls:', protokollError)
+        }
+      }
+
       if (batches.length === 0) {
         setIsLoading(false)
+        // Protokoll wurde bereits erstellt (falls aktiviert)
         return alert('Keine Anhänge oder Empfänger gefunden.')
       }
 
       setLoadingMessage('E-Mails werden gesendet...')
       const mailRes = await (window as any).api?.mail?.sendBatch?.(batches)
+      
+      // Protokoll aktualisieren bei Versandfehlern
+      if (protokollAktiv && protokollFilePath) {
+        try {
+          const failedIndices = new Set<number>()
+          
+          // Prüfe results Array von sendBatch, um fehlgeschlagene E-Mails zu identifizieren
+          if (mailRes && typeof mailRes === 'object' && 'results' in mailRes && Array.isArray(mailRes.results)) {
+            mailRes.results.forEach((result: any, idx: number) => {
+              if (!result || !result.ok) {
+                failedIndices.add(idx)
+              }
+            })
+          } else if (!mailRes?.ok) {
+            // Wenn kompletter Fehlschlag oder kein results Array, markiere alle als fehlgeschlagen
+            Object.keys(batchIndexToEintraege).forEach(k => failedIndices.add(Number(k)))
+          }
+          
+          // Aktualisiere Einträge mit VERSANDFEHLER für fehlgeschlagene Batches
+          const updatedEintraege = protokollEintraege.map(e => {
+            // Finde zu welchem Batch-Index dieser Eintrag gehört
+            let belongsToFailedBatch = false
+            for (const [batchIdxStr, eintraege] of Object.entries(batchIndexToEintraege)) {
+              const batchIdx = Number(batchIdxStr)
+              if (failedIndices.has(batchIdx) && eintraege.some(et => et.rechnungsnummer === e.rechnungsnummer)) {
+                belongsToFailedBatch = true
+                break
+              }
+            }
+            return {
+              ...e,
+              status: belongsToFailedBatch ? 'VERSANDFEHLER' : ''
+            }
+          })
+          
+          // Schreibe aktualisiertes Protokoll
+          const header = 'Rechnungsnummer\tNachname\tVorname\tGesamtsumme\tDatum\tStatus\n'
+          const lines = updatedEintraege.map(e => 
+            `${e.rechnungsnummer}\t${e.nachname}\t${e.vorname || ''}\t${e.gesamtsumme}\t${e.datum}\t${e.status || ''}`
+          ).join('\n')
+          const content = header + lines
+          
+          await window.api?.writeTextFile?.(protokollFilePath, content)
+        } catch (protokollError) {
+          console.error('Fehler beim Aktualisieren des Protokolls:', protokollError)
+        }
+      }
+      
       setIsLoading(false)
       if (mailRes?.ok) alert('Rechnungen erstellt und E-Mails versendet.')
       else alert('Rechnungen erstellt, aber Mailversand fehlgeschlagen.')
@@ -286,10 +389,21 @@ export default function RechnungenAutomatisch()
           <div style={{ background: '#0f172a', color: '#fff', padding: '2px 6px', borderRadius: 12, fontSize: 10, fontWeight: 600, lineHeight: 1.2 }}>Zeitraum: {verrechnungsZeitraum}</div>
         </div>
 
-        {/* Rechts: Versand-Button */}
-        <button onClick={handleSendEmails} style={{ padding: '8px 14px', border: 'none', background: '#005bd1', color: '#fff', borderRadius: 999, cursor: 'pointer', fontWeight: 700 }}>
-          E-Mails versenden ({allSelectedCount})
-        </button>
+        {/* Rechts: Toggle und Versand-Button */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', padding: '8px 12px', borderRadius: 8, border: '1px solid #d1d5db', background: protokollAktiv ? '#e0f2fe' : '#fff' }}>
+            <input 
+              type="checkbox" 
+              checked={protokollAktiv} 
+              onChange={(e) => setProtokollAktiv(e.currentTarget.checked)}
+              style={{ cursor: 'pointer' }}
+            />
+            <span style={{ fontSize: 13, fontWeight: 600, color: protokollAktiv ? '#0369a1' : '#64748b' }}>Rechnungsprotokoll</span>
+          </label>
+          <button onClick={handleSendEmails} style={{ padding: '8px 14px', border: 'none', background: '#005bd1', color: '#fff', borderRadius: 999, cursor: 'pointer', fontWeight: 700 }}>
+            E-Mails versenden ({allSelectedCount})
+          </button>
+        </div>
       </div>
 
       <div style={{ background: '#fff', border: '1px solid #eaeaea', borderRadius: 10, padding: 12 }}>

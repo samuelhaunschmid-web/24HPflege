@@ -535,6 +535,41 @@ export default function Einstellungen() {
                   }}>Ordner wählen</button>
                 </div>
               </div>
+              <div>
+                <label style={{ display: 'block', marginBottom: 4, fontSize: '14px', fontWeight: 600, color: '#1f2937' }}>Dokumente-Ordner</label>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <input style={{ 
+                    flex: 1, 
+                    padding: '8px 12px', 
+                    border: '1px solid #d1d5db', 
+                    borderRadius: 8,
+                    fontSize: '14px',
+                    fontFamily: 'inherit',
+                    backgroundColor: '#f9fafb',
+                    color: '#1f2937',
+                    boxSizing: 'border-box'
+                  }} value={cfg?.dokumenteDir || ''} readOnly />
+                  <button onClick={async () => {
+                    const dir = await window.api?.chooseDirectory?.('Dokumente-Ordner wählen')
+                    if (!dir) return
+                    const next = await window.api?.setConfig?.({ dokumenteDir: dir })
+                    setCfg(next || {})
+                  }} style={{ 
+                    padding: '6px 12px', 
+                    borderRadius: 8, 
+                    border: '1px solid #d1d5db', 
+                    background: '#ffffff', 
+                    color: '#1f2937',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    fontWeight: '600',
+                    fontFamily: 'inherit'
+                  }}>Ordner wählen</button>
+                </div>
+                <div style={{ marginTop: 6, fontSize: 12, color: '#64748b' }}>
+                  Erwartete Struktur: <code style={{ fontFamily: 'monospace' }}>Dokumente/</code> enthält <code style={{ fontFamily: 'monospace' }}>KundenDaten/</code> und <code style={{ fontFamily: 'monospace' }}>BetreuerDaten/</code>.
+                </div>
+              </div>
             <div>
               <label style={{ display: 'block', marginBottom: 4, fontSize: '14px', fontWeight: 600, color: '#1f2937' }}>LibreOffice Pfad</label>
               <div style={{ display: 'flex', gap: 8 }}>

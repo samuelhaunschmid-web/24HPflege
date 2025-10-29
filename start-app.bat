@@ -1,6 +1,6 @@
 @echo off
 set PATH=%PATH%;C:\Program Files\nodejs
-cd /d "C:\Users\samue\Desktop\24HPflege"
+cd /d "C:\Users\samue\Desktop\24Pflege 290725\24HPflege"
 echo Starting 24-Stunden-Pflege App...
 echo.
 echo Installing dependencies if needed...

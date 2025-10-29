@@ -11,6 +11,7 @@ const isDev = process.env.VITE_DEV_SERVER_URL || process.env.ELECTRON_START_URL;
 
 let splashWindow = null;
 let mainWindow = null;
+let childWindows = new Set();
 
 function createSplashWindow() {
   splashWindow = new BrowserWindow({
@@ -593,6 +594,187 @@ app.whenReady().then(() => {
     const res = await dialog.showOpenDialog(opts);
     if (res.canceled || !res.filePaths || res.filePaths.length === 0) return null;
     return res.filePaths[0];
+  });
+  ipcMain.handle('dialog:saveFile', async (_e, args) => {
+    const opts = { 
+      title: (args && args.title) || 'Datei speichern', 
+      defaultPath: (args && args.defaultPath) || 'rechnungsprotokoll.txt',
+      filters: (args && args.filters) || [{ name: 'Textdateien', extensions: ['txt'] }]
+    };
+    const res = await dialog.showSaveDialog(opts);
+    if (res.canceled || !res.filePath) return null;
+    return res.filePath;
+  });
+  ipcMain.handle('file:writeText', async (_e, args) => {
+    const { filePath, content } = args || {};
+    if (!filePath || typeof content !== 'string') throw new Error('Ungültige Parameter');
+    fs.writeFileSync(filePath, content, 'utf-8');
+    return { ok: true };
+  });
+
+  // Ordner-Struktur sicherstellen (Dokumente/KundenDaten | Dokumente/BetreuerDaten)
+  ipcMain.handle('folders:ensureStructure', async (_e, args) => {
+    try {
+      const baseDir = (args && args.baseDir) || '';
+      const personType = (args && args.personType) === 'betreuer' ? 'betreuer' : 'kunden';
+      const names = Array.isArray(args && args.names) ? args.names : [];
+      const subfolders = Array.isArray(args && args.subfolders) ? args.subfolders : [];
+      if (!baseDir || !fs.existsSync(baseDir)) return { ok: false, message: 'Dokumente-Ordner ungültig oder nicht gesetzt' };
+      const root = path.join(baseDir, personType === 'betreuer' ? 'BetreuerDaten' : 'KundenDaten');
+      if (!fs.existsSync(root)) fs.mkdirSync(root, { recursive: true });
+      let createdCount = 0;
+      let createdSubCount = 0;
+      for (const name of names) {
+        if (!name || typeof name !== 'string') continue;
+        const safeName = name.replace(/[\\/:*?"<>|]/g, '-').trim();
+        if (!safeName) continue;
+        const personDir = path.join(root, safeName);
+        if (!fs.existsSync(personDir)) { fs.mkdirSync(personDir, { recursive: true }); createdCount++; }
+        for (const sf of subfolders) {
+          let segments = [];
+          if (Array.isArray(sf)) {
+            segments = sf.map(s => String(s || '').trim()).filter(Boolean);
+          } else {
+            const sfTrim = String(sf || '').trim();
+            if (!sfTrim) continue;
+            segments = sfTrim.split(/[\\/]+/).map(s => s.trim()).filter(Boolean);
+          }
+          if (!segments.length) continue;
+          const sanitized = segments.map(seg => seg.replace(/[\\/:*?"<>|]/g, '-'));
+          const subDir = path.join(personDir, ...sanitized);
+          if (!fs.existsSync(subDir)) { fs.mkdirSync(subDir, { recursive: true }); createdSubCount++; }
+        }
+      }
+      return { ok: true, root, createdCount, createdSubCount };
+    } catch (e) {
+      return { ok: false, message: String(e) };
+    }
+  });
+
+  // Inhalte für Personenordner auflisten
+  ipcMain.handle('folders:listForPersons', async (_e, args) => {
+    try {
+      const baseDir = (args && args.baseDir) || '';
+      const personType = (args && args.personType) === 'betreuer' ? 'betreuer' : 'kunden';
+      const names = Array.isArray(args && args.names) ? args.names : [];
+      if (!baseDir || !fs.existsSync(baseDir)) return { ok: false, message: 'Dokumente-Ordner ungültig oder nicht gesetzt' };
+      const root = path.join(baseDir, personType === 'betreuer' ? 'BetreuerDaten' : 'KundenDaten');
+      const result = [];
+      for (const name of names) {
+        const safeName = String(name || '').replace(/[\\/:*?"<>|]/g, '-').trim();
+        if (!safeName) continue;
+        const personDir = path.join(root, safeName);
+        const exists = fs.existsSync(personDir);
+        const entry = { name: safeName, dir: personDir, exists, subfolders: [] };
+        if (exists) {
+          const items = fs.readdirSync(personDir, { withFileTypes: true });
+          for (const it of items) {
+            if (it.isDirectory()) {
+              const subDir = path.join(personDir, it.name);
+              const files = fs.readdirSync(subDir, { withFileTypes: true })
+                .filter(f => f.isFile())
+                .map(f => f.name);
+              entry.subfolders.push({ name: it.name, files });
+            }
+          }
+        }
+        result.push(entry);
+      }
+      return { ok: true, root, result };
+    } catch (e) {
+      return { ok: false, message: String(e) };
+    }
+  });
+
+  // Datei-Pfad für Email-Anhänge ermitteln
+  ipcMain.handle('folders:getFilePath', async (_e, args) => {
+    try {
+      const baseDir = (args && args.baseDir) || '';
+      const personType = (args && args.personType) === 'betreuer' ? 'betreuer' : 'kunden';
+      const personName = String(args && args.personName || '').trim();
+      const folderPath = Array.isArray(args && args.folderPath) ? args.folderPath : [];
+      const fileName = String(args && args.fileName || '').trim();
+      if (!baseDir || !fs.existsSync(baseDir) || !personName || !fileName) return { ok: false, exists: false };
+      const root = path.join(baseDir, personType === 'betreuer' ? 'BetreuerDaten' : 'KundenDaten');
+      let filePath = path.join(root, personName);
+      for (const seg of folderPath) {
+        filePath = path.join(filePath, String(seg || '').replace(/[\\/:*?"<>|]/g, '-'));
+      }
+      const fullPath = path.join(filePath, fileName);
+      const exists = fs.existsSync(fullPath) && fs.statSync(fullPath).isFile();
+      return { ok: true, exists, path: exists ? fullPath : null };
+    } catch (e) {
+      return { ok: false, exists: false, message: String(e) };
+    }
+  });
+
+  // Neues Fenster für Ordner-Management-Dialog öffnen
+  ipcMain.handle('window:openFolderDialog', async (_e, args) => {
+    try {
+      const personType = (args && args.personType) === 'betreuer' ? 'betreuer' : 'kunden';
+      const urlHash = `#/dialog/ordner?personType=${encodeURIComponent(personType)}`;
+      const child = new BrowserWindow({
+        width: 560,
+        height: 560,
+        modal: false,
+        parent: mainWindow || undefined,
+        resizable: true,
+        minimizable: false,
+        maximizable: false,
+        title: 'Ordner-Management',
+        webPreferences: {
+          preload: path.join(__dirname, 'preload.js'),
+          contextIsolation: true,
+          nodeIntegration: false,
+        }
+      });
+      childWindows.add(child);
+      child.on('closed', () => { childWindows.delete(child); });
+      if (isDev) {
+        const devUrl = (process.env.VITE_DEV_SERVER_URL || process.env.ELECTRON_START_URL || 'http://localhost:5173') + urlHash;
+        child.loadURL(devUrl);
+      } else {
+        const indexHtml = path.join(__dirname, 'renderer', 'dist', 'index.html');
+        child.loadFile(indexHtml, { hash: urlHash.replace('#', '') });
+      }
+      return { ok: true };
+    } catch (e) {
+      return { ok: false, message: String(e) };
+    }
+  });
+
+  // Neues Fenster für Mail-Vorlagen-Dialog öffnen
+  ipcMain.handle('window:openMailTemplatesDialog', async () => {
+    try {
+      const urlHash = '#/dialog/dateien-mail'
+      const child = new BrowserWindow({
+        width: 800,
+        height: 640,
+        modal: false,
+        parent: mainWindow || undefined,
+        resizable: true,
+        minimizable: false,
+        maximizable: false,
+        title: 'Vorlagen bearbeiten',
+        webPreferences: {
+          preload: path.join(__dirname, 'preload.js'),
+          contextIsolation: true,
+          nodeIntegration: false,
+        }
+      });
+      childWindows.add(child);
+      child.on('closed', () => { childWindows.delete(child); });
+      if (isDev) {
+        const devUrl = (process.env.VITE_DEV_SERVER_URL || process.env.ELECTRON_START_URL || 'http://localhost:5173') + urlHash;
+        child.loadURL(devUrl);
+      } else {
+        const indexHtml = path.join(__dirname, 'renderer', 'dist', 'index.html');
+        child.loadFile(indexHtml, { hash: urlHash.replace('#', '') });
+      }
+      return { ok: true };
+    } catch (e) {
+      return { ok: false, message: String(e) };
+    }
   });
 
   // LibreOffice Installation
@@ -1618,6 +1800,7 @@ app.whenReady().then(() => {
     const used = [];
     const usedByKey = {};
     const generatedFiles = [];
+    const invoiceDataByKey = {}; // Sammle Rechnungsdaten für Protokoll
     
     for (const key of selectedKundenKeys) {
       const kunde = kunden.find(k => getKey(k) === key);
@@ -1642,6 +1825,18 @@ app.whenReady().then(() => {
         used.push(zielDatei);
         if (!usedByKey[key]) usedByKey[key] = [];
         usedByKey[key].push(zielDatei);
+        
+        // Sammle Rechnungsdaten für Protokoll
+        const nachname = String(kunde.kfname || kunde.nachname || '');
+        const heute = formatDateDDMMYYYY(new Date());
+        if (!invoiceDataByKey[key]) invoiceDataByKey[key] = [];
+        invoiceDataByKey[key].push({
+          rechnungsnummer: currentRechnungsnummer,
+          nachname: nachname,
+          gesamtsumme: summe.toFixed(2),
+          datum: heute
+        });
+        
         currentRechnungsnummer++;
       }
     }
@@ -1740,7 +1935,7 @@ app.whenReady().then(() => {
     }
     
     writeConfig({ ...cfg, currentRechnungsnummer });
-    return { ok: true, files: used, byKey: usedByKey, currentRechnungsnummer };
+    return { ok: true, files: used, byKey: usedByKey, currentRechnungsnummer, invoiceData: invoiceDataByKey };
   });
 
   if (!isDev) autoUpdater.checkForUpdatesAndNotify();
