@@ -217,7 +217,7 @@ export default function DatenVerwaltungTabs({ personType, row, allPersons, allKe
         </div>
       )}
       {baseDir && personEntry && (
-        <div style={{ background: '#ffffff', border: '1px solid #e6e8ef', borderRadius: 8, padding: 12, display: 'grid', gap: 10 }}>
+        <div style={{ background: '#ffffff', border: '1px solid #e6e8ef', borderRadius: 8, padding: 12, display: 'grid', gap: 10, }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <div style={{ flex: 1, fontWeight: 600, color: '#1f2937' }}>
               {personDisplay} {personEntry.exists ? '' : '(Ordner fehlt)'}

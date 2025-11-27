@@ -185,7 +185,7 @@ export default function TabellenEinstellungenDialog({ offen, onClose, keys, disp
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', borderTop: '1px solid #eee', background: '#fff', flex: '0 0 auto' }}>
           <div style={{ fontSize: 12, color: '#666' }}>Einstellungen werden nur in der App gespeichert.</div>
           <div style={{ display: 'flex', gap: 8 }}>
-            <button onClick={onClose} style={{ padding: '6px 12px', borderRadius: 6, border: '1px solid #ddd', background: '#f7f7f7' }}>Abbrechen</button>
+            <button onClick={onClose} style={{ padding: '6px 12px', borderRadius: 6, border: '1px solid #ddd', background: '#f7f7f7',color: '#1f2937' }}>Abbrechen</button>
             <button onClick={() => {
               // commit draft
               sichtbareKeys.forEach(k => {

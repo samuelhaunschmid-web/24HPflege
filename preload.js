@@ -20,6 +20,7 @@ contextBridge.exposeInMainWorld('api', {
     listForPersons: (payload) => ipcRenderer.invoke('folders:listForPersons', payload),
     getFilePath: (payload) => ipcRenderer.invoke('folders:getFilePath', payload),
     moveFile: (payload) => ipcRenderer.invoke('folders:moveFile', payload),
+    moveToArchive: (payload) => ipcRenderer.invoke('folders:moveToArchive', payload),
   },
   openMailTemplatesDialog: () => ipcRenderer.invoke('window:openMailTemplatesDialog'),
   openFolderDialog: (personType) => ipcRenderer.invoke('window:openFolderDialog', { personType }),

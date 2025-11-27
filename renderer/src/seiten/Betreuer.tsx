@@ -6,6 +6,7 @@ import TabelleDropdownZeilen from '../komponenten/TabelleDropdownZeilen'
 import { useTableSettings } from '../komponenten/useTableSettings'
 import TabellenEinstellungenDialog from '../komponenten/TabellenEinstellungenDialog'
 import NeuerEintragDialog from '../komponenten/NeuerEintragDialog'
+import { ordnerAutomatischErstellen } from '../komponenten/OrdnerAutomatischErstellen'
 
 export default function Betreuer() {
   const [searchParams] = useSearchParams()
@@ -212,6 +213,8 @@ export default function Betreuer() {
           })
           await window.db?.betreuerAdd?.(updates)
           const lists = await window.docgen?.getLists?.(); if (lists?.betreuer) setBetreuer(lists.betreuer)
+          // Automatisch Ordner erstellen
+          await ordnerAutomatischErstellen(updates, 'betreuer', settings.gruppen || {})
           return true
         }}
       />

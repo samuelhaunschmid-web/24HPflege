@@ -19,6 +19,7 @@ declare global {
         listForPersons?: (payload: { baseDir: string; personType: 'kunden' | 'betreuer'; names: string[] }) => Promise<{ ok?: boolean; message?: string; root?: string; result?: Array<{ name: string; dir: string; exists: boolean; subfolders: Array<{ name: string; files: string[] }> }> }>
         getFilePath?: (payload: { baseDir: string; personType: 'kunden' | 'betreuer'; personName: string; folderPath: string[]; fileName: string }) => Promise<{ ok?: boolean; exists?: boolean; path?: string | null; message?: string }>
         moveFile?: (payload: { baseDir: string; fromPersonType: 'kunden' | 'betreuer'; fromPersonName: string; fromPath: string[]; fileName: string; toPersonType: 'kunden' | 'betreuer'; toPersonName: string; toPath: string[] }) => Promise<{ ok?: boolean; message?: string; missing?: boolean; from?: string; to?: string }>
+        moveToArchive?: (payload: { baseDir: string; personType: 'kunden' | 'betreuer'; personName: string }) => Promise<{ ok?: boolean; message?: string }>
       }
       openFolderDialog?: (personType: 'kunden' | 'betreuer') => Promise<{ ok?: boolean; message?: string }>
       openMailTemplatesDialog?: () => Promise<{ ok?: boolean; message?: string }>

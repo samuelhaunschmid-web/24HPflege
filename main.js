@@ -622,6 +622,9 @@ app.whenReady().then(() => {
       if (!baseDir || !fs.existsSync(baseDir)) return { ok: false, message: 'Dokumente-Ordner ungültig oder nicht gesetzt' };
       const root = path.join(baseDir, personType === 'betreuer' ? 'BetreuerDaten' : 'KundenDaten');
       if (!fs.existsSync(root)) fs.mkdirSync(root, { recursive: true });
+      // Archiv-Ordner erstellen
+      const archiveDir = path.join(root, 'Archiv');
+      if (!fs.existsSync(archiveDir)) fs.mkdirSync(archiveDir, { recursive: true });
       let createdCount = 0;
       let createdSubCount = 0;
       for (const name of names) {
@@ -649,6 +652,76 @@ app.whenReady().then(() => {
     } catch (e) {
       return { ok: false, message: String(e) };
     }
+  });
+
+  // Hilfsfunktion: Ordner in Archiv verschieben
+  async function moveFolderToArchive(args) {
+    try {
+      const baseDir = (args && args.baseDir) || '';
+      const personType = (args && args.personType) === 'betreuer' ? 'betreuer' : 'kunden';
+      const personName = String(args && args.personName || '').trim();
+      if (!baseDir || !fs.existsSync(baseDir)) return { ok: false, message: 'Dokumente-Ordner ungültig oder nicht gesetzt' };
+      if (!personName) return { ok: false, message: 'Personenname fehlt' };
+      
+      const root = path.join(baseDir, personType === 'betreuer' ? 'BetreuerDaten' : 'KundenDaten');
+      const archiveDir = path.join(root, 'Archiv');
+      if (!fs.existsSync(archiveDir)) fs.mkdirSync(archiveDir, { recursive: true });
+      
+      const safeName = personName.replace(/[\\/:*?"<>|]/g, '-').trim();
+      const personDir = path.join(root, safeName);
+      
+      if (!fs.existsSync(personDir)) {
+        // Ordner existiert nicht, versuche alternative Namensvarianten
+        const nameParts = safeName.split(/\s+/).filter(Boolean);
+        if (nameParts.length >= 2) {
+          const altName1 = nameParts.join(' ');
+          const altName2 = [...nameParts].reverse().join(' ');
+          const altDir1 = path.join(root, altName1);
+          const altDir2 = path.join(root, altName2);
+          if (fs.existsSync(altDir1)) {
+            const targetDir = path.join(archiveDir, altName1);
+            if (fs.existsSync(targetDir)) {
+              // Ziel existiert bereits, füge Timestamp hinzu
+              const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+              const targetDirWithTimestamp = path.join(archiveDir, `${altName1}_${timestamp}`);
+              fs.renameSync(altDir1, targetDirWithTimestamp);
+            } else {
+              fs.renameSync(altDir1, targetDir);
+            }
+            return { ok: true, message: 'Ordner erfolgreich ins Archiv verschoben' };
+          } else if (fs.existsSync(altDir2)) {
+            const targetDir = path.join(archiveDir, altName2);
+            if (fs.existsSync(targetDir)) {
+              const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+              const targetDirWithTimestamp = path.join(archiveDir, `${altName2}_${timestamp}`);
+              fs.renameSync(altDir2, targetDirWithTimestamp);
+            } else {
+              fs.renameSync(altDir2, targetDir);
+            }
+            return { ok: true, message: 'Ordner erfolgreich ins Archiv verschoben' };
+          }
+        }
+        return { ok: false, message: 'Ordner nicht gefunden' };
+      }
+      
+      const targetDir = path.join(archiveDir, safeName);
+      if (fs.existsSync(targetDir)) {
+        // Ziel existiert bereits, füge Timestamp hinzu
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+        const targetDirWithTimestamp = path.join(archiveDir, `${safeName}_${timestamp}`);
+        fs.renameSync(personDir, targetDirWithTimestamp);
+      } else {
+        fs.renameSync(personDir, targetDir);
+      }
+      return { ok: true, message: 'Ordner erfolgreich ins Archiv verschoben' };
+    } catch (e) {
+      return { ok: false, message: String(e) };
+    }
+  }
+
+  // Ordner in Archiv verschieben (IPC Handler)
+  ipcMain.handle('folders:moveToArchive', async (_e, args) => {
+    return await moveFolderToArchive(args);
   });
 
   // Inhalte für Personenordner auflisten
@@ -1322,6 +1395,18 @@ app.whenReady().then(() => {
       }
       alt.push(removed);
       writeExcel(altPath, alt);
+      
+      // Ordner ins Archiv verschieben
+      const kfname = String(removed.kfname || '').trim();
+      const kvname = String(removed.kvname || '').trim();
+      if (kfname || kvname) {
+        const personName = `${kfname} ${kvname}`.trim();
+        const baseDir = cfg.dokumenteDir || '';
+        if (baseDir && fs.existsSync(baseDir)) {
+          await moveFolderToArchive({ baseDir, personType: 'kunden', personName });
+        }
+      }
+      
       return true;
     }
     return false;
@@ -1388,6 +1473,18 @@ app.whenReady().then(() => {
       }
       alt.push(removed);
       writeExcel(altPath, alt);
+      
+      // Ordner ins Archiv verschieben
+      const famNam = String(removed['Fam. Nam'] || '').trim();
+      const vorNam = String(removed['Vor.Nam'] || '').trim();
+      if (famNam || vorNam) {
+        const personName = `${famNam} ${vorNam}`.trim();
+        const baseDir = cfg.dokumenteDir || '';
+        if (baseDir && fs.existsSync(baseDir)) {
+          await moveFolderToArchive({ baseDir, personType: 'betreuer', personName });
+        }
+      }
+      
       return true;
     }
     return false;

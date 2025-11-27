@@ -7,6 +7,7 @@ import { useTableSettings } from '../komponenten/useTableSettings'
 import TabellenEinstellungenDialog from '../komponenten/TabellenEinstellungenDialog'
 import NeuerEintragDialog from '../komponenten/NeuerEintragDialog'
 import type { DateiSchema } from '../komponenten/SchemataVerwaltenDialog'
+import { ordnerAutomatischErstellen } from '../komponenten/OrdnerAutomatischErstellen'
 
 export default function Kunden() {
   const [searchParams] = useSearchParams()
@@ -272,6 +273,8 @@ export default function Kunden() {
           })
           await window.db?.kundenAdd?.(updates)
           const lists = await window.docgen?.getLists?.(); if (lists?.kunden) setKunden(lists.kunden)
+          // Automatisch Ordner erstellen
+          await ordnerAutomatischErstellen(updates, 'kunden', settings.gruppen || {})
           return true
         }}
       />
