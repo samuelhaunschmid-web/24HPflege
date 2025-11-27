@@ -63,12 +63,41 @@ async function sendMailWithOAuth2(app, cfg, payload) {
   })
 
   // Normalisiere Attachment-Namen: nie absolute Pfade im Dateinamen
-  const attachments = Array.isArray(payload?.attachments) ? payload.attachments.map(att => {
-    try {
-      const filename = att?.filename || path.basename(att?.path || '') || 'Anhang';
-      return { ...att, filename };
-    } catch { return att }
-  }) : undefined
+  // Validiere und filtere Anhänge: nur solche mit gültigem Pfad und existierender Datei
+  let attachments = undefined
+  if (Array.isArray(payload?.attachments) && payload.attachments.length > 0) {
+    attachments = payload.attachments.filter(att => {
+      if (!att || !att.path) return false
+      try {
+        // Pfad kann absolut oder relativ sein - beide sollten funktionieren
+        const fullPath = path.isAbsolute(att.path) ? att.path : path.resolve(att.path)
+        const exists = fs.existsSync(fullPath)
+        if (!exists) {
+          appendLog(app, { ok: false, error: `Anhang-Datei nicht gefunden: ${att.path}`, payload: { to: payload?.to, subject: payload?.subject } })
+          return false
+        }
+        const isFile = fs.statSync(fullPath).isFile()
+        if (!isFile) {
+          appendLog(app, { ok: false, error: `Anhang ist keine Datei: ${att.path}`, payload: { to: payload?.to, subject: payload?.subject } })
+          return false
+        }
+        return true
+      } catch (err) {
+        appendLog(app, { ok: false, error: `Fehler beim Prüfen des Anhangs: ${att.path} - ${String(err)}`, payload: { to: payload?.to, subject: payload?.subject } })
+        return false
+      }
+    }).map(att => {
+      try {
+        const filename = att?.filename || path.basename(att?.path || '') || 'Anhang';
+        // Verwende den originalen Pfad (kann absolut oder relativ sein)
+        return { path: att.path, filename };
+      } catch (err) { 
+        return { path: att?.path, filename: 'Anhang' }
+      }
+    })
+    // Wenn nach Filterung keine Anhänge übrig sind, setze auf undefined
+    if (attachments.length === 0) attachments = undefined
+  }
 
   const mailOptions = {
     from: fromName ? `${fromName} <${fromAddress}>` : fromAddress,

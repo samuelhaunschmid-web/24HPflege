@@ -1754,82 +1754,113 @@ app.whenReady().then(() => {
       function calculateSteuer(vst) { return vst * 0.2; }
       
       // Generiere Rechnungen für jeden Kunden
-      for (const key of selectedKundenKeys) {
-        const kunde = kunden.find(k => getKey(k) === key);
-        if (!kunde) continue;
-        for (const rel of selectedVorlagen) {
-          const monthNum = Number(month || cfg.verrechnungsmonat || (new Date().getMonth()+1));
-          const yearNum = Number(year || cfg.verrechnungsjahr || (new Date().getFullYear()));
-          let tage, zeitraum;
-          const ind = individualRanges && individualRanges[key];
-          if (ind && ind.von && ind.bis) { tage = getIndividuelleTage(ind.von, ind.bis); zeitraum = getIndividuellerZeitraum(ind.von, ind.bis); }
-          else { tage = getMonatstage(monthNum, yearNum); zeitraum = getVerrechnungszeitraum(monthNum, yearNum); }
-          const summe = calculateGesamtsumme(kunde, tage);
-          const vst = calculateVorsteuer(summe);
-          const st = calculateSteuer(vst);
-          const data = { ...kunde, Rechnungsnummer: currentRechnungsnummer, Verrechnungsmonat: monthNum, Verrechnungsjahr: yearNum, Verrechnungszeitraum: zeitraum, Monatstage: tage, Gesamtsumme: summe.toFixed(2), Vorsteuer: vst.toFixed(2), Steuer: st.toFixed(2), Monatende: getMonatende(monthNum, yearNum) };
-          
-          const vorlagenPath = path.join(vorlagenRoot, rel);
-          const templateBuffer = fs.readFileSync(vorlagenPath);
-          const outputBuffer = await replacePlaceholders(templateBuffer, data);
-          
-          if (alsPdf) {
+      const generatedDocxFiles = [];
+      
+      if (alsPdf) {
+        // Schritt 1: Alle DOCX-Dateien generieren
+        for (const key of selectedKundenKeys) {
+          const kunde = kunden.find(k => getKey(k) === key);
+          if (!kunde) continue;
+          for (const rel of selectedVorlagen) {
+            const monthNum = Number(month || cfg.verrechnungsmonat || (new Date().getMonth()+1));
+            const yearNum = Number(year || cfg.verrechnungsjahr || (new Date().getFullYear()));
+            let tage, zeitraum;
+            const ind = individualRanges && individualRanges[key];
+            if (ind && ind.von && ind.bis) { tage = getIndividuelleTage(ind.von, ind.bis); zeitraum = getIndividuellerZeitraum(ind.von, ind.bis); }
+            else { tage = getMonatstage(monthNum, yearNum); zeitraum = getVerrechnungszeitraum(monthNum, yearNum); }
+            const summe = calculateGesamtsumme(kunde, tage);
+            const vst = calculateVorsteuer(summe);
+            const st = calculateSteuer(vst);
+            const data = { ...kunde, Rechnungsnummer: currentRechnungsnummer, Verrechnungsmonat: monthNum, Verrechnungsjahr: yearNum, Verrechnungszeitraum: zeitraum, Monatstage: tage, Gesamtsumme: summe.toFixed(2), Vorsteuer: vst.toFixed(2), Steuer: st.toFixed(2), Monatende: getMonatende(monthNum, yearNum) };
+            
+            const vorlagenPath = path.join(vorlagenRoot, rel);
+            const templateBuffer = fs.readFileSync(vorlagenPath);
+            const outputBuffer = await replacePlaceholders(templateBuffer, data);
+            
             // Temporäre DOCX-Datei erstellen
             const tempDocxName = await replaceFilenamePlaceholders(path.basename(rel), data);
             const tempDocxPath = path.join(zielOrdner, tempDocxName);
             fs.writeFileSync(tempDocxPath, outputBuffer);
+            generatedDocxFiles.push(tempDocxPath);
             
-            try {
-              // LibreOffice für PDF-Konvertierung verwenden
-              const { spawnSync } = require('child_process');
-              const cfg3 = readConfig();
-              const manual2 = cfg3.libreOfficePath && fs.existsSync(cfg3.libreOfficePath) ? cfg3.libreOfficePath : null;
-              const detected2 = findSofficeExecutable();
-              const soffice = manual2 || detected2 || 'soffice';
-              const result = spawnSync(soffice, [
+            currentRechnungsnummer++;
+          }
+        }
+        
+        // Schritt 2: Alle DOCX-Dateien zu PDF konvertieren
+        try {
+          const { spawnSync } = require('child_process');
+          const cfg3 = readConfig();
+          const manual2 = cfg3.libreOfficePath && fs.existsSync(cfg3.libreOfficePath) ? cfg3.libreOfficePath : null;
+          const detected2 = findSofficeExecutable();
+          const soffice = manual2 || detected2 || 'soffice';
+          
+          for (const tempDocxPath of generatedDocxFiles) {
+            const result = spawnSync(soffice, [
+              '--headless',
+              '--convert-to', 'pdf',
+              '--outdir', zielOrdner,
+              tempDocxPath
+            ], { stdio: 'pipe' });
+            
+            if (result.error) {
+              // Fallback: lowriter versuchen
+              const result2 = spawnSync('lowriter', [
                 '--headless',
                 '--convert-to', 'pdf',
                 '--outdir', zielOrdner,
                 tempDocxPath
               ], { stdio: 'pipe' });
               
-              if (result.error) {
-                // Fallback: lowriter versuchen
-                const result2 = spawnSync('lowriter', [
-                  '--headless',
-                  '--convert-to', 'pdf',
-                  '--outdir', zielOrdner,
-                  tempDocxPath
-                ], { stdio: 'pipe' });
-                
-                if (result2.error) {
-                  console.warn('LibreOffice not available, keeping DOCX file');
-                } else {
-                  // Temporäre DOCX-Datei löschen nach erfolgreicher PDF-Konvertierung
-                  try {
-                    fs.unlinkSync(tempDocxPath);
-                  } catch (deleteError) {
-                    console.warn('Could not delete temp DOCX file:', deleteError);
-                  }
-                }
-              } else {
-                // Temporäre DOCX-Datei löschen nach erfolgreicher PDF-Konvertierung
-                try {
-                  fs.unlinkSync(tempDocxPath);
-                } catch (deleteError) {
-                  console.warn('Could not delete temp DOCX file:', deleteError);
-                }
+              if (result2.error) {
+                console.warn('LibreOffice not available, keeping DOCX file:', tempDocxPath);
+                // Datei aus Liste entfernen, damit sie nicht gelöscht wird
+                const index = generatedDocxFiles.indexOf(tempDocxPath);
+                if (index > -1) generatedDocxFiles.splice(index, 1);
               }
-            } catch (error) {
-              console.error('PDF conversion error:', error);
             }
-          } else {
-            // Normale DOCX-Erstellung
+          }
+        } catch (error) {
+          console.error('PDF conversion error:', error);
+        }
+        
+        // Schritt 3: Alle temporären DOCX-Dateien löschen
+        for (const tempDocxPath of generatedDocxFiles) {
+          try {
+            if (fs.existsSync(tempDocxPath)) {
+              fs.unlinkSync(tempDocxPath);
+            }
+          } catch (deleteError) {
+            console.warn('Could not delete temp DOCX file:', tempDocxPath, deleteError);
+          }
+        }
+      } else {
+        // Normale DOCX-Erstellung (keine PDF-Konvertierung)
+        for (const key of selectedKundenKeys) {
+          const kunde = kunden.find(k => getKey(k) === key);
+          if (!kunde) continue;
+          for (const rel of selectedVorlagen) {
+            const monthNum = Number(month || cfg.verrechnungsmonat || (new Date().getMonth()+1));
+            const yearNum = Number(year || cfg.verrechnungsjahr || (new Date().getFullYear()));
+            let tage, zeitraum;
+            const ind = individualRanges && individualRanges[key];
+            if (ind && ind.von && ind.bis) { tage = getIndividuelleTage(ind.von, ind.bis); zeitraum = getIndividuellerZeitraum(ind.von, ind.bis); }
+            else { tage = getMonatstage(monthNum, yearNum); zeitraum = getVerrechnungszeitraum(monthNum, yearNum); }
+            const summe = calculateGesamtsumme(kunde, tage);
+            const vst = calculateVorsteuer(summe);
+            const st = calculateSteuer(vst);
+            const data = { ...kunde, Rechnungsnummer: currentRechnungsnummer, Verrechnungsmonat: monthNum, Verrechnungsjahr: yearNum, Verrechnungszeitraum: zeitraum, Monatstage: tage, Gesamtsumme: summe.toFixed(2), Vorsteuer: vst.toFixed(2), Steuer: st.toFixed(2), Monatende: getMonatende(monthNum, yearNum) };
+            
+            const vorlagenPath = path.join(vorlagenRoot, rel);
+            const templateBuffer = fs.readFileSync(vorlagenPath);
+            const outputBuffer = await replacePlaceholders(templateBuffer, data);
+            
             const dateiname = await replaceFilenamePlaceholders(path.basename(rel), data);
             const zielDatei = path.join(zielOrdner, dateiname);
             fs.writeFileSync(zielDatei, outputBuffer);
+            
+            currentRechnungsnummer++;
           }
-          currentRechnungsnummer++;
         }
       }
       writeConfig({ ...cfg, currentRechnungsnummer });
@@ -1908,7 +1939,10 @@ app.whenReady().then(() => {
       }
       
       if (alsPdf) {
-      // Direkte DOCX zu PDF Konvertierung mit LibreOffice
+      // Optimierte DOCX zu PDF Konvertierung: Alle docx generieren, dann alle konvertieren, dann alle löschen
+      const generatedDocxFiles = [];
+      
+      // Schritt 1: Alle DOCX-Dateien generieren
       for (const templateName of selectedVorlagen) {
         const vorlagenPath = getVorlagenPath(templateName, vorlagenRoot);
         const templateBuffer = fs.readFileSync(vorlagenPath);
@@ -1918,14 +1952,18 @@ app.whenReady().then(() => {
         const tempDocxName = path.basename(templateName);
         const tempDocxPath = path.join(zielOrdner, await replaceFilenamePlaceholders(tempDocxName, data));
         fs.writeFileSync(tempDocxPath, outputBuffer);
+        generatedDocxFiles.push(tempDocxPath);
+      }
+      
+      // Schritt 2: Alle DOCX-Dateien zu PDF konvertieren
+      try {
+        const { spawnSync } = require('child_process');
+        const cfg4 = readConfig();
+        const manual3 = cfg4.libreOfficePath && fs.existsSync(cfg4.libreOfficePath) ? cfg4.libreOfficePath : null;
+        const detected3 = findSofficeExecutable() || 'soffice';
+        const soffice = manual3 || detected3;
         
-        try {
-          // LibreOffice für PDF-Konvertierung verwenden
-          const { spawnSync } = require('child_process');
-          const cfg4 = readConfig();
-          const manual3 = cfg4.libreOfficePath && fs.existsSync(cfg4.libreOfficePath) ? cfg4.libreOfficePath : null;
-          const detected3 = findSofficeExecutable() || 'soffice';
-          const soffice = manual3 || detected3;
+        for (const tempDocxPath of generatedDocxFiles) {
           const result = spawnSync(soffice, [
             '--headless',
             '--convert-to', 'pdf',
@@ -1943,25 +1981,25 @@ app.whenReady().then(() => {
             ], { stdio: 'pipe' });
             
             if (result2.error) {
-              console.warn('LibreOffice not available, keeping DOCX file');
-            } else {
-              // Temporäre DOCX-Datei löschen nach erfolgreicher PDF-Konvertierung
-              try {
-                fs.unlinkSync(tempDocxPath);
-              } catch (deleteError) {
-                console.warn('Could not delete temp DOCX file:', deleteError);
-              }
-            }
-          } else {
-            // Temporäre DOCX-Datei löschen nach erfolgreicher PDF-Konvertierung
-            try {
-              fs.unlinkSync(tempDocxPath);
-            } catch (deleteError) {
-              console.warn('Could not delete temp DOCX file:', deleteError);
+              console.warn('LibreOffice not available, keeping DOCX file:', tempDocxPath);
+              // Datei aus Liste entfernen, damit sie nicht gelöscht wird
+              const index = generatedDocxFiles.indexOf(tempDocxPath);
+              if (index > -1) generatedDocxFiles.splice(index, 1);
             }
           }
-        } catch (error) {
-          console.error('PDF conversion error:', error);
+        }
+      } catch (error) {
+        console.error('PDF conversion error:', error);
+      }
+      
+      // Schritt 3: Alle temporären DOCX-Dateien löschen
+      for (const tempDocxPath of generatedDocxFiles) {
+        try {
+          if (fs.existsSync(tempDocxPath)) {
+            fs.unlinkSync(tempDocxPath);
+          }
+        } catch (deleteError) {
+          console.warn('Could not delete temp DOCX file:', tempDocxPath, deleteError);
         }
       }
     } else {

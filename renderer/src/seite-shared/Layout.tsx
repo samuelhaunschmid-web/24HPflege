@@ -14,14 +14,6 @@ export default function Layout({ children }: Props) {
       return false
     }
   })
-  const [dateienOpen, setDateienOpen] = useState(() => {
-    try {
-      const raw = localStorage.getItem('sidebar:dateienOpen')
-      return raw === '1'
-    } catch {
-      return false
-    }
-  })
   const [rechnungenOpen, setRechnungenOpen] = useState(() => {
     try {
       const raw = localStorage.getItem('sidebar:rechnungenOpen')
@@ -33,9 +25,6 @@ export default function Layout({ children }: Props) {
   useEffect(() => {
     try { localStorage.setItem('sidebar:archivOpen', archivOpen ? '1' : '0') } catch {}
   }, [archivOpen])
-  useEffect(() => {
-    try { localStorage.setItem('sidebar:dateienOpen', dateienOpen ? '1' : '0') } catch {}
-  }, [dateienOpen])
   useEffect(() => {
     try { localStorage.setItem('sidebar:rechnungenOpen', rechnungenOpen ? '1' : '0') } catch {}
   }, [rechnungenOpen])
@@ -164,74 +153,21 @@ export default function Layout({ children }: Props) {
             )}
           </li>
           <li>
-            <button onClick={()=> { const next = !dateienOpen; setDateienOpen(next); try { localStorage.setItem('sidebar:dateienOpen', next ? '1' : '0') } catch {} }} style={{
-              width: '100%',
-              textAlign: 'left',
-              padding: '10px 12px',
-              borderRadius: 10,
-              border: '1px solid transparent',
-              background: 'transparent',
-              color: '#334155',
-              fontWeight: 600,
-              cursor: 'pointer'
-            }}>
-              Dateien Managment
-            </button>
-            {dateienOpen && (
-              <ul style={{ listStyle: 'none', padding: 0, margin: '4px 0 0 8px', display: 'grid', gap: 4 }}>
-                <li>
-                  <NavLink 
-                    to={'/dateien/kunden'}
-                    style={({ isActive }) => ({
-                      display: 'block',
-                      padding: '8px 10px',
-                      borderRadius: 8,
-                      textDecoration: 'none',
-                      color: isActive ? '#0b4de0' : '#334155',
-                      fontWeight: 600,
-                      background: isActive ? '#eef4ff' : 'transparent',
-                      border: isActive ? '1px solid #dbe6ff' : '1px solid transparent'
-                    })}
-                  >
-                    Kunden
-                  </NavLink>
-                </li>
-                <li>
-                  <NavLink 
-                    to={'/dateien/betreuer'}
-                    style={({ isActive }) => ({
-                      display: 'block',
-                      padding: '8px 10px',
-                      borderRadius: 8,
-                      textDecoration: 'none',
-                      color: isActive ? '#0b4de0' : '#334155',
-                      fontWeight: 600,
-                      background: isActive ? '#eef4ff' : 'transparent',
-                      border: isActive ? '1px solid #dbe6ff' : '1px solid transparent'
-                    })}
-                  >
-                    Betreuer
-                  </NavLink>
-                </li>
-                <li>
-                  <NavLink 
-                    to={'/dateien/mail'}
-                    style={({ isActive }) => ({
-                      display: 'block',
-                      padding: '8px 10px',
-                      borderRadius: 8,
-                      textDecoration: 'none',
-                      color: isActive ? '#0b4de0' : '#334155',
-                      fontWeight: 600,
-                      background: isActive ? '#eef4ff' : 'transparent',
-                      border: isActive ? '1px solid #dbe6ff' : '1px solid transparent'
-                    })}
-                  >
-                    Mail
-                  </NavLink>
-                </li>
-              </ul>
-            )}
+            <NavLink 
+              to={'/mail'}
+              style={({ isActive }) => ({
+                display: 'block',
+                padding: '10px 12px',
+                borderRadius: 10,
+                textDecoration: 'none',
+                color: isActive ? '#0b4de0' : '#334155',
+                fontWeight: 600,
+                background: isActive ? '#eef4ff' : 'transparent',
+                border: isActive ? '1px solid #dbe6ff' : '1px solid transparent'
+              })}
+            >
+              Mail
+            </NavLink>
           </li>
           <li>
             <button onClick={()=> { const next = !rechnungenOpen; setRechnungenOpen(next); try { localStorage.setItem('sidebar:rechnungenOpen', next ? '1' : '0') } catch {} }} style={{

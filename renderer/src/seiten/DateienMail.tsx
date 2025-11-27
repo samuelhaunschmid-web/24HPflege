@@ -203,13 +203,81 @@ export default function DateienMail() {
               }
               
               const attachments: Array<{ path: string; filename?: string }> = []
-              // Nur Kunden-Dateien anhängen (Betreuer-Dateien werden in separater E-Mail behandelt, wenn nötig)
+              // Beide Namensvarianten durchsuchen (wie in DatenVerwaltungTabs)
+              const kundeNameVariants = [
+                `${kvor} ${knach}`.trim(),
+                `${knach} ${kvor}`.trim()
+              ].filter(Boolean).map(n => n.replace(/[\\/:*?"<>|]/g, '-'))
+              
+              const betreuerNameVariants = [
+                `${bvor} ${bnach}`.trim(),
+                `${bnach} ${bvor}`.trim()
+              ].filter(Boolean).map(n => n.replace(/[\\/:*?"<>|]/g, '-'))
+              
               for (const selFile of tpl.selectedFiles) {
-                if (selFile.personType !== 'kunden') continue
                 const expectedName = replaceAllPlaceholders(selFile.fileTemplate)
-                const fileRes = await window.api?.folders?.getFilePath?.({ baseDir, personType: 'kunden', personName: ksafeName, folderPath: selFile.folderPath, fileName: expectedName })
-                if (fileRes?.exists && fileRes.path) attachments.push({ path: fileRes.path, filename: expectedName })
+                
+                if (selFile.personType === 'kunden') {
+                  console.log(`[DEBUG] Suche Kunden-Datei (${kundeNameVariants.length} Varianten):`, {
+                    variants: kundeNameVariants,
+                    folderPath: selFile.folderPath,
+                    expectedName,
+                    fileTemplate: selFile.fileTemplate
+                  })
+                  
+                  let fileRes = null
+                  // Versuche beide Namensvarianten
+                  for (const nameVariant of kundeNameVariants) {
+                    fileRes = await window.api?.folders?.getFilePath?.({ baseDir, personType: 'kunden', personName: nameVariant, folderPath: selFile.folderPath, fileName: expectedName })
+                    console.log(`[DEBUG] Datei-Ergebnis für Kunde-Variante "${nameVariant}":`, {
+                      exists: fileRes?.exists,
+                      path: fileRes?.path,
+                      ok: fileRes?.ok,
+                      message: fileRes?.message
+                    })
+                    if (fileRes?.exists && fileRes.path) {
+                      break // Datei gefunden, keine weiteren Varianten probieren
+                    }
+                  }
+                  
+                  if (fileRes?.exists && fileRes.path) {
+                    attachments.push({ path: fileRes.path, filename: expectedName })
+                    console.log(`[DEBUG] Kunden-Anhang hinzugefügt:`, { path: fileRes.path, filename: expectedName })
+                  } else {
+                    console.warn(`[DEBUG] Kunden-Datei nicht gefunden in allen Varianten:`, expectedName, fileRes)
+                  }
+                } else if (selFile.personType === 'betreuer') {
+                  console.log(`[DEBUG] Suche Betreuer-Datei (${betreuerNameVariants.length} Varianten):`, {
+                    variants: betreuerNameVariants,
+                    folderPath: selFile.folderPath,
+                    expectedName,
+                    fileTemplate: selFile.fileTemplate
+                  })
+                  
+                  let fileRes = null
+                  // Versuche beide Namensvarianten
+                  for (const nameVariant of betreuerNameVariants) {
+                    fileRes = await window.api?.folders?.getFilePath?.({ baseDir, personType: 'betreuer', personName: nameVariant, folderPath: selFile.folderPath, fileName: expectedName })
+                    console.log(`[DEBUG] Datei-Ergebnis für Betreuer-Variante "${nameVariant}":`, {
+                      exists: fileRes?.exists,
+                      path: fileRes?.path,
+                      ok: fileRes?.ok,
+                      message: fileRes?.message
+                    })
+                    if (fileRes?.exists && fileRes.path) {
+                      break // Datei gefunden, keine weiteren Varianten probieren
+                    }
+                  }
+                  
+                  if (fileRes?.exists && fileRes.path) {
+                    attachments.push({ path: fileRes.path, filename: expectedName })
+                    console.log(`[DEBUG] Betreuer-Anhang hinzugefügt:`, { path: fileRes.path, filename: expectedName })
+                  } else {
+                    console.warn(`[DEBUG] Betreuer-Datei nicht gefunden in allen Varianten:`, expectedName, fileRes)
+                  }
+                }
               }
+              console.log(`[DEBUG] E-Mail für Kunde "${ksafeName}" + Betreuer "${bvor} ${bnach}": ${attachments.length} Anhänge gefunden`)
               
               allBatch.push({
                 to: replaceAllPlaceholders(tpl.to),
@@ -232,12 +300,45 @@ export default function DateienMail() {
             const personName = `${vor} ${nach}`.trim()
             const safeName = personName.replace(/[\\/:*?"<>|]/g, '-')
             const attachments: Array<{ path: string; filename?: string }> = []
+            // Beide Namensvarianten durchsuchen (wie in DatenVerwaltungTabs)
+            const personNameVariants = [
+              `${vor} ${nach}`.trim(),
+              `${nach} ${vor}`.trim()
+            ].filter(Boolean).map(n => n.replace(/[\\/:*?"<>|]/g, '-'))
+            
             for (const selFile of template.selectedFiles) {
               if (selFile.personType !== personType) continue
               const expectedName = replacePlaceholders(selFile.fileTemplate, person, personType)
-              const fileRes = await window.api?.folders?.getFilePath?.({ baseDir, personType, personName: safeName, folderPath: selFile.folderPath, fileName: expectedName })
-              if (fileRes?.exists && fileRes.path) attachments.push({ path: fileRes.path, filename: expectedName })
+              console.log(`[DEBUG] Suche Datei für ${personType === 'kunden' ? 'Kunde' : 'Betreuer'} (${personNameVariants.length} Varianten):`, {
+                variants: personNameVariants,
+                folderPath: selFile.folderPath,
+                expectedName,
+                fileTemplate: selFile.fileTemplate
+              })
+              
+              let fileRes = null
+              // Versuche beide Namensvarianten
+              for (const nameVariant of personNameVariants) {
+                fileRes = await window.api?.folders?.getFilePath?.({ baseDir, personType, personName: nameVariant, folderPath: selFile.folderPath, fileName: expectedName })
+                console.log(`[DEBUG] Datei-Ergebnis für Variante "${nameVariant}":`, {
+                  exists: fileRes?.exists,
+                  path: fileRes?.path,
+                  ok: fileRes?.ok,
+                  message: fileRes?.message
+                })
+                if (fileRes?.exists && fileRes.path) {
+                  break // Datei gefunden, keine weiteren Varianten probieren
+                }
+              }
+              
+              if (fileRes?.exists && fileRes.path) {
+                attachments.push({ path: fileRes.path, filename: expectedName })
+                console.log(`[DEBUG] Anhang hinzugefügt:`, { path: fileRes.path, filename: expectedName })
+              } else {
+                console.warn(`[DEBUG] Datei nicht gefunden in allen Varianten:`, expectedName, fileRes)
+              }
             }
+            console.log(`[DEBUG] E-Mail für ${personType === 'kunden' ? 'Kunde' : 'Betreuer'} "${safeName}": ${attachments.length} Anhänge gefunden`)
             // Versende auch wenn keine Anhänge (wenn Platzhalter im Text verwendet werden)
             allBatch.push({
               to: replacePlaceholders(template.to, person, personType),
@@ -254,6 +355,27 @@ export default function DateienMail() {
     }
 
     if (!allBatch.length) return alert('Keine E-Mails zum Versenden gefunden')
+
+    // Debug-Zusammenfassung
+    const totalAttachments = allBatch.reduce((sum, email) => sum + (email.attachments?.length || 0), 0)
+    const emailsWithAttachments = allBatch.filter(email => email.attachments && email.attachments.length > 0).length
+    const emailsWithoutAttachments = allBatch.length - emailsWithAttachments
+    
+    console.log(`[DEBUG] ===== E-Mail-Versand Zusammenfassung =====`)
+    console.log(`[DEBUG] Gesamt E-Mails: ${allBatch.length}`)
+    console.log(`[DEBUG] E-Mails mit Anhängen: ${emailsWithAttachments}`)
+    console.log(`[DEBUG] E-Mails ohne Anhänge: ${emailsWithoutAttachments}`)
+    console.log(`[DEBUG] Gesamt Anhänge: ${totalAttachments}`)
+    console.log(`[DEBUG] Details pro E-Mail:`)
+    allBatch.forEach((email, idx) => {
+      console.log(`[DEBUG]   E-Mail ${idx + 1}:`, {
+        to: email.to,
+        subject: email.subject,
+        attachmentsCount: email.attachments?.length || 0,
+        attachments: email.attachments?.map(a => ({ filename: a.filename, path: a.path })) || []
+      })
+    })
+    console.log(`[DEBUG] =========================================`)
 
     const res = await window.api?.mail?.sendBatch?.(allBatch)
     if (res?.ok) {
@@ -310,6 +432,11 @@ export default function DateienMail() {
                     knKey={knKey}
                     bvKey={bvKey}
                     bnKey={bnKey}
+                    baseDir={baseDir}
+                    kundenKeys={kundenKeys}
+                    betreuerKeys={betreuerKeys}
+                    kundenSettings={kundenSettings}
+                    betreuerSettings={betreuerSettings}
                     onSelectionChange={(next) => setSelections(prev => ({ ...prev, [t.id]: next }))}
                   />
                 )
@@ -335,7 +462,7 @@ export default function DateienMail() {
   )
 }
 
-function TemplateRow({ template, selection, needsKunden, needsBetreuer, kunden, betreuer, kvKey, knKey, bvKey, bnKey, onSelectionChange }: {
+function TemplateRow({ template, selection, needsKunden, needsBetreuer, kunden, betreuer, kvKey, knKey, bvKey, bnKey, baseDir, kundenKeys, betreuerKeys, kundenSettings, betreuerSettings, onSelectionChange }: {
   template: EmailTemplate
   selection: TemplateSelection
   needsKunden: boolean
@@ -346,12 +473,172 @@ function TemplateRow({ template, selection, needsKunden, needsBetreuer, kunden, 
   knKey: string | undefined
   bvKey: string | undefined
   bnKey: string | undefined
+  baseDir: string
+  kundenKeys: string[]
+  betreuerKeys: string[]
+  kundenSettings: any
+  betreuerSettings: any
   onSelectionChange: (sel: TemplateSelection) => void
 }) {
   const [kundenSearch, setKundenSearch] = useState('')
   const [betreuerSearch, setBetreuerSearch] = useState('')
   const [kundenOpen, setKundenOpen] = useState(false)
   const [betreuerOpen, setBetreuerOpen] = useState(false)
+  const [kundenFileStatus, setKundenFileStatus] = useState<Record<string, { allFound: boolean; details: Array<{ file: string; found: boolean; folderPath?: string; fileTemplate?: string; foundPath?: string }> }>>({})
+  const [betreuerFileStatus, setBetreuerFileStatus] = useState<Record<string, { allFound: boolean; details: Array<{ file: string; found: boolean; folderPath?: string; fileTemplate?: string; foundPath?: string }> }>>({})
+
+  // Platzhalter-Ersetzung (gleiche Logik wie in der Hauptkomponente)
+  function replacePlaceholdersInTemplateRow(text: string, row: any, personType: 'kunden' | 'betreuer'): string {
+    const keys = personType === 'kunden' ? kundenKeys : betreuerKeys
+    const settings = personType === 'kunden' ? kundenSettings : betreuerSettings
+    const vorKey = keys.find(k => (settings.gruppen[k] || []).includes('vorname'))
+    const nachKey = keys.find(k => (settings.gruppen[k] || []).includes('nachname'))
+    const b1Key = personType === 'kunden' ? keys.find(k => (kundenSettings.gruppen[k] || []).includes('betreuer1')) : null
+    const b2Key = personType === 'kunden' ? keys.find(k => (kundenSettings.gruppen[k] || []).includes('betreuer2')) : null
+    const vor = String(vorKey ? row[vorKey] || '' : '').trim()
+    const nach = String(nachKey ? row[nachKey] || '' : '').trim()
+    const b1Full = b1Key ? String(row[b1Key] || '').trim() : ''
+    const b2Full = b2Key ? String(row[b2Key] || '').trim() : ''
+    const getNachname = (full: string) => {
+      const parts = full.split(/\s+/).filter(Boolean)
+      return parts.length > 0 ? parts[parts.length - 1] : ''
+    }
+    const nb1 = personType === 'kunden' ? getNachname(b1Full) : ''
+    const nb2 = personType === 'kunden' ? getNachname(b2Full) : ''
+    let nk1 = ''
+    if (personType === 'betreuer' && kunden.length && kundenKeys.length) {
+      const kundenB1Key = kundenKeys.find(k => (kundenSettings.gruppen[k] || []).includes('betreuer1'))
+      const kundenB2Key = kundenKeys.find(k => (kundenSettings.gruppen[k] || []).includes('betreuer2'))
+      const kundenNachKey = kundenKeys.find(k => (kundenSettings.gruppen[k] || []).includes('nachname'))
+      const betreuerFull = `${vor} ${nach}`.trim()
+      for (const kunde of kunden) {
+        const b1Val = kundenB1Key ? String(kunde[kundenB1Key] || '').trim() : ''
+        const b2Val = kundenB2Key ? String(kunde[kundenB2Key] || '').trim() : ''
+        if (b1Val === betreuerFull || b2Val === betreuerFull) {
+          nk1 = kundenNachKey ? String(kunde[kundenNachKey] || '').trim() : ''
+          break
+        }
+      }
+    }
+    return String(text || '')
+      .replace(/\{vorname\}/gi, vor)
+      .replace(/\{nachname\}/gi, nach)
+      .replace(/\{kvname\}/gi, vor)
+      .replace(/\{kfname\}/gi, nach)
+      .replace(/\{bvname\}/gi, vor)
+      .replace(/\{bfname\}/gi, nach)
+      .replace(/\{nb1\}/gi, nb1)
+      .replace(/\{nb2\}/gi, nb2)
+      .replace(/\{nk1\}/gi, nk1)
+  }
+
+  // Funktion zum Prüfen der Dateien für eine Person
+  async function checkFilesForPerson(personType: 'kunden' | 'betreuer', person: any) {
+    if (!baseDir) return { allFound: false, details: [] }
+    
+    const relevantFiles = template.selectedFiles.filter(f => f.personType === personType)
+    if (relevantFiles.length === 0) return { allFound: true, details: [] }
+    
+    const vKey = personType === 'kunden' ? kvKey : bvKey
+    const nKey = personType === 'kunden' ? knKey : bnKey
+    const vor = String(vKey ? person[vKey] || '' : '').trim()
+    const nach = String(nKey ? person[nKey] || '' : '').trim()
+    
+    // Für kombinierte Vorlagen: Wenn beide Typen benötigt werden, müssen wir die Platzhalter richtig ersetzen
+    // Hier prüfen wir nur die Dateien für diesen Personentyp
+    const nameVariants = [
+      `${vor} ${nach}`.trim(),
+      `${nach} ${vor}`.trim()
+    ].filter(Boolean).map(n => n.replace(/[\\/:*?"<>|]/g, '-'))
+    
+    const details: Array<{ file: string; found: boolean; folderPath: string; fileTemplate: string; foundPath: string }> = []
+    
+    // Gruppiere Dateien nach Dateiname (ohne Ordner), um zu prüfen, ob eine Datei in mindestens einem Ordner gefunden wird
+    // Das entspricht dem Verhalten beim Versand: Wenn eine Datei in mehreren Ordnern definiert ist, wird nur eine verwendet
+    const fileGroups = new Map<string, Array<{ selFile: typeof relevantFiles[0]; expectedName: string }>>()
+    
+    for (const selFile of relevantFiles) {
+      const expectedName = replacePlaceholdersInTemplateRow(selFile.fileTemplate, person, personType)
+      const key = expectedName.toLowerCase()
+      if (!fileGroups.has(key)) {
+        fileGroups.set(key, [])
+      }
+      fileGroups.get(key)!.push({ selFile, expectedName })
+    }
+    
+    // Prüfe jede Datei-Gruppe: Eine Datei gilt als gefunden, wenn sie in mindestens einem Ordner gefunden wird
+    for (const [, group] of fileGroups.entries()) {
+      let found = false
+      let foundPath = null
+      
+      // Versuche alle Ordner-Varianten für diese Datei
+      for (const { selFile, expectedName } of group) {
+        for (const nameVariant of nameVariants) {
+          const fileRes = await window.api?.folders?.getFilePath?.({ 
+            baseDir, 
+            personType, 
+            personName: nameVariant, 
+            folderPath: selFile.folderPath, 
+            fileName: expectedName 
+          })
+          if (fileRes?.exists && fileRes.path) {
+            found = true
+            foundPath = fileRes.path
+            break
+          }
+        }
+        if (found) break
+      }
+      
+      // Füge einen Eintrag für jede Variante hinzu, aber markiere alle als gefunden, wenn eine gefunden wurde
+      for (const { selFile, expectedName } of group) {
+        details.push({ 
+          file: expectedName, 
+          found, 
+          folderPath: selFile.folderPath.join(' / '),
+          fileTemplate: selFile.fileTemplate,
+          foundPath: found ? foundPath! : 'NICHT GEFUNDEN'
+        })
+      }
+    }
+    
+    const allFound = details.every(d => d.found)
+    
+    return { allFound, details }
+  }
+
+  // Dateien prüfen, wenn sich die Auswahl ändert
+  useEffect(() => {
+    if (!baseDir) return
+    
+    const checkAll = async () => {
+      const kStatus: Record<string, { allFound: boolean; details: Array<{ file: string; found: boolean }> }> = {}
+      const bStatus: Record<string, { allFound: boolean; details: Array<{ file: string; found: boolean }> }> = {}
+      
+      if (needsKunden && selection.kundenKeys.length > 0) {
+        for (const key of selection.kundenKeys) {
+          const kunde = kunden.find(k => k.__key === key)
+          if (kunde) {
+            kStatus[key] = await checkFilesForPerson('kunden', kunde)
+          }
+        }
+      }
+      
+      if (needsBetreuer && selection.betreuerKeys.length > 0) {
+        for (const key of selection.betreuerKeys) {
+          const bet = betreuer.find(b => b.__key === key)
+          if (bet) {
+            bStatus[key] = await checkFilesForPerson('betreuer', bet)
+          }
+        }
+      }
+      
+      setKundenFileStatus(kStatus)
+      setBetreuerFileStatus(bStatus)
+    }
+    
+    void checkAll()
+  }, [selection.kundenKeys, selection.betreuerKeys, baseDir, template.selectedFiles, kunden, betreuer, kvKey, knKey, bvKey, bnKey, needsKunden, needsBetreuer])
 
   const filteredKunden = useMemo(() => {
     if (!kundenSearch.trim()) return kunden
@@ -414,19 +701,48 @@ function TemplateRow({ template, selection, needsKunden, needsBetreuer, kunden, 
         />
         <div style={{ fontWeight: 600, flex: 1 }}>{template.name}</div>
         {needsKunden && (
-          <div style={{ flex: 1, position: 'relative' }}>
-            <input
-              type="text"
-              placeholder="Kunden wählen..."
-              value={kundenDisplay || kundenSearch}
-              onChange={(e) => {
-                setKundenSearch(e.target.value)
-                setKundenOpen(true)
-              }}
-              onFocus={() => setKundenOpen(true)}
-              onClick={() => setKundenOpen(true)}
-              style={{ width: '100%', padding: 6, borderRadius: 6, border: '1px solid #d1d5db', fontSize: 13 }}
-            />
+          <div style={{ flex: 1, position: 'relative', display: 'flex', alignItems: 'center', gap: 6 }}>
+            <div style={{ flex: 1, position: 'relative' }}>
+              <input
+                type="text"
+                placeholder="Kunden wählen..."
+                value={kundenDisplay || kundenSearch}
+                onChange={(e) => {
+                  setKundenSearch(e.target.value)
+                  setKundenOpen(true)
+                }}
+                onFocus={() => setKundenOpen(true)}
+                onClick={() => setKundenOpen(true)}
+                style={{ width: '100%', padding: 6, borderRadius: 6, border: '1px solid #d1d5db', fontSize: 13 }}
+              />
+            </div>
+            {selection.kundenKeys.length > 0 && (() => {
+              const allStatus = selection.kundenKeys.map(key => kundenFileStatus[key]).filter(Boolean)
+              const allFound = allStatus.length > 0 && allStatus.every(s => s.allFound)
+              const hasSome = allStatus.length > 0
+              const tooltip = hasSome ? allStatus.map((status, idx) => {
+                const kunde = kunden.find(k => k.__key === selection.kundenKeys[idx])
+                const name = kunde ? `${String(knKey ? kunde[knKey] || '' : '').trim()} ${String(kvKey ? kunde[kvKey] || '' : '').trim()}`.trim() : ''
+                const missing = status.details.filter(d => !d.found).map(d => d.file).join(', ')
+                return missing ? `${name}: Fehlt: ${missing}` : `${name}: Alle Dateien vorhanden`
+              }).join('\n') : ''
+              
+              return (
+                <div style={{ position: 'relative' }} title={tooltip}>
+                  {allFound ? (
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <circle cx="12" cy="12" r="10" fill="#10b981" />
+                      <path d="M9 12l2 2 4-4" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  ) : (
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <circle cx="12" cy="12" r="10" fill="#ef4444" />
+                      <path d="M15 9l-6 6M9 9l6 6" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  )}
+                </div>
+              )
+            })()}
             {kundenOpen && (
               <>
                 <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 4, background: '#fff', border: '1px solid #d1d5db', borderRadius: 6, maxHeight: 200, overflowY: 'auto', zIndex: 10, boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
@@ -451,19 +767,48 @@ function TemplateRow({ template, selection, needsKunden, needsBetreuer, kunden, 
           </div>
         )}
         {needsBetreuer && (
-          <div style={{ flex: 1, position: 'relative' }}>
-            <input
-              type="text"
-              placeholder="Betreuer wählen..."
-              value={betreuerDisplay || betreuerSearch}
-              onChange={(e) => {
-                setBetreuerSearch(e.target.value)
-                setBetreuerOpen(true)
-              }}
-              onFocus={() => setBetreuerOpen(true)}
-              onClick={() => setBetreuerOpen(true)}
-              style={{ width: '100%', padding: 6, borderRadius: 6, border: '1px solid #d1d5db', fontSize: 13 }}
-            />
+          <div style={{ flex: 1, position: 'relative', display: 'flex', alignItems: 'center', gap: 6 }}>
+            <div style={{ flex: 1, position: 'relative' }}>
+              <input
+                type="text"
+                placeholder="Betreuer wählen..."
+                value={betreuerDisplay || betreuerSearch}
+                onChange={(e) => {
+                  setBetreuerSearch(e.target.value)
+                  setBetreuerOpen(true)
+                }}
+                onFocus={() => setBetreuerOpen(true)}
+                onClick={() => setBetreuerOpen(true)}
+                style={{ width: '100%', padding: 6, borderRadius: 6, border: '1px solid #d1d5db', fontSize: 13 }}
+              />
+            </div>
+            {selection.betreuerKeys.length > 0 && (() => {
+              const allStatus = selection.betreuerKeys.map(key => betreuerFileStatus[key]).filter(Boolean)
+              const allFound = allStatus.length > 0 && allStatus.every(s => s.allFound)
+              const hasSome = allStatus.length > 0
+              const tooltip = hasSome ? allStatus.map((status, idx) => {
+                const bet = betreuer.find(b => b.__key === selection.betreuerKeys[idx])
+                const name = bet ? `${String(bnKey ? bet[bnKey] || '' : '').trim()} ${String(bvKey ? bet[bvKey] || '' : '').trim()}`.trim() : ''
+                const missing = status.details.filter(d => !d.found).map(d => d.file).join(', ')
+                return missing ? `${name}: Fehlt: ${missing}` : `${name}: Alle Dateien vorhanden`
+              }).join('\n') : ''
+              
+              return (
+                <div style={{ position: 'relative' }} title={tooltip}>
+                  {allFound ? (
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <circle cx="12" cy="12" r="10" fill="#10b981" />
+                      <path d="M9 12l2 2 4-4" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  ) : (
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <circle cx="12" cy="12" r="10" fill="#ef4444" />
+                      <path d="M15 9l-6 6M9 9l6 6" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  )}
+                </div>
+              )
+            })()}
             {betreuerOpen && (
               <>
                 <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 4, background: '#fff', border: '1px solid #d1d5db', borderRadius: 6, maxHeight: 200, overflowY: 'auto', zIndex: 10, boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
