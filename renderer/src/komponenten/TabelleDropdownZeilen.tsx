@@ -4,6 +4,9 @@ import type { SpaltenGruppe } from './useTableSettings'
 import NeuerEintragDialog from './NeuerEintragDialog'
 import BetreuerZuweisungDialog from './BetreuerZuweisungDialog'
 import BetreuerWechselDialog from './BetreuerWechselDialog'
+import SchemataVerwaltenDialog from './SchemataVerwaltenDialog'
+import type { DateiSchema, SchemaContext } from './SchemataVerwaltenDialog'
+import DatenVerwaltungTabs from './DatenVerwaltungTabs'
 
 type Props = {
   daten: Record<string, any>[]
@@ -19,11 +22,39 @@ type Props = {
   kundenListe?: any[]
   kundenGruppen?: Record<string, SpaltenGruppe[]>
   openRowId?: string | null
+  allPersons?: any[]
+  verschiebeSchemata?: DateiSchema[]
+  onSchemataChange?: (schemas: DateiSchema[]) => Promise<void> | void
+  ordnerTemplates?: {
+    kunden: Array<{ path: string[]; files: string[] }>
+    betreuer: Array<{ path: string[]; files: string[] }>
+  }
+  dokumenteDir?: string
 }
 
-export default function TabelleDropdownZeilen({ daten, displayNames = {}, wichtigeFelder = [], ausblenden = ['__display','__key'], tableId, onChanged, makeTitle, gruppen = {}, vorhandeneVorwahlen = [], betreuerListe = [], kundenListe = [], kundenGruppen = {}, openRowId = null }: Props) {
+export default function TabelleDropdownZeilen({
+  daten,
+  displayNames = {},
+  wichtigeFelder = [],
+  ausblenden = ['__display','__key'],
+  tableId,
+  onChanged,
+  makeTitle,
+  gruppen = {},
+  vorhandeneVorwahlen = [],
+  betreuerListe = [],
+  kundenListe = [],
+  kundenGruppen = {},
+  openRowId = null,
+  allPersons = [],
+  verschiebeSchemata = [],
+  onSchemataChange,
+  ordnerTemplates = { kunden: [], betreuer: [] },
+  dokumenteDir = '',
+}: Props) {
   const navigate = useNavigate()
   const [offenIndex, setOffenIndex] = useState<number | null>(null)
+  const [activeTab, setActiveTab] = useState<'stammdaten' | 'dateiverwaltung'>('stammdaten')
   const [bearbeitenOffen, setBearbeitenOffen] = useState(false)
   const [bearbeitenRow, setBearbeitenRow] = useState<Record<string, any> | null>(null)
   const [betreuerDialogOffen, setBetreuerDialogOffen] = useState(false)
@@ -31,10 +62,17 @@ export default function TabelleDropdownZeilen({ daten, displayNames = {}, wichti
   const [betreuerDialogNummer, setBetreuerDialogNummer] = useState<1 | 2>(1)
   const [wechselDialogOffen, setWechselDialogOffen] = useState(false)
   const [wechselDialogRow, setWechselDialogRow] = useState<Record<string, any> | null>(null)
+  const [schemaDialogOffen, setSchemaDialogOffen] = useState(false)
   const keys = useMemo(() => {
     if (!daten || daten.length === 0) return []
     return Object.keys(daten[0]).filter(k => !ausblenden.includes(k) && !k.startsWith('__'))
   }, [daten, ausblenden])
+
+  const kundeVorKey = useMemo(() => keys.find(k => (gruppen?.[k] || []).includes('vorname')), [keys, gruppen])
+  const kundeNachKey = useMemo(() => keys.find(k => (gruppen?.[k] || []).includes('nachname')), [keys, gruppen])
+  const kundeBetreuer1Key = useMemo(() => keys.find(k => (gruppen?.[k] || []).includes('betreuer1')), [keys, gruppen])
+  const kundeBetreuer2Key = useMemo(() => keys.find(k => (gruppen?.[k] || []).includes('betreuer2')), [keys, gruppen])
+  const kundeNachnameKey = useMemo(() => keys.find(k => (gruppen?.[k] || []).includes('nachname')), [keys, gruppen])
 
   const hasData = !!(daten && daten.length > 0)
 
@@ -181,6 +219,196 @@ export default function TabelleDropdownZeilen({ daten, displayNames = {}, wichti
     })
     
     return zugeordneteKunden
+  }
+
+  function getKundenNameParts(row: any) {
+    const vor = String(kundeVorKey ? row?.[kundeVorKey] || '' : '').trim()
+    const nach = String(kundeNachKey ? row?.[kundeNachKey] || '' : '').trim()
+    const full = `${vor} ${nach}`.trim() || String(row?.__display || '')
+    return { vor, nach, full }
+  }
+
+  function getBetreuerNameParts(row: any) {
+    if (!row) return { vor: '', nach: '', full: '' }
+    const rowKeys = Object.keys(row || {})
+    const findKey = (regex: RegExp) => rowKeys.find(k => regex.test(k))
+    const vorKey = findKey(/vor(?:\.|name)?/i)
+    const nachKey = findKey(/nach|fam\.?\s?nam/i)
+    let vor = String(vorKey ? row?.[vorKey] || '' : '').trim()
+    let nach = String(nachKey ? row?.[nachKey] || '' : '').trim()
+    let full = `${vor} ${nach}`.trim()
+    if (!full) {
+      full = String(row?.__display || row?.name || '').trim()
+      if (full && (!vor || !nach)) {
+        const parts = full.split(/\s+/).filter(Boolean)
+        if (parts.length) {
+          nach = parts.pop() || ''
+          vor = parts.join(' ')
+        }
+      }
+    }
+    return { vor, nach, full }
+  }
+
+  function findBetreuerRowByName(name: string) {
+    if (!name) return null
+    const target = name.trim().toLowerCase()
+    return (betreuerListe || []).find(b => {
+      const parts = getBetreuerNameParts(b)
+      if (parts.full.toLowerCase() === target) return true
+      const display = String(b.__display || '').trim().toLowerCase()
+      return display === target
+    }) || null
+  }
+
+  function findKundenNachnameForBetreuer(betreuerName: string) {
+    if (!betreuerName) return ''
+    const list = allPersons && allPersons.length ? allPersons : daten
+    const bet1Key = kundeBetreuer1Key
+    const bet2Key = kundeBetreuer2Key
+    const nachKey = kundeNachnameKey
+    if (!bet1Key && !bet2Key) return ''
+    for (const row of list || []) {
+      const b1 = bet1Key ? String(row[bet1Key] || '').trim() : ''
+      const b2 = bet2Key ? String(row[bet2Key] || '').trim() : ''
+      if (b1 && b1.trim().toLowerCase() === betreuerName.trim().toLowerCase()) {
+        return String(nachKey ? row[nachKey] || '' : '').trim()
+      }
+      if (b2 && b2.trim().toLowerCase() === betreuerName.trim().toLowerCase()) {
+        return String(nachKey ? row[nachKey] || '' : '').trim()
+      }
+    }
+    return ''
+  }
+
+  function replaceKundenPlaceholders(tpl: string, row: any) {
+    const text = String(tpl || '')
+    if (!text) return ''
+    const { vor, nach } = getKundenNameParts(row || {})
+    const getNachname = (full: string) => {
+      const parts = String(full || '').split(/\s+/).filter(Boolean)
+      return parts.length ? parts[parts.length - 1] : ''
+    }
+    const nb1 = getNachname(kundeBetreuer1Key ? row?.[kundeBetreuer1Key] : '')
+    const nb2 = getNachname(kundeBetreuer2Key ? row?.[kundeBetreuer2Key] : '')
+    return text
+      .replace(/\{vorname\}/gi, vor)
+      .replace(/\{nachname\}/gi, nach)
+      .replace(/\{kvname\}/gi, vor)
+      .replace(/\{kfname\}/gi, nach)
+      .replace(/\{nb1\}/gi, nb1)
+      .replace(/\{nb2\}/gi, nb2)
+  }
+
+  function replaceBetreuerPlaceholders(tpl: string, row: any) {
+    const text = String(tpl || '')
+    if (!text) return ''
+    const names = getBetreuerNameParts(row)
+    const nk1 = findKundenNachnameForBetreuer(names.full)
+    return text
+      .replace(/\{vorname\}/gi, names.vor)
+      .replace(/\{nachname\}/gi, names.nach)
+      .replace(/\{bvname\}/gi, names.vor)
+      .replace(/\{bfname\}/gi, names.nach)
+      .replace(/\{nk1\}/gi, nk1)
+  }
+
+  type SchemaContextInfo = {
+    kundeRow?: any
+    alterBetreuerRow?: any
+    neuerBetreuerRow?: any
+    alterBetreuerName?: string
+    neuerBetreuerName?: string
+  }
+
+type ResolvedContext = {
+  personType: 'kunden' | 'betreuer'
+  folderNames: string[]
+  row: any
+}
+
+  function resolveContext(ctx: SchemaContext, info: SchemaContextInfo): ResolvedContext | null {
+    if (ctx === 'kunde' && info.kundeRow) {
+      const parts = getKundenNameParts(info.kundeRow)
+      const combos = [
+        `${parts.nach} ${parts.vor}`.trim(),
+        `${parts.vor} ${parts.nach}`.trim(),
+        parts.full,
+      ].filter(Boolean)
+      return { personType: 'kunden', folderNames: Array.from(new Set(combos)), row: info.kundeRow }
+    }
+    if (ctx === 'alterBetreuer') {
+      const row = info.alterBetreuerRow || findBetreuerRowByName(info.alterBetreuerName || '') || { __display: info.alterBetreuerName || '' }
+      if (!row.__display && !info.alterBetreuerName) return null
+      const parts = getBetreuerNameParts(row)
+      if (!parts.full) return null
+      const combos = [
+        `${parts.nach} ${parts.vor}`.trim(),
+        `${parts.vor} ${parts.nach}`.trim(),
+        parts.full,
+      ].filter(Boolean)
+      return { personType: 'betreuer', folderNames: Array.from(new Set(combos)), row }
+    }
+    if (ctx === 'neuerBetreuer') {
+      const row = info.neuerBetreuerRow || { __display: info.neuerBetreuerName || '' }
+      const parts = getBetreuerNameParts(row)
+      if (!parts.full) return null
+      const combos = [
+        `${parts.nach} ${parts.vor}`.trim(),
+        `${parts.vor} ${parts.nach}`.trim(),
+        parts.full,
+      ].filter(Boolean)
+      return { personType: 'betreuer', folderNames: Array.from(new Set(combos)), row }
+    }
+    return null
+  }
+
+  function replacePlaceholdersForContext(ctx: SchemaContext, tpl: string, row: any) {
+    if (ctx === 'kunde') return replaceKundenPlaceholders(tpl, row)
+    return replaceBetreuerPlaceholders(tpl, row)
+  }
+
+  async function handleSchemaMoves(schemaId: string | null | undefined, info: SchemaContextInfo) {
+    if (!schemaId || !dokumenteDir) return
+    const schema = (verschiebeSchemata || []).find(s => s.id === schemaId)
+    if (!schema || !schema.actions?.length) return
+    for (const action of schema.actions) {
+      const source = resolveContext(action.sourceContext, info)
+      const target = resolveContext(action.targetContext, info)
+      if (!source || !target) continue
+      const fileName = action.fileName ? replacePlaceholdersForContext(action.sourceContext, action.fileName, source.row) : ''
+      if (!fileName) continue
+      const fromPath = (action.fromPath || []).map(seg => replacePlaceholdersForContext(action.sourceContext, seg, source.row)).filter(Boolean)
+      const toPath = (action.toPath || []).map(seg => replacePlaceholdersForContext(action.targetContext, seg, target.row)).filter(Boolean)
+      const sanitizedFileName = fileName.replace(/[\\/:*?"<>|]/g, '-').trim()
+      if (!sanitizedFileName) continue
+      const moveFn = window.api?.folders?.moveFile
+      if (!moveFn) return
+      let moved = false
+      let lastError: any = null
+      for (const fromPersonName of source.folderNames) {
+        const payload = {
+          baseDir: dokumenteDir,
+          fromPersonType: source.personType,
+          fromPersonName,
+          fromPath,
+          fileName: sanitizedFileName,
+          toPersonType: target.personType,
+          toPersonName: target.folderNames[0] || target.folderNames[target.folderNames.length - 1],
+          toPath,
+        }
+        try {
+          const res = await moveFn(payload)
+          if (res?.ok) { moved = true; break }
+          lastError = { payload, res }
+        } catch (error) {
+          lastError = { payload, error }
+        }
+      }
+      if (!moved && lastError) {
+        console.warn('Datei konnte nicht verschoben werden', lastError.payload || {}, lastError.res || lastError.error)
+      }
+    }
   }
 
   return (
@@ -449,97 +677,146 @@ export default function TabelleDropdownZeilen({ daten, displayNames = {}, wichti
               </div>
             </div>
             {istOffen && (
-              <div style={{ padding: '10px 12px', background: '#fff' }}>
-                {
-                  <div style={{ display: 'grid', gridTemplateColumns: '260px 1fr', alignItems: 'center', border: '1px solid #e6e6e6', borderRadius: 8, overflow: 'hidden' }}>
-                    {(() => {
-                      const items = keys.map(k => {
-                        const value = row[k]
-                        const isEmpty = isFieldEmptyForRow(row, k)
-                        const showEmpty = wichtigeFelder.includes(k)
-                        const show = !isEmpty || showEmpty
-                        const highlightEmpty = showEmpty && isEmpty
-                        const highlightFilled = showEmpty && !isEmpty
-                        return { k, value, isEmpty, showEmpty, show, highlightEmpty, highlightFilled }
-                      }).filter(x => x.show)
-                      // Wichtig & leer zuerst, dann wichtig & gefüllt
-                      items.sort((a,b)=> {
-                        if (a.highlightEmpty && !b.highlightEmpty) return -1
-                        if (!a.highlightEmpty && b.highlightEmpty) return 1
-                        if (a.highlightFilled && !b.highlightFilled) return -1
-                        if (!a.highlightFilled && b.highlightFilled) return 1
-                        return 0
-                      })
-                      return items.flatMap(({k, value, highlightEmpty, highlightFilled, isEmpty}) => {
-                        const labelStyle = {
-                          padding: '8px 10px',
-                          borderRight: '1px solid #eee',
-                          borderBottom: '1px solid #eee',
-                          background: highlightEmpty ? '#fee2e2' : highlightFilled ? '#dcfce7' : '#fafafa',
-                          color: highlightEmpty ? '#dc2626' : highlightFilled ? '#16a34a' : '#1f2937',
-                          fontWeight: (highlightEmpty || highlightFilled) ? '600' : 'normal',
-                          WebkitFontSmoothing: 'subpixel-antialiased',
-                          MozOsxFontSmoothing: 'auto',
-                          textRendering: 'optimizeLegibility'
-                        } as React.CSSProperties
-                        const valueStyle = {
-                          padding: '6px 8px',
-                          borderBottom: '1px solid #eee',
-                          whiteSpace: 'pre-wrap',
-                          background: highlightEmpty ? '#fee2e2' : highlightFilled ? '#dcfce7' : '#fff',
-                          color: highlightEmpty ? '#dc2626' : highlightFilled ? '#16a34a' : '#1f2937',
-                          fontWeight: highlightFilled ? '500' : 'normal',
-                          WebkitFontSmoothing: 'subpixel-antialiased',
-                          MozOsxFontSmoothing: 'auto',
-                          textRendering: 'optimizeLegibility'
-                        } as React.CSSProperties
-                        let text = isEmpty ? '' : String(value)
-                        // format display for datum / anfang / ende
-                        if (((gruppen[k]||[]).includes('datum') || (gruppen[k]||[]).includes('anfang') || (gruppen[k]||[]).includes('ende')) && text) {
-                          const digits = text.replace(/\D+/g,'')
-                          if (digits.length === 8) text = `${digits.slice(0,2)}.${digits.slice(2,4)}.${digits.slice(4,8)}`
-                        }
-                        // Altbetreuer: mehrere mit ; getrennte Einträge untereinander darstellen
-                        if (/^alt\s*betreuer$/i.test(k) || /altbetreuer/i.test(k)) {
-                          if (text.includes(';')) {
-                            text = text.split(';').map(s => s.trim()).filter(Boolean).join('\n')
+              <div style={{ background: '#fff' }}>
+                {/* Tabs */}
+                <div style={{ display: 'flex', borderBottom: '1px solid #e6e8ef' }}>
+                  <button
+                    onClick={() => setActiveTab('stammdaten')}
+                    style={{
+                      padding: '8px 16px',
+                      border: 'none',
+                      background: activeTab === 'stammdaten' ? '#f3f4f6' : 'transparent',
+                      borderBottom: activeTab === 'stammdaten' ? '2px solid #3b82f6' : 'none',
+                      cursor: 'pointer',
+                      fontWeight: activeTab === 'stammdaten' ? '600' : 'normal',
+                      color: activeTab === 'stammdaten' ? '#1f2937' : '#6b7280'
+                    }}
+                  >
+                    Stammdaten
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('dateiverwaltung')}
+                    style={{
+                      padding: '8px 16px',
+                      border: 'none',
+                      background: activeTab === 'dateiverwaltung' ? '#f3f4f6' : 'transparent',
+                      borderBottom: activeTab === 'dateiverwaltung' ? '2px solid #3b82f6' : 'none',
+                      cursor: 'pointer',
+                      fontWeight: activeTab === 'dateiverwaltung' ? '600' : 'normal',
+                      color: activeTab === 'dateiverwaltung' ? '#1f2937' : '#6b7280'
+                    }}
+                  >
+                    Dateiverwaltung
+                  </button>
+                </div>
+
+                {/* Tab Content */}
+                {activeTab === 'stammdaten' && (
+                  <div style={{ padding: '10px 12px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '260px 1fr', alignItems: 'center', border: '1px solid #e6e6e6', borderRadius: 8, overflow: 'hidden' }}>
+                      {(() => {
+                        const items = keys.map(k => {
+                          const value = row[k]
+                          const isEmpty = isFieldEmptyForRow(row, k)
+                          const showEmpty = wichtigeFelder.includes(k)
+                          const show = !isEmpty || showEmpty
+                          const highlightEmpty = showEmpty && isEmpty
+                          const highlightFilled = showEmpty && !isEmpty
+                          return { k, value, isEmpty, showEmpty, show, highlightEmpty, highlightFilled }
+                        }).filter(x => x.show)
+                        // Wichtig & leer zuerst, dann wichtig & gefüllt
+                        items.sort((a,b)=> {
+                          if (a.highlightEmpty && !b.highlightEmpty) return -1
+                          if (!a.highlightEmpty && b.highlightEmpty) return 1
+                          if (a.highlightFilled && !b.highlightFilled) return -1
+                          if (!a.highlightFilled && b.highlightFilled) return 1
+                          return 0
+                        })
+                        return items.flatMap(({k, value, highlightEmpty, highlightFilled, isEmpty}) => {
+                          const labelStyle = {
+                            padding: '8px 10px',
+                            borderRight: '1px solid #eee',
+                            borderBottom: '1px solid #eee',
+                            background: highlightEmpty ? '#fee2e2' : highlightFilled ? '#dcfce7' : '#fafafa',
+                            color: highlightEmpty ? '#dc2626' : highlightFilled ? '#16a34a' : '#1f2937',
+                            fontWeight: (highlightEmpty || highlightFilled) ? '600' : 'normal',
+                            WebkitFontSmoothing: 'subpixel-antialiased',
+                            MozOsxFontSmoothing: 'auto',
+                            textRendering: 'optimizeLegibility'
+                          } as React.CSSProperties
+                          const valueStyle = {
+                            padding: '6px 8px',
+                            borderBottom: '1px solid #eee',
+                            whiteSpace: 'pre-wrap',
+                            background: highlightEmpty ? '#fee2e2' : highlightFilled ? '#dcfce7' : '#fff',
+                            color: highlightEmpty ? '#dc2626' : highlightFilled ? '#16a34a' : '#1f2937',
+                            fontWeight: highlightFilled ? '500' : 'normal',
+                            WebkitFontSmoothing: 'subpixel-antialiased',
+                            MozOsxFontSmoothing: 'auto',
+                            textRendering: 'optimizeLegibility'
+                          } as React.CSSProperties
+                          let text = isEmpty ? '' : String(value)
+                          // format display for datum / anfang / ende
+                          if (((gruppen[k]||[]).includes('datum') || (gruppen[k]||[]).includes('anfang') || (gruppen[k]||[]).includes('ende')) && text) {
+                            const digits = text.replace(/\D+/g,'')
+                            if (digits.length === 8) text = `${digits.slice(0,2)}.${digits.slice(2,4)}.${digits.slice(4,8)}`
                           }
-                        }
-                        // Für Betreuer-Felder klickbare Chips auch im ausgeklappten Zustand anzeigen
-                        const isBetreuer1 = (gruppen[k]||[]).includes('betreuer1') || /^betreuer\s*1$/i.test(k)
-                        const isBetreuer2 = (gruppen[k]||[]).includes('betreuer2') || /^betreuer\s*2$/i.test(k)
-                        const label = displayNames[k] || k
-                        const valueEl = (isBetreuer1 || isBetreuer2) && text ? (
-                          <div style={{ display: 'inline-flex', gap: 8, alignItems: 'center' }}>
-                            <div 
-                              onClick={(e)=> { e.stopPropagation(); handleBetreuerClick(text) }}
-                              title="Klicken um Betreuer zu öffnen"
-                              style={{
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: 6,
-                                padding: '2px 6px',
-                                borderRadius: 4,
-                                border: '1px solid #c8e6c9',
-                                background: isBetreuer1 ? '#e3f2fd' : '#e8f5e8',
-                                color: isBetreuer1 ? '#1976d2' : '#2e7d32',
-                                cursor: 'pointer'
-                              }}
-                            >
-                              <div style={{ width: 8, height: 8, borderRadius: '50%', background: isBetreuer1 ? '#3b82f6' : '#10b981' }} />
-                              <span style={{ fontWeight: 500 }}>{text}</span>
+                          // Altbetreuer: mehrere mit ; getrennte Einträge untereinander darstellen
+                          if (/^alt\s*betreuer$/i.test(k) || /altbetreuer/i.test(k)) {
+                            if (text.includes(';')) {
+                              text = text.split(';').map(s => s.trim()).filter(Boolean).join('\n')
+                            }
+                          }
+                          // Für Betreuer-Felder klickbare Chips auch im ausgeklappten Zustand anzeigen
+                          const isBetreuer1 = (gruppen[k]||[]).includes('betreuer1') || /^betreuer\s*1$/i.test(k)
+                          const isBetreuer2 = (gruppen[k]||[]).includes('betreuer2') || /^betreuer\s*2$/i.test(k)
+                          const label = displayNames[k] || k
+                          const valueEl = (isBetreuer1 || isBetreuer2) && text ? (
+                            <div style={{ display: 'inline-flex', gap: 8, alignItems: 'center' }}>
+                              <div
+                                onClick={(e)=> { e.stopPropagation(); handleBetreuerClick(text) }}
+                                title="Klicken um Betreuer zu öffnen"
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: 6,
+                                  padding: '2px 6px',
+                                  borderRadius: 4,
+                                  border: '1px solid #c8e6c9',
+                                  background: isBetreuer1 ? '#e3f2fd' : '#e8f5e8',
+                                  color: isBetreuer1 ? '#1976d2' : '#2e7d32',
+                                  cursor: 'pointer'
+                                }}
+                              >
+                                <div style={{ width: 8, height: 8, borderRadius: '50%', background: isBetreuer1 ? '#3b82f6' : '#10b981' }} />
+                                <span style={{ fontWeight: 500 }}>{text}</span>
+                              </div>
                             </div>
-                          </div>
-                        ) : text
-                        return [
-                          <div key={`${i}-${k}-label`} style={labelStyle}>{label}</div>,
-                          <div key={`${i}-${k}-value`} style={valueStyle}>{valueEl}</div>
-                        ]
-                      })
-                    })()}
+                          ) : text
+                          return [
+                            <div key={`${i}-${k}-label`} style={labelStyle}>{label}</div>,
+                            <div key={`${i}-${k}-value`} style={valueStyle}>{valueEl}</div>
+                          ]
+                        })
+                      })()}
+                    </div>
                   </div>
-                }
-                
+                )}
+
+                {activeTab === 'dateiverwaltung' && (
+                  <div style={{ padding: '10px 12px' }}>
+                    <DatenVerwaltungTabs
+                      personType={tableId === 'kunden' ? 'kunden' : 'betreuer'}
+                      row={row}
+                      allPersons={allPersons}
+                      allKeys={keys}
+                      wichtigeFelder={wichtigeFelder}
+                      displayNames={displayNames}
+                      gruppen={gruppen}
+                      keys={keys}
+                    />
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -631,7 +908,7 @@ export default function TabelleDropdownZeilen({ daten, displayNames = {}, wichti
             1: (() => { const k = getBetreuerFieldKey(1); return k && wechselDialogRow ? String(wechselDialogRow[k] || '') : '' })(),
             2: (() => { const k = getBetreuerFieldKey(2); return k && wechselDialogRow ? String(wechselDialogRow[k] || '') : '' })(),
           }}
-          onConfirm={async ({ position, neuerBetreuer, wechselDatum }) => {
+          onConfirm={async ({ position, neuerBetreuer, wechselDatum, schemaId }) => {
             if (!wechselDialogRow) return false
             const __key = wechselDialogRow.__key
             const betreuerKey = getBetreuerFieldKey(position)
@@ -653,9 +930,31 @@ export default function TabelleDropdownZeilen({ daten, displayNames = {}, wichti
             updates[betreuerKey] = neuerName
             updates[anfangsKey] = wechselDatum
             await window.db?.kundenUpdate?.({ __key, updates })
+            if (schemaId) {
+              await handleSchemaMoves(schemaId, {
+                kundeRow: wechselDialogRow,
+                alterBetreuerRow: findBetreuerRowByName(alterBetreuerName),
+                alterBetreuerName,
+                neuerBetreuerRow: neuerBetreuer,
+                neuerBetreuerName: neuerName,
+              })
+            }
             onChanged?.()
             return true
           }}
+          verschiebeSchemata={verschiebeSchemata}
+          onManageSchemata={() => setSchemaDialogOffen(true)}
+        />
+      )}
+      {schemaDialogOffen && (
+        <SchemataVerwaltenDialog
+          offen={schemaDialogOffen}
+          onClose={() => setSchemaDialogOffen(false)}
+          initialSchemas={verschiebeSchemata}
+          onSave={async (schemas) => {
+            await onSchemataChange?.(schemas)
+          }}
+          ordnerTemplates={ordnerTemplates}
         />
       )}
     </div>

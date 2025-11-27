@@ -1,6 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import Layout from '../seite-shared/Layout'
-import { useMemo } from 'react'
 import { useTableSettings } from '../komponenten/useTableSettings'
 
 export default function BetreuerDaten() {
@@ -32,35 +31,107 @@ export default function BetreuerDaten() {
     if (!betreuer.length) return [] as string[]
     const vorKey = betreuerKeys.find(k => (betreuerSettings.gruppen[k] || []).includes('vorname'))
     const nachKey = betreuerKeys.find(k => (betreuerSettings.gruppen[k] || []).includes('nachname'))
-    return betreuer.map((row: any) => `${String(vorKey ? row[vorKey] || '' : '').trim()} ${String(nachKey ? row[nachKey] || '' : '').trim()}`.trim()).filter(Boolean)
+    const list = betreuer.flatMap((row: any) => {
+      const vor = String(vorKey ? row[vorKey] || '' : '').trim()
+      const nach = String(nachKey ? row[nachKey] || '' : '').trim()
+      const a = `${vor} ${nach}`.trim()
+      const b = `${nach} ${vor}`.trim()
+      return [a, b].filter(Boolean)
+    })
+    return Array.from(new Set(list)).filter(Boolean)
   }, [betreuer, betreuerKeys, betreuerSettings])
 
-  async function refreshStructure() {
+  const namesKey = useMemo(() => names.join('|'), [names])
+
+  const refreshStructure = useCallback(async () => {
     if (!baseDir || !names.length) { setListe([]); return }
-    const res = await window.api?.folders?.listForPersons?.({ baseDir, personType: 'betreuer', names })
-    setListe(res?.ok ? (res?.result || []) : [])
-  }
+    try {
+      const res = await window.api?.folders?.listForPersons?.({ baseDir, personType: 'betreuer', names })
+      setListe(res?.ok ? (res?.result || []) : [])
+    } catch {
+      setListe([])
+    }
+  }, [baseDir, names])
 
   useEffect(() => {
     if (baseDir && names.length) { void refreshStructure() }
-  }, [baseDir, names.join('|')])
+  }, [baseDir, namesKey, refreshStructure])
+
+  useEffect(() => {
+    function handleFocus() {
+      if (baseDir && names.length) { void refreshStructure() }
+    }
+    window.addEventListener('focus', handleFocus)
+    return () => {
+      window.removeEventListener('focus', handleFocus)
+    }
+  }, [baseDir, namesKey, refreshStructure])
+
+  const dedupListe = useMemo(() => {
+    if (!liste.length) return liste
+    const vorKey = betreuerKeys.find(k => (betreuerSettings.gruppen[k] || []).includes('vorname'))
+    const nachKey = betreuerKeys.find(k => (betreuerSettings.gruppen[k] || []).includes('nachname'))
+    if (!vorKey || !nachKey) return liste
+    const result: typeof liste = []
+    for (const r of betreuer) {
+      const vor = String(r?.[vorKey] || '').trim()
+      const nach = String(r?.[nachKey] || '').trim()
+      if (!vor && !nach) continue
+      const a = `${vor} ${nach}`.trim()
+      const b = `${nach} ${vor}`.trim()
+      const ea = liste.find(x => x.name === a)
+      const eb = liste.find(x => x.name === b)
+      const chosen = (ea && ea.exists) ? ea : (eb && eb.exists) ? eb : ea || eb
+      if (chosen) result.push(chosen)
+      else result.push({ name: a, dir: '', exists: false, subfolders: [] })
+    }
+    const seen = new Set<string>()
+    const out: typeof liste = []
+    for (const e of result) {
+      const key = `${e.name}|${e.dir}|${e.exists}`
+      if (!seen.has(key)) { seen.add(key); out.push(e) }
+    }
+    return out
+  }, [liste, betreuer, betreuerKeys, betreuerSettings])
 
   const sortedListe = useMemo(() => {
     const nachKey = betreuerKeys.find(k => (betreuerSettings.gruppen[k] || []).includes('nachname'))
-    if (!nachKey) return liste
-    return [...liste].sort((a, b) => {
-      const rowA = betreuer[names.findIndex(n => n === a.name)]
-      const rowB = betreuer[names.findIndex(n => n === b.name)]
+    if (!nachKey) return dedupListe
+    return [...dedupListe].sort((a, b) => {
+      const rowA = (() => {
+        const vorKey = betreuerKeys.find(k => (betreuerSettings.gruppen[k] || []).includes('vorname'))
+        const nachKey2 = nachKey
+        return betreuer.find(r => {
+          const vor = String(vorKey ? r[vorKey] || '' : '').trim()
+          const nach = String(nachKey2 ? r[nachKey2] || '' : '').trim()
+          const a1 = `${vor} ${nach}`.trim()
+          const a2 = `${nach} ${vor}`.trim()
+          return a.name === a1 || a.name === a2
+        })
+      })()
+      const rowB = (() => {
+        const vorKey = betreuerKeys.find(k => (betreuerSettings.gruppen[k] || []).includes('vorname'))
+        const nachKey2 = nachKey
+        return betreuer.find(r => {
+          const vor = String(vorKey ? r[vorKey] || '' : '').trim()
+          const nach = String(nachKey2 ? r[nachKey2] || '' : '').trim()
+          const b1 = `${vor} ${nach}`.trim()
+          const b2 = `${nach} ${vor}`.trim()
+          return b.name === b1 || b.name === b2
+        })
+      })()
       const nachA = rowA ? String(rowA[nachKey] || '').trim() : ''
       const nachB = rowB ? String(rowB[nachKey] || '').trim() : ''
       return nachA.localeCompare(nachB)
     })
-  }, [liste, betreuer, names, betreuerKeys, betreuerSettings])
+  }, [dedupListe, betreuer, names, betreuerKeys, betreuerSettings])
 
-  function formatDisplay(n: string) {
-    const parts = String(n || '').split(' ').filter(Boolean)
-    if (parts.length >= 2) return `${parts[1]} ${parts[0]}`
-    return n
+  function formatDisplay(row: any) {
+    const vorKey = betreuerKeys.find(k => (betreuerSettings.gruppen[k] || []).includes('vorname'))
+    const nachKey = betreuerKeys.find(k => (betreuerSettings.gruppen[k] || []).includes('nachname'))
+    const vor = String(vorKey ? row?.[vorKey] || '' : '').trim()
+    const nach = String(nachKey ? row?.[nachKey] || '' : '').trim()
+    return `${nach} ${vor}`.trim()
   }
 
   function replacePlaceholders(tpl: string, row: any): string {
@@ -117,7 +188,10 @@ export default function BetreuerDaten() {
       <div style={{ background: '#fff', border: '1px solid #e6e8ef', borderRadius: 10, padding: 16, display: 'grid', gap: 12, position: 'relative' }}>
         <div style={{ display: 'flex', alignItems: 'center' }}>
           <div style={{ fontWeight: 700, flex: 1 }}>Betreuer-Daten Verwaltung</div>
-          <div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button onClick={() => void refreshStructure()} disabled={!baseDir || !names.length} style={{ padding: '6px 12px', borderRadius: 8, border: '1px solid #d1d5db', background: '#ffffff', color: '#1f2937', cursor: (!baseDir || !names.length) ? 'not-allowed' : 'pointer', opacity: (!baseDir || !names.length) ? 0.6 : 1 }}>
+              Aktualisieren
+            </button>
             <button onClick={() => window.api?.openFolderDialog?.('betreuer')} style={{ padding: '6px 12px', borderRadius: 8, border: '1px solid #0ea5e9', background: '#e0f2fe', color: '#0369a1', cursor: 'pointer' }}>Ordner-Management</button>
           </div>
         </div>
@@ -133,12 +207,23 @@ export default function BetreuerDaten() {
         )}
         <div style={{ display: 'grid', gap: 8 }}>
           {sortedListe.map(p => {
-            const row = betreuer[names.findIndex(n => n === p.name)]
+            const row = (() => {
+              const vorKey = betreuerKeys.find(k => (betreuerSettings.gruppen[k] || []).includes('vorname'))
+              const nachKey = betreuerKeys.find(k => (betreuerSettings.gruppen[k] || []).includes('nachname'))
+              return betreuer.find(r => {
+                const vor = String(vorKey ? r[vorKey] || '' : '').trim()
+                const nach = String(nachKey ? r[nachKey] || '' : '').trim()
+                const n1 = `${vor} ${nach}`.trim()
+                const n2 = `${nach} ${vor}`.trim()
+                return p.name === n1 || p.name === n2
+              })
+            })()
+            if (!row) return null
             const missing = row ? getMissingCountFor(p, row) : 0
             return (
             <details key={p.name} style={{ background: '#ffffff', border: '1px solid #e6e8ef', borderRadius: 8, padding: 8 }}>
               <summary style={{ cursor: 'pointer', fontWeight: 600, display: 'flex', alignItems: 'center' }}>
-                <span style={{ flex: 1 }}>{formatDisplay(p.name)} {p.exists ? '' : '(Ordner fehlt)'}</span>
+                <span style={{ flex: 1 }}>{formatDisplay(row)} {p.exists ? '' : '(Ordner fehlt)'}</span>
                 {missing > 0 && (
                   <span style={{ marginLeft: 8, padding: '2px 8px', borderRadius: 999, background: '#fee2e2', color: '#991b1b', fontSize: 12, border: '1px solid #fecaca' }}>{missing}</span>
                 )}

@@ -1,23 +1,43 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useTableSettings } from './useTableSettings'
+import type { DateiSchema } from './SchemataVerwaltenDialog'
 
 type BetreuerWechselDialogProps = {
   isOpen: boolean
   onClose: () => void
-  onConfirm: (payload: { position: 1 | 2; neuerBetreuer: any; wechselDatum: string }) => Promise<boolean>
+  onConfirm: (payload: {
+    position: 1 | 2
+    neuerBetreuer: any
+    wechselDatum: string
+    schemaId?: string | null
+  }) => Promise<boolean>
   kundenName: string
   verfuegbarePositionen: Array<1 | 2>
   betreuerListe: any[]
   currentBetreuerNamen?: { 1?: string; 2?: string }
+  verschiebeSchemata?: DateiSchema[]
+  onManageSchemata?: () => void
 }
 
-export default function BetreuerWechselDialog({ isOpen, onClose, onConfirm, kundenName, verfuegbarePositionen, betreuerListe, currentBetreuerNamen }: BetreuerWechselDialogProps) {
+export default function BetreuerWechselDialog({
+  isOpen,
+  onClose,
+  onConfirm,
+  kundenName,
+  verfuegbarePositionen,
+  betreuerListe,
+  currentBetreuerNamen,
+  verschiebeSchemata = [],
+  onManageSchemata,
+}: BetreuerWechselDialogProps) {
   const [position, setPosition] = useState<1 | 2>(1)
   const [neuerBetreuer, setNeuerBetreuer] = useState<any | null>(null)
   const [wechselDatum, setWechselDatum] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [betreuerSearch, setBetreuerSearch] = useState('')
   const [betreuerOpen, setBetreuerOpen] = useState(false)
+  const [manageDateien, setManageDateien] = useState(false)
+  const [selectedSchemaId, setSelectedSchemaId] = useState<string | null>(null)
 
   const betreuerKeys = useMemo(() => (betreuerListe.length ? Object.keys(betreuerListe[0]) : []), [betreuerListe])
   const { settings: betreuerSettings } = useTableSettings('betreuer', betreuerKeys)
@@ -29,6 +49,8 @@ export default function BetreuerWechselDialog({ isOpen, onClose, onConfirm, kund
       setWechselDatum('')
       setBetreuerSearch('')
       setBetreuerOpen(false)
+      setManageDateien(false)
+      setSelectedSchemaId(null)
     }
   }, [isOpen, verfuegbarePositionen])
 
@@ -133,12 +155,12 @@ export default function BetreuerWechselDialog({ isOpen, onClose, onConfirm, kund
                 onFocus={() => setBetreuerOpen(true)}
                 onClick={() => setBetreuerOpen(true)}
                 onBlur={(e) => {
-                  // Delay closing to allow click on dropdown item
+                  const target = e.currentTarget
                   setTimeout(() => {
-                    if (!e.currentTarget.contains(document.activeElement)) {
+                    if (target && !target.contains(document.activeElement)) {
                       setBetreuerOpen(false)
                     }
-                }, 200)
+                  }, 200)
                 }}
                 style={{ width: '95%', padding: 6, borderRadius: 6, border: '1px solid #d1d5db', fontSize: 13 }}
               />
@@ -181,14 +203,35 @@ export default function BetreuerWechselDialog({ isOpen, onClose, onConfirm, kund
             <span>Wechseldatum</span>
             <input type="date" value={formatDateToInput(wechselDatum)} onChange={e=> setWechselDatum(parseDateFromInput(e.currentTarget.value))} />
           </label>
+          <div style={{ display: 'grid', gridTemplateColumns: '180px 1fr', gap: 8, alignItems: 'center' }}>
+            <span>Dateien verwalten?</span>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                <input type="checkbox" checked={manageDateien} onChange={e => setManageDateien(e.currentTarget.checked)} />
+                <span style={{ fontSize: 13 }}>Automatisch verschieben</span>
+              </label>
+              {manageDateien && (
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <select value={selectedSchemaId || ''} onChange={e => setSelectedSchemaId(e.currentTarget.value || null)} style={{ flex: 1 }}>
+                    <option value="">Schema wählen…</option>
+                    {verschiebeSchemata.map(schema => (
+                      <option key={schema.id} value={schema.id}>{schema.name}</option>
+                    ))}
+                  </select>
+                  <button onClick={onManageSchemata} style={{ border: '1px solid #d1d5db', borderRadius: 8, background: '#fff', padding: '4px 8px', cursor: 'pointer' }}>+</button>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 }}>
-          <button onClick={onClose} style={{ padding: '6px 12px', border: '1px solid #ddd', borderRadius: 6, background: '#f7f7f7' }}>Abbrechen</button>
-          <button disabled={!neuerBetreuer || !wechselDatum || isLoading} onClick={async ()=>{
+          <button onClick={onClose} style={{ padding: '6px 12px', border: '1px solid #1f2937', borderRadius: 6, background: '#1f2937', color: '#fff', fontWeight: 600 }}>Abbrechen</button>
+          <button disabled={!neuerBetreuer || !wechselDatum || isLoading || (manageDateien && !selectedSchemaId)} onClick={async ()=>{
             if (!neuerBetreuer || !wechselDatum) return
+            if (manageDateien && !selectedSchemaId) return
             setIsLoading(true)
             try {
-              const ok = await onConfirm({ position, neuerBetreuer, wechselDatum })
+              const ok = await onConfirm({ position, neuerBetreuer, wechselDatum, schemaId: manageDateien ? selectedSchemaId : null })
               if (ok) onClose()
             } finally { setIsLoading(false) }
           }} style={{ padding: '6px 12px', border: 0, borderRadius: 6, background: '#005bd1', color: '#fff', fontWeight: 600 }}>{isLoading ? 'Speichern…' : 'Wechsel durchführen'}</button>

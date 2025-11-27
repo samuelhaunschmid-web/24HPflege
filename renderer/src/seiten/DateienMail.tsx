@@ -20,7 +20,6 @@ type TemplateSelection = {
 
 export default function DateienMail() {
   const [templates, setTemplates] = useState<EmailTemplate[]>([])
-  const [cfg, setCfg] = useState<any>({}) // Wird für folderTemplatesRules benötigt
   const [baseDir, setBaseDir] = useState('')
   const [kunden, setKunden] = useState<any[]>([])
   const [betreuer, setBetreuer] = useState<any[]>([])
@@ -29,7 +28,6 @@ export default function DateienMail() {
   useEffect(() => {
     ;(async () => {
       const cfgVal = await window.api?.getConfig?.()
-      setCfg(cfgVal || {})
       setBaseDir(cfgVal?.dokumenteDir || '')
       const lists = await window.docgen?.getLists?.()
       if (lists?.kunden) setKunden(lists.kunden)
@@ -62,7 +60,6 @@ export default function DateienMail() {
           if (!current.find(t => t.id === id)) delete next[id]
         })
         setSelections(next)
-        setCfg(cfgVal || {})
       }
     }, 500)
     return () => clearInterval(interval)

@@ -1,17 +1,15 @@
 import { useEffect, useMemo, useState } from 'react'
 import Layout from '../seite-shared/Layout'
 import LoadingDialog from '../komponenten/LoadingDialog'
+import VorlagenGruppenDialog from '../komponenten/VorlagenGruppenDialog'
 
 type Person = { __display?: string; [k: string]: any }
-type TreeNode = { type: 'folder' | 'file'; name: string; relPath: string; children?: TreeNode[] }
 
 export default function Startseite() {
   const [kunden, setKunden] = useState<Person[]>([])
   const [betreuer, setBetreuer] = useState<Person[]>([])
-  const [tree, setTree] = useState<TreeNode[]>([])
   const [kunde, setKunde] = useState<Person | null>(null)
   const [betreuu, setBetreuu] = useState<Person | null>(null)
-  const [selected, setSelected] = useState<string[]>([])
   const [kundenQuery, setKundenQuery] = useState<string>('')
   const [betreuerQuery, setBetreuerQuery] = useState<string>('')
   const [showKundenDropdown, setShowKundenDropdown] = useState<boolean>(false)
@@ -21,6 +19,19 @@ export default function Startseite() {
   const [loadingProgress, setLoadingProgress] = useState(0)
   const [loadingMessage, setLoadingMessage] = useState('')
 
+  // Hilfsfunktion um Dateinamen aus Pfad zu extrahieren
+  function getFilenameFromPath(path: string): string {
+    return path.split(/[/\\]/).pop() || path
+  }
+
+  // Gruppen-basiertes Vorlagen-System
+  const [templateGroups, setTemplateGroups] = useState<Record<string, string[]>>({})
+  const [templateGroupOrder, setTemplateGroupOrder] = useState<string[]>([])
+  const [selectedGroups, setSelectedGroups] = useState<string[]>([])
+  const [selectedGroupTemplates, setSelectedGroupTemplates] = useState<string[]>([])
+  const [gruppenDialogOffen, setGruppenDialogOffen] = useState(false)
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
+
   useEffect(() => {
     ;(async () => {
       const lists = await window.docgen?.getLists?.()
@@ -28,8 +39,21 @@ export default function Startseite() {
         setKunden(lists.kunden || [])
         setBetreuer(lists.betreuer || [])
       }
-      const t = await window.docgen?.getVorlagenTree?.()
-      if (t) setTree(t)
+
+      // Lade Vorlagen-Gruppen
+      const groupsData = await window.docgen?.getVorlagenGruppen?.()
+      if (groupsData) {
+        const groups = groupsData.groups || {}
+        let order = groupsData.order || []
+
+        // Fallback: Wenn order leer ist aber groups vorhanden, verwende die Keys von groups
+        if (order.length === 0 && Object.keys(groups).length > 0) {
+          order = Object.keys(groups)
+        }
+
+        setTemplateGroups(groups)
+        setTemplateGroupOrder(order)
+      }
     })()
   }, [])
 
@@ -55,109 +79,152 @@ export default function Startseite() {
     return betreuerLabels.filter(b => b.label.toLowerCase().includes(q))
   }, [betreuerLabels, betreuerQuery])
 
-  function renderTree(nodes: TreeNode[]) {
+  function renderGroups() {
+    // Verwende templateGroupOrder oder falle auf die Keys von templateGroups zurück
+    const effectiveOrder = templateGroupOrder.length > 0 ? templateGroupOrder : Object.keys(templateGroups)
+
+    if (effectiveOrder.length === 0) {
+      return (
+        <div style={{ textAlign: 'center', padding: 20, color: '#6b7280' }}>
+          <p>Keine Vorlagen-Gruppen gefunden.</p>
+          <p>Verwende den "Gruppen verwalten" Button, um Gruppen zu erstellen.</p>
+        </div>
+      )
+    }
+
     return (
-      <ul style={{ listStyle: 'none', paddingLeft: 18 }}>
-        {nodes.map(n => n.type === 'folder' ? (
-          <li key={n.relPath}>
-            <details>
-              <summary style={{ 
-                display: 'flex', 
-                gap: 8, 
-                alignItems: 'center',
-                color: '#1f2937',
-                fontWeight: '600',
-                WebkitFontSmoothing: 'subpixel-antialiased',
-                MozOsxFontSmoothing: 'auto',
-                textRendering: 'optimizeLegibility'
-              }}>
+      <div style={{ maxHeight: 420, overflow: 'auto' }}>
+        {effectiveOrder.map(groupName => {
+          const templates = templateGroups[groupName] || []
+          const isExpanded = expandedGroups.has(groupName)
+          const isGroupSelected = selectedGroups.includes(groupName)
+          const selectedTemplateCount = selectedGroupTemplates.filter(t => templates.includes(t)).length
+
+          return (
+            <div key={groupName} style={{ border: '1px solid #e5e7eb', borderRadius: 8, marginBottom: 8, background: '#fafafa' }}>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  padding: '8px 12px',
+                  cursor: 'pointer',
+                  color: '#1f2937',
+                  fontWeight: '600',
+                  WebkitFontSmoothing: 'subpixel-antialiased',
+                  MozOsxFontSmoothing: 'auto',
+                  textRendering: 'optimizeLegibility'
+                }}
+                onClick={() => {
+                  setExpandedGroups(prev => {
+                    const newSet = new Set(prev)
+                    if (newSet.has(groupName)) {
+                      newSet.delete(groupName)
+                    } else {
+                      newSet.add(groupName)
+                    }
+                    return newSet
+                  })
+                }}
+              >
                 <input
                   type="checkbox"
-                  checked={isFolderSelected(n)}
+                  checked={isGroupSelected}
                   onChange={(e) => {
+                    e.stopPropagation()
                     const checked = e.currentTarget.checked
                     if (checked) {
-                      // Ordner auswählen: alle Dateien im Ordner hinzufügen
-                      const allFiles = getAllFilesInFolder(n)
-                      setSelected(prev => [...new Set([...prev, ...allFiles])])
+                      setSelectedGroups(prev => [...prev, groupName])
+                      setSelectedGroupTemplates(prev => [...new Set([...prev, ...templates])])
+                      // Expandiere die Gruppe automatisch wenn ausgewählt
+                      setExpandedGroups(prev => {
+                        const newSet = new Set(prev)
+                        newSet.add(groupName)
+                        return newSet
+                      })
                     } else {
-                      // Ordner abwählen: alle Dateien im Ordner entfernen
-                      const allFiles = getAllFilesInFolder(n)
-                      setSelected(prev => prev.filter(x => !allFiles.includes(x)))
+                      setSelectedGroups(prev => prev.filter(g => g !== groupName))
+                      setSelectedGroupTemplates(prev => prev.filter(t => !templates.includes(t)))
                     }
                   }}
                   onClick={(e) => e.stopPropagation()}
                 />
-                {n.name}
-              </summary>
-              {n.children && renderTree(n.children)}
-            </details>
-          </li>
-        ) : (
-          <li key={n.relPath}>
-            <label style={{ 
-              display: 'flex', 
-              gap: 8, 
-              alignItems: 'center',
-              color: '#1f2937',
-              fontWeight: '500',
-              WebkitFontSmoothing: 'subpixel-antialiased',
-              MozOsxFontSmoothing: 'auto',
-              textRendering: 'optimizeLegibility'
-            }}>
-              <input
-                type="checkbox"
-                checked={selected.includes(n.relPath)}
-                onChange={(e) => {
-                  const checked = e.currentTarget.checked
-                  setSelected(prev => checked ? [...prev, n.relPath] : prev.filter(x => x !== n.relPath))
-                }}
-              />
-              {n.name}
-            </label>
-          </li>
-        ))}
-      </ul>
+                <span style={{
+                  transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)',
+                  transition: 'transform 0.2s',
+                  display: 'inline-block',
+                  width: 12,
+                  textAlign: 'center'
+                }}>
+                  ▶
+                </span>
+                {groupName}
+                <span style={{ fontSize: 12, color: '#6b7280', marginLeft: 'auto' }}>
+                  {selectedTemplateCount}/{templates.length} ausgewählt
+                </span>
+              </div>
+
+              {isExpanded && (
+                <div style={{ padding: '8px 12px', borderTop: '1px solid #e5e7eb', background: '#ffffff' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 6 }}>
+                    {templates.map(template => (
+                      <label key={template} style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        padding: '4px 8px',
+                        borderRadius: 4,
+                        background: selectedGroupTemplates.includes(template) ? '#dbeafe' : '#f9fafb',
+                        cursor: 'pointer',
+                        fontSize: 13,
+                        border: '1px solid #e5e7eb'
+                      }}>
+                        <input
+                          type="checkbox"
+                          checked={selectedGroupTemplates.includes(template)}
+                          onChange={(e) => {
+                            const checked = e.currentTarget.checked
+                            setSelectedGroupTemplates(prev =>
+                              checked
+                                ? [...prev, template]
+                                : prev.filter(t => t !== template)
+                            )
+                          }}
+                        />
+                        <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {getFilenameFromPath(template)}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
     )
   }
 
-  function isFolderSelected(folder: TreeNode): boolean {
-    const allFiles = getAllFilesInFolder(folder)
-    return allFiles.length > 0 && allFiles.every(file => selected.includes(file))
-  }
-
-  function getAllFilesInFolder(folder: TreeNode): string[] {
-    const files: string[] = []
-    if (folder.children) {
-      for (const child of folder.children) {
-        if (child.type === 'file') {
-          files.push(child.relPath)
-        } else if (child.type === 'folder') {
-          files.push(...getAllFilesInFolder(child))
-        }
-      }
-    }
-    return files
-  }
 
   const [modus, setModus] = useState<'docx'|'pdf'>('pdf')
 
   async function handleGenerate() {
-    if (selected.length === 0) return alert('Bitte mindestens eine Vorlage wählen.')
+    if (selectedGroupTemplates.length === 0) return alert('Bitte mindestens eine Vorlage wählen.')
     const dir = await window.api?.chooseDirectory?.('Zielordner wählen')
     if (!dir) return
-    
+
     // Loading State starten
     setIsLoading(true)
     setLoadingProgress(0)
     setLoadingMessage(modus === 'pdf' ? 'PDFs werden erstellt...' : 'Dokumente werden generiert...')
-    
+
     let progressInterval: number | null = null
-    
+
     try {
       const basePayload = {
         targetDir: dir,
-        selectedVorlagen: selected,
+        selectedVorlagen: selectedGroupTemplates,
         kunde,
         betreuer: betreuu,
         alsPdf: modus === 'pdf',
@@ -374,10 +441,24 @@ export default function Startseite() {
         <div>
           <div style={{ background: '#fff', border: '1px solid #eaeaea', borderRadius: 10, padding: 12 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-              <label style={{ fontWeight: 700 }}>Vorlagen</label>
+              <label style={{ fontWeight: 700 }}>Vorlagen-Gruppen</label>
+              <button
+                onClick={() => setGruppenDialogOffen(true)}
+                style={{
+                  padding: '4px 8px',
+                  border: '1px solid #d1d5db',
+                  borderRadius: 4,
+                  background: '#f9fafb',
+                  color: '#1f2937',
+                  fontSize: 12,
+                  cursor: 'pointer'
+                }}
+              >
+                Gruppen verwalten
+              </button>
             </div>
             <div style={{ border: '1px solid #eee', borderRadius: 8, padding: 8, maxHeight: 420, overflow: 'auto', background: '#fff' }}>
-              {renderTree(tree)}
+              {renderGroups()}
             </div>
           </div>
         </div>
@@ -408,6 +489,27 @@ export default function Startseite() {
         message={loadingMessage}
         progress={loadingProgress}
         showProgress={true}
+      />
+
+      <VorlagenGruppenDialog
+        offen={gruppenDialogOffen}
+        onClose={async () => {
+          setGruppenDialogOffen(false)
+          // Reload groups after dialog closes
+          const groupsData = await window.docgen?.getVorlagenGruppen?.()
+          if (groupsData) {
+            const groups = groupsData.groups || {}
+            let order = groupsData.order || []
+
+            // Fallback: Wenn order leer ist aber groups vorhanden, verwende die Keys von groups
+            if (order.length === 0 && Object.keys(groups).length > 0) {
+              order = Object.keys(groups)
+            }
+
+            setTemplateGroups(groups)
+            setTemplateGroupOrder(order)
+          }
+        }}
       />
     </Layout>
   )

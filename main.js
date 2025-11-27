@@ -708,6 +708,45 @@ app.whenReady().then(() => {
     }
   });
 
+  ipcMain.handle('folders:moveFile', async (_e, args) => {
+    try {
+      const baseDir = (args && args.baseDir) || '';
+      const fromPersonType = (args && args.fromPersonType) === 'betreuer' ? 'betreuer' : 'kunden';
+      const toPersonType = (args && args.toPersonType) === 'betreuer' ? 'betreuer' : 'kunden';
+      const fromPersonName = String(args && args.fromPersonName || '').trim();
+      const toPersonName = String(args && args.toPersonName || '').trim();
+      const fromPath = Array.isArray(args && args.fromPath) ? args.fromPath : [];
+      const toPath = Array.isArray(args && args.toPath) ? args.toPath : [];
+      const fileName = String(args && args.fileName || '').trim();
+      if (!baseDir || !fs.existsSync(baseDir)) return { ok: false, message: 'Dokumente-Ordner ungültig' };
+      if (!fromPersonName || !toPersonName || !fileName) return { ok: false, message: 'Parameter unvollständig' };
+      function sanitizeName(name) {
+        return String(name || '').replace(/[\\/:*?"<>|]/g, '-').trim();
+      }
+      function buildPersonDir(personType, personName) {
+        const root = path.join(baseDir, personType === 'betreuer' ? 'BetreuerDaten' : 'KundenDaten');
+        return path.join(root, sanitizeName(personName));
+      }
+      function sanitizePathSegments(list) {
+        return list.map(seg => sanitizeName(seg)).filter(Boolean);
+      }
+      const sourceDir = path.join(buildPersonDir(fromPersonType, fromPersonName), ...sanitizePathSegments(fromPath));
+      const targetDir = path.join(buildPersonDir(toPersonType, toPersonName), ...sanitizePathSegments(toPath));
+      const sourceFile = path.join(sourceDir, sanitizeName(fileName));
+      if (!fs.existsSync(sourceFile) || !fs.statSync(sourceFile).isFile()) {
+        return { ok: false, message: 'Quelldatei nicht gefunden', missing: true };
+      }
+      if (!fs.existsSync(targetDir)) {
+        fs.mkdirSync(targetDir, { recursive: true });
+      }
+      const targetFile = path.join(targetDir, sanitizeName(fileName));
+      fs.renameSync(sourceFile, targetFile);
+      return { ok: true, from: sourceFile, to: targetFile };
+    } catch (e) {
+      return { ok: false, message: String(e) };
+    }
+  });
+
   // Neues Fenster für Ordner-Management-Dialog öffnen
   ipcMain.handle('window:openFolderDialog', async (_e, args) => {
     try {
@@ -1529,6 +1568,94 @@ app.whenReady().then(() => {
       .map(file => ({ name: file, absPath: path.join(dir, file) }));
   });
 
+  // Vorlagen-Gruppen Management
+  ipcMain.handle('vorlagengruppen:getAll', () => {
+    const cfg = readConfig();
+    const groups = cfg.templateGroups || {};
+    let order = cfg.templateGroupOrder || [];
+
+    // Fallback: Wenn order leer ist aber groups vorhanden, verwende die Keys von groups
+    if (order.length === 0 && Object.keys(groups).length > 0) {
+      order = Object.keys(groups);
+    }
+
+    return {
+      groups: groups,
+      order: order
+    };
+  });
+
+  ipcMain.handle('vorlagengruppen:create', (_e, name) => {
+    const cfg = readConfig();
+    const groups = cfg.templateGroups || {};
+    const order = cfg.templateGroupOrder || [];
+
+    if (groups[name]) throw new Error(`Gruppe "${name}" existiert bereits`);
+
+    const newGroups = { ...groups, [name]: [] };
+    const newOrder = order.includes(name) ? order : [...order, name];
+
+    const next = {
+      ...cfg,
+      templateGroups: newGroups,
+      templateGroupOrder: newOrder
+    };
+
+    writeConfig(next);
+    return true;
+  });
+
+  ipcMain.handle('vorlagengruppen:rename', (_e, oldName, newName) => {
+    const cfg = readConfig();
+    const groups = cfg.templateGroups || {};
+    if (!groups[oldName]) throw new Error(`Gruppe "${oldName}" existiert nicht`);
+    if (groups[newName]) throw new Error(`Gruppe "${newName}" existiert bereits`);
+
+    const newGroups = { ...groups };
+    newGroups[newName] = newGroups[oldName];
+    delete newGroups[oldName];
+
+    const order = cfg.templateGroupOrder || [];
+    const newOrder = order.map(name => name === oldName ? newName : name);
+
+    const next = { ...cfg, templateGroups: newGroups, templateGroupOrder: newOrder };
+    writeConfig(next);
+    return true;
+  });
+
+  ipcMain.handle('vorlagengruppen:delete', (_e, name) => {
+    const cfg = readConfig();
+    const groups = cfg.templateGroups || {};
+    if (!groups[name]) throw new Error(`Gruppe "${name}" existiert nicht`);
+
+    const newGroups = { ...groups };
+    delete newGroups[name];
+
+    const order = cfg.templateGroupOrder || [];
+    const newOrder = order.filter(n => n !== name);
+
+    const next = { ...cfg, templateGroups: newGroups, templateGroupOrder: newOrder };
+    writeConfig(next);
+    return true;
+  });
+
+  ipcMain.handle('vorlagengruppen:updateTemplates', (_e, groupName, templates) => {
+    const cfg = readConfig();
+    const groups = cfg.templateGroups || {};
+    if (!groups[groupName]) throw new Error(`Gruppe "${groupName}" existiert nicht`);
+
+    const next = { ...cfg, templateGroups: { ...groups, [groupName]: templates } };
+    writeConfig(next);
+    return true;
+  });
+
+  ipcMain.handle('vorlagengruppen:updateOrder', (_e, order) => {
+    const cfg = readConfig();
+    const next = { ...cfg, templateGroupOrder: order };
+    writeConfig(next);
+    return true;
+  });
+
   // Generieren
   ipcMain.handle('docs:generate', async (_e, args) => {
     const { ordnerName, targetDir, selectedVorlagen, kunde, betreuer, alsPdf } = args || {};
@@ -1541,11 +1668,11 @@ app.whenReady().then(() => {
     const data = { ...(kunde || {}), ...(betreuer || {}) };
     if (kunde) Object.keys(kunde).forEach(key => { if (key.startsWith('a')) data[key] = kunde[key]; });
     const generatedFiles = []
-    for (const rel of selectedVorlagen) {
-      const vorlagenPath = path.join(vorlagenRoot, rel);
+    for (const templateName of selectedVorlagen) {
+      const vorlagenPath = getVorlagenPath(templateName, vorlagenRoot);
       const templateBuffer = fs.readFileSync(vorlagenPath);
       const outputBuffer = await replacePlaceholders(templateBuffer, data);
-      const dateiname = path.basename(rel);
+      const dateiname = path.basename(templateName);
       const zielDatei = path.join(zielOrdner, await replaceFilenamePlaceholders(dateiname, data));
       fs.writeFileSync(zielDatei, outputBuffer);
       generatedFiles.push(zielDatei)
@@ -1576,6 +1703,20 @@ app.whenReady().then(() => {
   });
 
   // PDF aus DOCX generieren (direkte Konvertierung)
+  // Hilfsfunktion um den vollständigen Pfad für eine Vorlage zu ermitteln
+  function getVorlagenPath(templateName, vorlagenRoot) {
+    // Prüfe ob es ein Gruppen-Template ist (nur Dateiname ohne Pfad)
+    if (!templateName.includes('/') && !templateName.includes('\\')) {
+      // Es ist ein Gruppen-Template - suche im Hauptordner
+      const fullPath = path.join(vorlagenRoot, templateName);
+      if (fs.existsSync(fullPath)) {
+        return fullPath;
+      }
+    }
+    // Es ist ein Ordner-Template (alter Stil)
+    return path.join(vorlagenRoot, templateName);
+  }
+
   ipcMain.handle('docs:generateHtmlPdf', async (_e, args) => {
     const { ordnerName, targetDir, selectedVorlagen, kunde, betreuer, alsPdf, selectedKundenKeys, month, year, individualRanges } = args || {};
     if (!Array.isArray(selectedVorlagen) || selectedVorlagen.length === 0) throw new Error('Keine Vorlagen ausgewählt');
@@ -1695,18 +1836,86 @@ app.whenReady().then(() => {
       return { ok: true, zielOrdner, currentRechnungsnummer };
     } else {
       // Normale Vorlagenlogik
+
+      // Lade Gruppenzuweisungen für [[Betreuer Anfang]] Platzhalter
+      const tableSettings = cfg.tableSettings || {};
+      const kundenGruppen = tableSettings['kunden']?.gruppen || {};
+
+      // Funktion um das Anfangsdatum des Betreuers zu ermitteln
+      function getBetreuerAnfangsdatum(kunde, betreuer) {
+        if (!kunde || !betreuer) return '';
+
+        // Finde Betreuer-Felder im Kunden - zuerst mit Gruppenzuweisungen versuchen
+        let betreuer1Key = Object.keys(kundenGruppen).find(key => kundenGruppen[key]?.includes('betreuer1'));
+        let betreuer2Key = Object.keys(kundenGruppen).find(key => kundenGruppen[key]?.includes('betreuer2'));
+        let betreuer1AnfangKey = Object.keys(kundenGruppen).find(key => kundenGruppen[key]?.includes('betreuer1_anfang'));
+        let betreuer2AnfangKey = Object.keys(kundenGruppen).find(key => kundenGruppen[key]?.includes('betreuer2_anfang'));
+
+        // Fallback: Hartkodierte Feldnamen falls Gruppen nicht gesetzt sind
+        if (!betreuer1Key) betreuer1Key = 'Betreuer 1';
+        if (!betreuer2Key) betreuer2Key = 'Betreuer 2';
+        if (!betreuer1AnfangKey) betreuer1AnfangKey = 'Anfang Betreuer 1';
+        if (!betreuer2AnfangKey) betreuer2AnfangKey = 'Anfang Betreuer 2';
+
+        // Erstelle vollständigen Betreuer-Namen aus Betreuer-Daten
+        const betreuerVorname = String(betreuer['Vor.Nam'] || '').trim();
+        const betreuerNachname = String(betreuer['Fam. Nam'] || '').trim();
+        const betreuerVollname = `${betreuerVorname} ${betreuerNachname}`.trim();
+        const betreuerVollnameReverse = `${betreuerNachname} ${betreuerVorname}`.trim();
+
+        // Vergleiche mit Betreuer 1
+        const kundeBetreuer1 = String(kunde[betreuer1Key] || '').trim();
+        if (kundeBetreuer1 === betreuerVollname || kundeBetreuer1 === betreuerVollnameReverse) {
+          const anfangDatum = String(kunde[betreuer1AnfangKey] || '').trim();
+          return anfangDatum || '';
+        }
+
+        // Vergleiche mit Betreuer 2
+        const kundeBetreuer2 = String(kunde[betreuer2Key] || '').trim();
+        if (kundeBetreuer2 === betreuerVollname || kundeBetreuer2 === betreuerVollnameReverse) {
+          const anfangDatum = String(kunde[betreuer2AnfangKey] || '').trim();
+          return anfangDatum || '';
+        }
+
+        // Fehler wenn Betreuer nicht zugeordnet ist
+        const betreuerName = betreuerVollname || 'Unbekannter Betreuer';
+        throw new Error(`Der Betreuer "${betreuerName}" ist beim Kunden "${kunde.__display || 'Unbekannter Kunde'}" nicht als Betreuer 1 oder Betreuer 2 zugeordnet.`);
+      }
+
       const data = { ...(kunde || {}), ...(betreuer || {}) };
       if (kunde) Object.keys(kunde).forEach(key => { if (key.startsWith('a')) data[key] = kunde[key]; });
+
+      // Füge [[Betreuer Anfang]] Platzhalter hinzu
+      if (kunde && betreuer) {
+        try {
+          const betreuerAnfang = getBetreuerAnfangsdatum(kunde, betreuer);
+          data['Betreuer Anfang'] = betreuerAnfang;
+        } catch (error) {
+          // Bei Fehler eine Warnung zeigen aber Generierung fortsetzen mit leerem Platzhalter
+          console.warn('WARNUNG:', error.message);
+          // Zeige Warnung über Electron dialog
+          const { dialog } = require('electron');
+          dialog.showMessageBoxSync(null, {
+            type: 'warning',
+            title: 'Betreuer-Zuordnung',
+            message: error.message,
+            detail: 'Das Dokument wird trotzdem generiert, aber der Platzhalter [[Betreuer Anfang]] bleibt leer.'
+          });
+          data['Betreuer Anfang'] = '';
+        }
+      } else {
+        data['Betreuer Anfang'] = '';
+      }
       
       if (alsPdf) {
       // Direkte DOCX zu PDF Konvertierung mit LibreOffice
-      for (const rel of selectedVorlagen) {
-        const vorlagenPath = path.join(vorlagenRoot, rel);
+      for (const templateName of selectedVorlagen) {
+        const vorlagenPath = getVorlagenPath(templateName, vorlagenRoot);
         const templateBuffer = fs.readFileSync(vorlagenPath);
         const outputBuffer = await replacePlaceholders(templateBuffer, data);
         
         // Temporäre DOCX-Datei erstellen
-        const tempDocxName = path.basename(rel);
+        const tempDocxName = path.basename(templateName);
         const tempDocxPath = path.join(zielOrdner, await replaceFilenamePlaceholders(tempDocxName, data));
         fs.writeFileSync(tempDocxPath, outputBuffer);
         
@@ -1757,11 +1966,11 @@ app.whenReady().then(() => {
       }
     } else {
       // Normale DOCX-Erstellung
-      for (const rel of selectedVorlagen) {
-        const vorlagenPath = path.join(vorlagenRoot, rel);
+      for (const templateName of selectedVorlagen) {
+        const vorlagenPath = getVorlagenPath(templateName, vorlagenRoot);
         const templateBuffer = fs.readFileSync(vorlagenPath);
         const outputBuffer = await replacePlaceholders(templateBuffer, data);
-        const dateiname = path.basename(rel);
+        const dateiname = path.basename(templateName);
         const zielDatei = path.join(zielOrdner, await replaceFilenamePlaceholders(dateiname, data));
         fs.writeFileSync(zielDatei, outputBuffer);
       }

@@ -6,20 +6,78 @@ import TabelleDropdownZeilen from '../komponenten/TabelleDropdownZeilen'
 import { useTableSettings } from '../komponenten/useTableSettings'
 import TabellenEinstellungenDialog from '../komponenten/TabellenEinstellungenDialog'
 import NeuerEintragDialog from '../komponenten/NeuerEintragDialog'
+import type { DateiSchema } from '../komponenten/SchemataVerwaltenDialog'
 
 export default function Kunden() {
   const [searchParams] = useSearchParams()
   const [kunden, setKunden] = useState<any[]>([])
   const [betreuer, setBetreuer] = useState<any[]>([])
   const [openKundeId, setOpenKundeId] = useState<string | null>(null)
+  const [verschiebeSchemata, setVerschiebeSchemata] = useState<DateiSchema[]>([])
+  const [ordnerTemplates, setOrdnerTemplates] = useState<{ kunden: Array<{ path: string[]; files: string[] }>; betreuer: Array<{ path: string[]; files: string[] }> }>({ kunden: [], betreuer: [] })
+  const [dokumenteDir, setDokumenteDir] = useState('')
 
   useEffect(() => {
     ;(async () => {
       const lists = await window.docgen?.getLists?.()
       if (lists?.kunden) setKunden(lists.kunden)
       if (lists?.betreuer) setBetreuer(lists.betreuer)
+      const cfgVal = await window.api?.getConfig?.()
+      setDokumenteDir(cfgVal?.dokumenteDir || '')
+      if (cfgVal?.wechselDateiSchemata) setVerschiebeSchemata(Array.isArray(cfgVal.wechselDateiSchemata) ? cfgVal.wechselDateiSchemata : [])
+      setOrdnerTemplates({
+        kunden: buildTemplateList(cfgVal?.folderTemplatesPaths?.kunden, cfgVal?.folderTemplatesRules?.kunden),
+        betreuer: buildTemplateList(cfgVal?.folderTemplatesPaths?.betreuer, cfgVal?.folderTemplatesRules?.betreuer),
+      })
     })()
   }, [])
+
+  async function handleSchemataChange(next: DateiSchema[]) {
+    setVerschiebeSchemata(next)
+    await window.api?.setConfig?.({ wechselDateiSchemata: next })
+  }
+
+  function buildTemplateList(
+    pathsInput: unknown,
+    rulesInput: unknown,
+  ): Array<{ path: string[]; files: string[] }> {
+    const map = new Map<string, { path: string[]; files: string[] }>()
+
+    const normalizePath = (p: string[] | string) => {
+      if (Array.isArray(p)) return p.filter(Boolean)
+      return String(p || '')
+        .split(/[\\/]+/)
+        .map(s => s.trim())
+        .filter(Boolean)
+    }
+
+    const addEntry = (segments: string[]) => {
+      const key = segments.join('>')
+      if (!map.has(key)) {
+        map.set(key, { path: segments, files: [] })
+      }
+      return map.get(key)!
+    }
+
+    if (Array.isArray(pathsInput)) {
+      for (const entry of pathsInput) {
+        const segs = normalizePath(entry as any)
+        if (!segs.length) continue
+        addEntry(segs)
+      }
+    }
+
+    if (Array.isArray(rulesInput)) {
+      for (const rule of rulesInput as Array<{ path?: string[]; files?: string[] }>) {
+        const segs = normalizePath(rule?.path || [])
+        if (!segs.length) continue
+        const target = addEntry(segs)
+        target.files = Array.from(new Set([...(target.files || []), ...((rule?.files || []).filter(Boolean))]))
+      }
+    }
+
+    return Array.from(map.values())
+  }
 
   // Öffne das Dropdown für den Kunden aus der URL
   useEffect(() => {
@@ -123,6 +181,11 @@ export default function Kunden() {
         tableId="kunden"
         gruppen={settings.gruppen}
         openRowId={openKundeId}
+        verschiebeSchemata={verschiebeSchemata}
+        onSchemataChange={handleSchemataChange}
+        ordnerTemplates={ordnerTemplates}
+        dokumenteDir={dokumenteDir}
+        allPersons={kunden}
         vorhandeneVorwahlen={useMemo(()=> sorted.map(r=> {
           const telKey = knownKeys.find(k=> isInGruppe(k,'telefon'))
           if (!telKey) return ''

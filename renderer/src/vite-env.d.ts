@@ -18,6 +18,7 @@ declare global {
         ensureStructure?: (payload: { baseDir: string; personType: 'kunden' | 'betreuer'; names: string[]; subfolders: (string | string[])[] }) => Promise<{ ok?: boolean; message?: string; root?: string; createdCount?: number; createdSubCount?: number }>
         listForPersons?: (payload: { baseDir: string; personType: 'kunden' | 'betreuer'; names: string[] }) => Promise<{ ok?: boolean; message?: string; root?: string; result?: Array<{ name: string; dir: string; exists: boolean; subfolders: Array<{ name: string; files: string[] }> }> }>
         getFilePath?: (payload: { baseDir: string; personType: 'kunden' | 'betreuer'; personName: string; folderPath: string[]; fileName: string }) => Promise<{ ok?: boolean; exists?: boolean; path?: string | null; message?: string }>
+        moveFile?: (payload: { baseDir: string; fromPersonType: 'kunden' | 'betreuer'; fromPersonName: string; fromPath: string[]; fileName: string; toPersonType: 'kunden' | 'betreuer'; toPersonName: string; toPath: string[] }) => Promise<{ ok?: boolean; message?: string; missing?: boolean; from?: string; to?: string }>
       }
       openFolderDialog?: (personType: 'kunden' | 'betreuer') => Promise<{ ok?: boolean; message?: string }>
       openMailTemplatesDialog?: () => Promise<{ ok?: boolean; message?: string }>
@@ -42,6 +43,12 @@ declare global {
       generateHtmlPdf?: (args: any) => Promise<{ ok: boolean; zielOrdner: string }>
       listInvoiceTemplates?: () => Promise<Array<{ name: string; absPath: string }>>
       generateInvoices?: (args: any) => Promise<{ ok: boolean; files: string[]; currentRechnungsnummer: number; byKey?: Record<string, string[]>; invoiceData?: Record<string, Array<{ rechnungsnummer: number; nachname: string; gesamtsumme: string; datum: string }>> }>
+      getVorlagenGruppen?: () => Promise<{ groups: Record<string, string[]>; order: string[] }>
+      createVorlagenGruppe?: (name: string) => Promise<boolean>
+      renameVorlagenGruppe?: (oldName: string, newName: string) => Promise<boolean>
+      deleteVorlagenGruppe?: (name: string) => Promise<boolean>
+      updateVorlagenGruppeTemplates?: (groupName: string, templates: string[]) => Promise<boolean>
+      updateVorlagenGruppenOrder?: (order: string[]) => Promise<boolean>
     }
     db?: {
       kundenAdd?: (row: any) => Promise<boolean>

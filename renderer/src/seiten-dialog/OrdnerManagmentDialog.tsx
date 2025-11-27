@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 
 export default function OrdnerManagmentDialog() {
@@ -10,7 +10,7 @@ export default function OrdnerManagmentDialog() {
   type Node = { id: string; name: string; files?: string[]; children: Node[] }
   const [tree, setTree] = useState<Node[]>([])
   const [legacyText, setLegacyText] = useState('')
-  const names = useMemo(() => [], [])
+  // names state removed
 
   function pathsToTree(paths: (string | string[])[], rules?: Array<{ path: string[]; files?: string[] }>): Node[] {
     const root: Record<string, Node> = {}
@@ -155,7 +155,7 @@ function FolderTreeEditor({ tree, onChange, personType }: { tree: Array<{ id: st
   return (
     <div style={{ display: 'grid', gap: 8 }}>
       <div style={{ display: 'flex', gap: 8 }}>
-        <button onClick={addRoot} style={{ padding: '6px 12px', borderRadius: 8, border: '1px solid #d1d5db', background: '#ffffff', color: '#1f2937', cursor: 'pointer' }}>Oberordner hinzufügen</button>
+        <button onClick={addRoot} style={{ padding: '6px 12px', borderRadius: 8, border: '1px solid #d1d5db', background: '#ffffff', color: '#1f2937', cursor: 'pointer' }}>Ordner hinzufügen</button>
       </div>
       <div style={{ display: 'grid', gap: 6 }}>
         {tree.map(n => (
@@ -190,7 +190,7 @@ function FolderNodeRow({ node, onRename, onRemove, onAddChild, onChangeFiles, pe
               <>; für Betreuer: {`{bvname}`}, {`{bfname}`}, {`{nk1}`} (Nachname zugewiesener Kunde)</>
             )}.
           </div>
-          <textarea rows={4} value={filesText} onChange={e => setFilesText(e.currentTarget.value)} onBlur={() => onChangeFiles(node.id, filesText.split(/\r?\n/).map(s => s.trim()).filter(Boolean))} style={{ width: '100%', border: '1px solid #d1d5db', borderRadius: 8, padding: 8, boxSizing: 'border-box', fontFamily: 'monospace' }} />
+          <textarea rows={4} value={filesText} onChange={e => setFilesText(e.currentTarget.value)} onBlur={() => onChangeFiles(node.id, filesText.split(/\r?\n/).map((s: string) => s.trim()).filter(Boolean))} style={{ width: '100%', border: '1px solid #d1d5db', borderRadius: 8, padding: 8, boxSizing: 'border-box', fontFamily: 'monospace' }} />
         </div>
       )}
       {!!(node.children || []).length && (

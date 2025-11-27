@@ -1,23 +1,75 @@
-# Node/Electron
+# Dependencies
 node_modules/
-.DS_Store
+renderer/node_modules/
+
+# Build outputs
+releases/
+dist/
+renderer/dist/
+out/
+build/
+*.exe
+*.dll
+*.pak
+*.bin
+*.blockmap
+*.asar
+*.pdb
+
+# Logs
+*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
 
-# Excel/Word/Temporär
-*.xlsx
-*.xls
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# OS files
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+.Spotlight-V100
+.Trashes
+.AppleDouble
+._*
+
+# Editor directories and files
+.vscode/
+.idea/
+.history/
+.vs/
+.fleet/
+*.swp
+*.swo
+*.swm
+*.tmp
 ~$*
-*.docx
-*.doc
 
-# Lokale Konfiguration
+# TypeScript
+*.tsbuildinfo
+
+# Cache directories
+.cache/
+renderer/.cache/
+.parcel-cache/
+.nyc_output/
+coverage/
+
+# Electron Builder
+electron-builder.env
+dist_electron/
+
+# Local configuration files (if any are created in project root)
 config.json
+*.local
 
-# Backup-/Datenverzeichnisse
-Daten/
-Vorlagen/
-
-# Sonstiges
-*.log 
+# Package manager locks (optional - usually these should be committed)
+# Uncomment if you don't want to commit them:
+# package-lock.json
+# renderer/package-lock.json
