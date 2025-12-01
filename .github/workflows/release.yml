@@ -28,16 +28,8 @@ jobs:
       - name: Build renderer
         run: npm run build:renderer
 
-      - name: Build application
+      - name: Build and Publish to GitHub Releases
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
         run: npm run build
-
-      - name: Publish to GitHub Releases
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          # electron-builder wird automatisch die Artefakte zu GitHub Releases hochladen
-          # basierend auf der publish-Konfiguration in package.json
-          npm run build
 
