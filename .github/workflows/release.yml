@@ -2,17 +2,21 @@ name: Build and Release
 
 on:
   push:
+    branches:
+      - main  # Trigger bei jedem Push auf main
     tags:
       - 'v*'  # Trigger bei Tags wie v1.0.5
   workflow_dispatch:  # Manueller Trigger über GitHub UI
 
 jobs:
-  build-and-release:
+  check-version-and-release:
     runs-on: windows-latest
     
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Alle Tags fetchen
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -20,16 +24,60 @@ jobs:
           node-version: '20'
           cache: 'npm'
 
+      - name: Get version from package.json
+        id: get-version
+        run: |
+          $version = (Get-Content package.json | ConvertFrom-Json).version
+          echo "version=$version" >> $env:GITHUB_OUTPUT
+          echo "tag=v$version" >> $env:GITHUB_OUTPUT
+          echo "Version gefunden: $version"
+
+      - name: Check if tag exists
+        id: check-tag
+        run: |
+          $tag = "${{ steps.get-version.outputs.tag }}"
+          $tagExists = git tag -l $tag
+          if ($tagExists) {
+            echo "exists=true" >> $env:GITHUB_OUTPUT
+            Write-Host "Tag $tag existiert bereits, überspringe Release"
+          } else {
+            echo "exists=false" >> $env:GITHUB_OUTPUT
+            Write-Host "Tag $tag existiert noch nicht, erstelle Release"
+          }
+
+      - name: Create local tag
+        if: steps.check-tag.outputs.exists == 'false'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          $tag = "${{ steps.get-version.outputs.tag }}"
+          git tag $tag
+          Write-Host "Tag $tag lokal erstellt"
+
       - name: Install dependencies
+        if: steps.check-tag.outputs.exists == 'false'
         run: |
           npm ci
           npm ci --prefix renderer
 
       - name: Build renderer
+        if: steps.check-tag.outputs.exists == 'false'
         run: npm run build:renderer
 
       - name: Build and Publish to GitHub Releases
+        if: steps.check-tag.outputs.exists == 'false'
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
-        run: npm run build
+        run: |
+          # electron-builder erstellt automatisch den Release basierend auf dem Tag
+          npm run build
+
+      - name: Push tag to remote
+        if: steps.check-tag.outputs.exists == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
+        run: |
+          $tag = "${{ steps.get-version.outputs.tag }}"
+          git push https://$env:GH_TOKEN@github.com/${{ github.repository }}.git $tag
+          Write-Host "Tag $tag zu GitHub gepusht"
 
