@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import Layout from '../seite-shared/Layout'
 import LoadingDialog from '../komponenten/LoadingDialog'
 import VorlagenGruppenDialog from '../komponenten/VorlagenGruppenDialog'
+import MessageModal from '../komponenten/MessageModal'
 
 type Person = { __display?: string; [k: string]: any }
 
@@ -208,9 +209,17 @@ export default function Startseite() {
 
 
   const [modus, setModus] = useState<'docx'|'pdf'>('pdf')
+  const [messageModal, setMessageModal] = useState<{ isOpen: boolean; message: string; type: 'success' | 'error' | 'info' }>({
+    isOpen: false,
+    message: '',
+    type: 'info'
+  })
 
   async function handleGenerate() {
-    if (selectedGroupTemplates.length === 0) return alert('Bitte mindestens eine Vorlage wählen.')
+    if (selectedGroupTemplates.length === 0) {
+      setMessageModal({ isOpen: true, message: 'Bitte mindestens eine Vorlage wählen.', type: 'info' })
+      return
+    }
     const dir = await window.api?.chooseDirectory?.('Zielordner wählen')
     if (!dir) return
 
@@ -254,17 +263,17 @@ export default function Startseite() {
         setLoadingMessage('Fertig!')
         setTimeout(() => {
           setIsLoading(false)
-          alert('Dokumente gespeichert in: ' + res.zielOrdner)
+          setMessageModal({ isOpen: true, message: 'Dokumente gespeichert in: ' + res.zielOrdner, type: 'success' })
         }, 500)
       } else {
         setIsLoading(false)
-        alert('Fehler beim Generieren der Dokumente')
+        setMessageModal({ isOpen: true, message: 'Fehler beim Generieren der Dokumente', type: 'error' })
       }
     } catch (error) {
       if (progressInterval) clearInterval(progressInterval)
       setIsLoading(false)
       console.error('Generation error:', error)
-      alert('Fehler beim Generieren der Dokumente: ' + (error as Error).message)
+      setMessageModal({ isOpen: true, message: 'Fehler beim Generieren der Dokumente: ' + (error as Error).message, type: 'error' })
     }
   }
 
@@ -510,6 +519,12 @@ export default function Startseite() {
             setTemplateGroupOrder(order)
           }
         }}
+      />
+      <MessageModal
+        isOpen={messageModal.isOpen}
+        message={messageModal.message}
+        type={messageModal.type}
+        onClose={() => setMessageModal({ isOpen: false, message: '', type: 'info' })}
       />
     </Layout>
   )

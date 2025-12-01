@@ -205,22 +205,42 @@ export default function BetreuerWechselDialog({
           </label>
           <div style={{ display: 'grid', gridTemplateColumns: '180px 1fr', gap: 8, alignItems: 'center' }}>
             <span>Dateien verwalten?</span>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-                <input type="checkbox" checked={manageDateien} onChange={e => setManageDateien(e.currentTarget.checked)} />
-                <span style={{ fontSize: 13 }}>Automatisch verschieben</span>
-              </label>
-              {manageDateien && (
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                  <select value={selectedSchemaId || ''} onChange={e => setSelectedSchemaId(e.currentTarget.value || null)} style={{ flex: 1 }}>
-                    <option value="">Schema wählen…</option>
-                    {verschiebeSchemata.map(schema => (
-                      <option key={schema.id} value={schema.id}>{schema.name}</option>
-                    ))}
-                  </select>
-                  <button onClick={onManageSchemata} style={{ border: '1px solid #d1d5db', borderRadius: 8, background: '#fff', padding: '4px 8px', cursor: 'pointer' }}>+</button>
-                </div>
-              )}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <input 
+                type="checkbox" 
+                checked={manageDateien} 
+                onChange={e => setManageDateien(e.currentTarget.checked)} 
+                style={{ cursor: 'pointer' }}
+              />
+              <select 
+                value={selectedSchemaId || ''} 
+                onChange={e => setSelectedSchemaId(e.currentTarget.value || null)} 
+                style={{ flex: 1, padding: 6, borderRadius: 6, border: '1px solid #d1d5db', fontSize: 13 }}
+              >
+                <option value="">Schema wählen…</option>
+                {verschiebeSchemata.map(schema => (
+                  <option key={schema.id} value={schema.id}>{schema.name}</option>
+                ))}
+              </select>
+              <button 
+                onClick={onManageSchemata} 
+                style={{ 
+                  border: '1px solid #005bd1', 
+                  borderRadius: 6, 
+                  background: '#005bd1', 
+                  color: '#fff',
+                  padding: '6px 12px', 
+                  cursor: 'pointer',
+                  fontSize: 14,
+                  fontWeight: 600,
+                  minWidth: 36,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+              >
+                +
+              </button>
             </div>
           </div>
         </div>

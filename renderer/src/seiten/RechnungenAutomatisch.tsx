@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Layout from '../seite-shared/Layout'
 import LoadingDialog from '../komponenten/LoadingDialog'
+import MessageModal from '../komponenten/MessageModal'
 
 type Kunde = Record<string, any> & { __key: string; __display: string }
 
@@ -169,9 +170,18 @@ export default function RechnungenAutomatisch()
     return result
   }
 
+  const [messageModal, setMessageModal] = useState<{ isOpen: boolean; message: string; type: 'success' | 'error' | 'info' }>({
+    isOpen: false,
+    message: '',
+    type: 'info'
+  })
+
   async function handleSendEmails() {
     const selectedKeys = Object.entries(selected).filter(([_,v]) => !!v).map(([k]) => k)
-    if (selectedKeys.length === 0) return alert('Bitte Kunden auswählen')
+    if (selectedKeys.length === 0) {
+      setMessageModal({ isOpen: true, message: 'Bitte Kunden auswählen', type: 'info' })
+      return
+    }
     const dir = await window.api?.chooseDirectory?.('Zielordner für Rechnungen wählen')
     if (!dir) return
 
@@ -281,7 +291,8 @@ export default function RechnungenAutomatisch()
       if (batches.length === 0) {
         setIsLoading(false)
         // Protokoll wurde bereits erstellt (falls aktiviert)
-        return alert('Keine Anhänge oder Empfänger gefunden.')
+        setMessageModal({ isOpen: true, message: 'Keine Anhänge oder Empfänger gefunden.', type: 'info' })
+        return
       }
 
       setLoadingMessage('E-Mails werden gesendet...')
@@ -335,12 +346,15 @@ export default function RechnungenAutomatisch()
       }
       
       setIsLoading(false)
-      if (mailRes?.ok) alert('Rechnungen erstellt und E-Mails versendet.')
-      else alert('Rechnungen erstellt, aber Mailversand fehlgeschlagen.')
+      if (mailRes?.ok) {
+        setMessageModal({ isOpen: true, message: 'Rechnungen erstellt und E-Mails versendet.', type: 'success' })
+      } else {
+        setMessageModal({ isOpen: true, message: 'Rechnungen erstellt, aber Mailversand fehlgeschlagen.', type: 'error' })
+      }
     } catch (e) {
       if (progressInterval) window.clearInterval(progressInterval)
       setIsLoading(false)
-      alert('Fehler: ' + String((e as Error)?.message || e))
+      setMessageModal({ isOpen: true, message: 'Fehler: ' + String((e as Error)?.message || e), type: 'error' })
     }
   }
 
@@ -543,6 +557,12 @@ export default function RechnungenAutomatisch()
       </div>
 
       <LoadingDialog isOpen={isLoading} title={'Automatischer Versand'} message={loadingMessage} progress={loadingProgress} showProgress={true} />
+      <MessageModal
+        isOpen={messageModal.isOpen}
+        message={messageModal.message}
+        type={messageModal.type}
+        onClose={() => setMessageModal({ isOpen: false, message: '', type: 'info' })}
+      />
     </Layout>
   )
 }

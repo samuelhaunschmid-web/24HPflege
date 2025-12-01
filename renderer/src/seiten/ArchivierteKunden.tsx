@@ -3,10 +3,16 @@ import Layout from '../seite-shared/Layout'
 import CountBadge from '../komponenten/CountBadge'
 import ArchivDropdownZeilen from '../komponenten/ArchivDropdownZeilen'
 import { useTableSettings } from '../komponenten/useTableSettings'
+import ConfirmModal from '../komponenten/ConfirmModal'
 
 export default function ArchivierteKunden() {
   const [kunden, setKunden] = useState<any[]>([])
   const [query, setQuery] = useState('')
+  const [confirmModal, setConfirmModal] = useState<{ isOpen: boolean; message: string; onConfirm: () => void; deleteKey?: string }>({
+    isOpen: false,
+    message: '',
+    onConfirm: () => {}
+  })
 
   useEffect(() => {
     ;(async () => {
@@ -122,13 +128,33 @@ export default function ArchivierteKunden() {
                     </div>
                   )}
                   <button title="Wiederherstellen" onClick={async () => { await window.db?.kundenRestore?.(row.__key); await refresh() }} style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid #16a34a', background: '#f0fdf4', color: '#166534', cursor: 'pointer' }}>Wiederherstellen</button>
-                  <button title="Endgültig löschen" onClick={async () => { if (confirm('Diesen Eintrag endgültig löschen?')) { await window.db?.archivKundenDelete?.(row.__key); await refresh() } }} style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid #ef4444', background: '#fef2f2', color: '#991b1b', cursor: 'pointer' }}>Löschen</button>
+                  <button title="Endgültig löschen" onClick={() => {
+                    setConfirmModal({
+                      isOpen: true,
+                      message: 'Diesen Eintrag endgültig löschen?',
+                      onConfirm: async () => {
+                        setConfirmModal({ isOpen: false, message: '', onConfirm: () => {} })
+                        await window.db?.archivKundenDelete?.(row.__key)
+                        await refresh()
+                      },
+                      deleteKey: row.__key
+                    })
+                  }} style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid #ef4444', background: '#fef2f2', color: '#991b1b', cursor: 'pointer' }}>Löschen</button>
                 </div>
               )}}
             />
           )}
         </div>
       </div>
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        message={confirmModal.message}
+        onConfirm={confirmModal.onConfirm}
+        onCancel={() => setConfirmModal({ isOpen: false, message: '', onConfirm: () => {} })}
+        type="danger"
+        confirmText="Löschen"
+        cancelText="Abbrechen"
+      />
     </Layout>
   )
 }

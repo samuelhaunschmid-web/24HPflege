@@ -15,10 +15,12 @@ contextBridge.exposeInMainWorld('api', {
   chooseFile: (title, filters) => ipcRenderer.invoke('dialog:chooseFile', { title, filters }),
   saveFile: (title, defaultPath, filters) => ipcRenderer.invoke('dialog:saveFile', { title, defaultPath, filters }),
   writeTextFile: (filePath, content) => ipcRenderer.invoke('file:writeText', { filePath, content }),
+  openFile: (filePath) => ipcRenderer.invoke('file:open', filePath),
   folders: {
     ensureStructure: (payload) => ipcRenderer.invoke('folders:ensureStructure', payload),
     listForPersons: (payload) => ipcRenderer.invoke('folders:listForPersons', payload),
     getFilePath: (payload) => ipcRenderer.invoke('folders:getFilePath', payload),
+    findFileByBaseName: (payload) => ipcRenderer.invoke('folders:findFileByBaseName', payload),
     moveFile: (payload) => ipcRenderer.invoke('folders:moveFile', payload),
     moveToArchive: (payload) => ipcRenderer.invoke('folders:moveToArchive', payload),
   },

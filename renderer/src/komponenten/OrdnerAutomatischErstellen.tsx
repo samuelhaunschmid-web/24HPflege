@@ -1,3 +1,6 @@
+import { StandardOrdnerService } from '../logik/dateiVerwaltung/standardOrdnerService'
+import { StandardTemplateService } from '../logik/dateiVerwaltung/standardTemplateService'
+
 /**
  * Hilfsfunktion zum automatischen Erstellen von Ordnern für eine neu angelegte Person
  */
@@ -18,56 +21,41 @@ export async function ordnerAutomatischErstellen(
   gruppen: GruppenConfig
 ): Promise<boolean> {
   try {
-    // Config laden
-    const cfg = await window.api?.getConfig?.()
-    if (!cfg) return false
-
-    const baseDir = cfg.dokumenteDir || ''
+    // Basis-Ordner prüfen
+    const baseDir = await StandardTemplateService.ladeBasisOrdner()
     if (!baseDir) {
       // Kein Fehler, wenn kein Dokumente-Ordner gesetzt ist
       return true
     }
 
-    // Namen aus den Daten extrahieren (basierend auf Gruppen)
-    const keys = Object.keys(personData)
-    const vorKey = keys.find(k => (gruppen[k] || []).includes('vorname'))
-    const nachKey = keys.find(k => (gruppen[k] || []).includes('nachname'))
-    
-    const vor = String(vorKey ? personData[vorKey] || '' : '').trim()
-    const nach = String(nachKey ? personData[nachKey] || '' : '').trim()
-    const name = `${nach} ${vor}`.trim()
-    
-    if (!name) {
+    // Namen ermitteln
+    const { anzeigeName } = StandardOrdnerService.ermittlePersonNamen(personData, personType, { gruppen })
+    if (!anzeigeName) {
       // Kein Name gefunden, aber kein Fehler
       return true
     }
 
-    // Ordner-Templates aus Config laden
-    const paths = (cfg.folderTemplatesPaths && (personType === 'kunden' ? cfg.folderTemplatesPaths.kunden : cfg.folderTemplatesPaths.betreuer)) || []
-    const legacy = (cfg.folderTemplates && (personType === 'kunden' ? cfg.folderTemplates.kunden : cfg.folderTemplates.betreuer)) || []
-    
-    // Pfade normalisieren
-    const subfolders: (string | string[])[] = []
-    
-    if (Array.isArray(paths) && paths.length > 0) {
-      // Neue Struktur verwenden
-      subfolders.push(...paths)
-    } else if (Array.isArray(legacy) && legacy.length > 0) {
-      // Legacy-Struktur (nur Top-Level)
-      subfolders.push(...legacy)
-    }
+    // Ordner-Templates laden
+    const templateRegeln = await StandardTemplateService.ladeOrdnerTemplates(personType)
+    const templatePfade = StandardTemplateService.baumZuPfade(
+      StandardTemplateService.pfadeZuBaum(
+        templateRegeln.map(r => r.path),
+        templateRegeln
+      )
+    )
 
     // Ordner erstellen
-    const res = await window.api?.folders?.ensureStructure?.({
+    const res = await StandardOrdnerService.erstelleStandardStruktur(
       baseDir,
       personType,
-      names: [name],
-      subfolders
-    })
+      [personData],
+      { gruppen },
+      templatePfade
+    )
 
-    if (!res?.ok) {
+    if (!res.ok) {
       // Fehler beim Erstellen, aber nicht blockieren
-      console.warn('Fehler beim automatischen Erstellen der Ordner:', res?.message)
+      console.warn('Fehler beim automatischen Erstellen der Ordner:', res.message)
       return false
     }
 

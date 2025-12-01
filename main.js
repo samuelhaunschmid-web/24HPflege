@@ -611,6 +611,16 @@ app.whenReady().then(() => {
     fs.writeFileSync(filePath, content, 'utf-8');
     return { ok: true };
   });
+  ipcMain.handle('file:open', async (_e, filePath) => {
+    try {
+      if (!filePath || typeof filePath !== 'string') return { ok: false, message: 'Ungültiger Dateipfad' };
+      if (!fs.existsSync(filePath)) return { ok: false, message: 'Datei existiert nicht' };
+      await shell.openPath(filePath);
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, message: String(err) };
+    }
+  });
 
   // Ordner-Struktur sicherstellen (Dokumente/KundenDaten | Dokumente/BetreuerDaten)
   ipcMain.handle('folders:ensureStructure', async (_e, args) => {
@@ -776,6 +786,40 @@ app.whenReady().then(() => {
       const fullPath = path.join(filePath, fileName);
       const exists = fs.existsSync(fullPath) && fs.statSync(fullPath).isFile();
       return { ok: true, exists, path: exists ? fullPath : null };
+    } catch (e) {
+      return { ok: false, exists: false, message: String(e) };
+    }
+  });
+
+  // Datei-Pfad nach Basisnamen suchen (für {any} Platzhalter - beliebige Dateierweiterung)
+  ipcMain.handle('folders:findFileByBaseName', async (_e, args) => {
+    try {
+      const baseDir = (args && args.baseDir) || '';
+      const personType = (args && args.personType) === 'betreuer' ? 'betreuer' : 'kunden';
+      const personName = String(args && args.personName || '').trim();
+      const folderPath = Array.isArray(args && args.folderPath) ? args.folderPath : [];
+      const baseFileName = String(args && args.baseFileName || '').trim();
+      if (!baseDir || !fs.existsSync(baseDir) || !personName || !baseFileName) return { ok: false, exists: false };
+      const root = path.join(baseDir, personType === 'betreuer' ? 'BetreuerDaten' : 'KundenDaten');
+      let filePath = path.join(root, personName);
+      for (const seg of folderPath) {
+        filePath = path.join(filePath, String(seg || '').replace(/[\\/:*?"<>|]/g, '-'));
+      }
+      if (!fs.existsSync(filePath) || !fs.statSync(filePath).isDirectory()) {
+        return { ok: true, exists: false, path: null };
+      }
+      // Suche nach Dateien mit dem Basisnamen (unabhängig von Erweiterung)
+      const files = fs.readdirSync(filePath);
+      const foundFile = files.find(file => {
+        const nameWithoutExt = path.parse(file).name;
+        return nameWithoutExt === baseFileName;
+      });
+      if (foundFile) {
+        const fullPath = path.join(filePath, foundFile);
+        const exists = fs.existsSync(fullPath) && fs.statSync(fullPath).isFile();
+        return { ok: true, exists, path: exists ? fullPath : null };
+      }
+      return { ok: true, exists: false, path: null };
     } catch (e) {
       return { ok: false, exists: false, message: String(e) };
     }

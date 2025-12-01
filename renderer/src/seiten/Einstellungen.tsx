@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import Layout from '../seite-shared/Layout'
 import LoadingDialog from '../komponenten/LoadingDialog'
+import MessageModal from '../komponenten/MessageModal'
 
 export default function Einstellungen() {
   const [status, setStatus] = useState<string>('')
@@ -19,6 +20,11 @@ export default function Einstellungen() {
   const [mailLogsOpen, setMailLogsOpen] = useState<boolean>(false)
   const [installProgress, setInstallProgress] = useState<{ percent: number; message: string } | null>(null)
   const progressHandlerRef = useRef<any>(null)
+  const [messageModal, setMessageModal] = useState<{ isOpen: boolean; message: string; type: 'success' | 'error' | 'info' }>({
+    isOpen: false,
+    message: '',
+    type: 'info'
+  })
 
   const formatLogTime = (iso?: string) => {
     if (!iso) return ''
@@ -660,9 +666,11 @@ export default function Einstellungen() {
                     document.body.removeChild(a)
                     URL.revokeObjectURL(url)
                   } else {
-                    alert('Export fehlgeschlagen')
+                    setMessageModal({ isOpen: true, message: 'Export fehlgeschlagen', type: 'error' })
                   }
-                } catch (e) { alert('Export-Fehler: ' + String(e)) }
+                } catch (e) {
+                  setMessageModal({ isOpen: true, message: 'Export-Fehler: ' + String(e), type: 'error' })
+                }
               }} style={{ padding: '6px 12px', borderRadius: 8, border: '1px solid #d1d5db', background: '#ffffff', color: '#1f2937', cursor: 'pointer', fontSize: '14px', fontWeight: '600', fontFamily: 'inherit' }}>Exportieren</button>
 
               <button onClick={async ()=>{
@@ -675,11 +683,19 @@ export default function Einstellungen() {
                     try {
                       const json = JSON.parse(text)
                       const res = await (window as any).api?.importSettings?.(json)
-                      if (res?.ok) { alert('Einstellungen importiert. Bitte App neu starten.'); } else { alert('Import fehlgeschlagen: ' + (res?.message||'')) }
-                    } catch (err) { alert('Ungültige JSON-Datei') }
+                      if (res?.ok) {
+                        setMessageModal({ isOpen: true, message: 'Einstellungen importiert. Bitte App neu starten.', type: 'success' })
+                      } else {
+                        setMessageModal({ isOpen: true, message: 'Import fehlgeschlagen: ' + (res?.message||''), type: 'error' })
+                      }
+                    } catch (err) {
+                      setMessageModal({ isOpen: true, message: 'Ungültige JSON-Datei', type: 'error' })
+                    }
                   }
                   input.click()
-                } catch (e) { alert('Import-Fehler: ' + String(e)) }
+                } catch (e) {
+                  setMessageModal({ isOpen: true, message: 'Import-Fehler: ' + String(e), type: 'error' })
+                }
               }} style={{ padding: '6px 12px', borderRadius: 8, border: '1px solid #d1d5db', background: '#ffffff', color: '#1f2937', cursor: 'pointer', fontSize: '14px', fontWeight: '600', fontFamily: 'inherit' }}>Importieren</button>
             </div>
             <div style={{ marginTop: 6, fontSize: 12, color: '#64748b' }}>
@@ -823,6 +839,12 @@ export default function Einstellungen() {
         showProgress={true}
       />
     ) : null}
+    <MessageModal
+      isOpen={messageModal.isOpen}
+      message={messageModal.message}
+      type={messageModal.type}
+      onClose={() => setMessageModal({ isOpen: false, message: '', type: 'info' })}
+    />
     </>
   )
 }

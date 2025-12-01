@@ -1,51 +1,67 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useTableSettings } from './useTableSettings'
+import { StandardOrdnerService } from '../logik/dateiVerwaltung/standardOrdnerService'
+import { StandardTemplateService } from '../logik/dateiVerwaltung/standardTemplateService'
 
 type Props = {
   personType: 'kunden' | 'betreuer'
   daten: any[]
-  dokumenteDir: string
 }
 
-export default function OrdnerManagment({ personType, daten, dokumenteDir }: Props) {
+export default function OrdnerManagment({ personType, daten }: Props) {
   const keys = useMemo(() => (daten.length ? Object.keys(daten[0]) : []), [daten])
   const { settings } = useTableSettings(personType, keys)
   const [visible, setVisible] = useState(false)
   const [subfoldersText, setSubfoldersText] = useState('Verträge\nRechnungen')
   const [resultMsg, setResultMsg] = useState('')
+  const [dokumenteDir, setDokumenteDir] = useState('')
+  const [isLoading, setIsLoading] = useState(false)
 
-  const [names, setNames] = useState<string[]>([])
-
+  // Basis-Ordner laden
   useEffect(() => {
-    const vorKey = keys.find(k => (settings.gruppen[k] || []).includes('vorname'))
-    const nachKey = keys.find(k => (settings.gruppen[k] || []).includes('nachname'))
-    const list = daten.map(row => {
-      const vor = String(vorKey ? row[vorKey] || '' : '').trim()
-      const nach = String(nachKey ? row[nachKey] || '' : '').trim()
-      return `${vor} ${nach}`.trim()
+    StandardTemplateService.ladeBasisOrdner().then(setDokumenteDir)
+  }, [])
+
+  // Namen vorbereiten
+  const names = useMemo(() => {
+    return daten.map(row => {
+      const { anzeigeName } = StandardOrdnerService.ermittlePersonNamen(row, personType, settings)
+      return anzeigeName
     }).filter(Boolean)
-    setNames(list)
-  }, [daten, keys, settings])
+  }, [daten, personType, settings])
 
   async function handleCreate() {
     setResultMsg('')
-    const subs = subfoldersText.split(/\r?\n/).map(s => s.trim()).filter(Boolean)
-    if (!dokumenteDir) { setResultMsg('Bitte Dokumente-Ordner in den Einstellungen wählen.'); return }
-    if (!names.length) { setResultMsg('Keine Namen gefunden (prüfe Gruppen-Zuordnung für Vorname/Nachname).'); return }
+    setIsLoading(true)
+
     try {
-      const res = await window.api?.folders?.ensureStructure?.({
-        baseDir: dokumenteDir,
+      const subs = subfoldersText.split(/\r?\n/).map(s => s.trim()).filter(Boolean)
+      if (!dokumenteDir) {
+        setResultMsg('Bitte Dokumente-Ordner in den Einstellungen wählen.')
+        return
+      }
+      if (!names.length) {
+        setResultMsg('Keine Namen gefunden (prüfe Gruppen-Zuordnung für Vorname/Nachname).')
+        return
+      }
+
+      const res = await StandardOrdnerService.erstelleStandardStruktur(
+        dokumenteDir,
         personType,
-        names,
-        subfolders: subs,
-      })
-      if (res?.ok) {
+        daten,
+        settings,
+        subs
+      )
+
+      if (res.ok) {
         setResultMsg(`Erstellt: ${res.createdCount || 0} Personen-Ordner, ${res.createdSubCount || 0} Unterordner`)
       } else {
-        setResultMsg(res?.message || 'Fehler beim Erstellen')
+        setResultMsg(res.message || 'Fehler beim Erstellen')
       }
     } catch (e) {
       setResultMsg(String(e))
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -64,7 +80,20 @@ export default function OrdnerManagment({ personType, daten, dokumenteDir }: Pro
           </div>
           <div style={{ fontSize: 12, color: '#64748b' }}>Es werden nur fehlende Ordner erstellt. Bereits vorhandene bleiben unverändert.</div>
           <div style={{ display: 'flex', gap: 8 }}>
-            <button onClick={handleCreate} style={{ padding: '6px 12px', borderRadius: 8, border: '1px solid #16a34a', background: '#dcfce7', color: '#166534', cursor: 'pointer' }}>Erstellen</button>
+            <button
+              onClick={handleCreate}
+              disabled={isLoading || !dokumenteDir}
+              style={{
+                padding: '6px 12px',
+                borderRadius: 8,
+                border: '1px solid #16a34a',
+                background: isLoading || !dokumenteDir ? '#f3f4f6' : '#dcfce7',
+                color: isLoading || !dokumenteDir ? '#6b7280' : '#166534',
+                cursor: isLoading || !dokumenteDir ? 'not-allowed' : 'pointer'
+              }}
+            >
+              {isLoading ? 'Erstelle...' : 'Erstellen'}
+            </button>
             <button onClick={() => setVisible(false)} style={{ padding: '6px 12px', borderRadius: 8, border: '1px solid #d1d5db', background: '#ffffff', color: '#1f2937', cursor: 'pointer' }}>Schließen</button>
           </div>
           {resultMsg && <div style={{ marginTop: 4, color: '#334155' }}>{resultMsg}</div>}

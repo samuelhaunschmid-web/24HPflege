@@ -17,6 +17,11 @@ export default function BetreuerZuweisungDialog({
   betreuerNummer,
   kundeName
 }: BetreuerZuweisungDialogProps) {
+  const [messageModal, setMessageModal] = useState<{ isOpen: boolean; message: string; type: 'success' | 'error' | 'info' }>({
+    isOpen: false,
+    message: '',
+    type: 'info'
+  })
   const [selectedBetreuer, setSelectedBetreuer] = useState<any | null>(null)
   const [anfangsdatum, setAnfangsdatum] = useState('')
   const [isLoading, setIsLoading] = useState(false)
@@ -41,7 +46,7 @@ export default function BetreuerZuweisungDialog({
       }
     } catch (error) {
       console.error('Fehler beim Zuweisen des Betreuers:', error)
-      alert('Fehler beim Zuweisen des Betreuers')
+      setMessageModal({ isOpen: true, message: 'Fehler beim Zuweisen des Betreuers', type: 'error' })
     } finally {
       setIsLoading(false)
     }
@@ -211,6 +216,12 @@ export default function BetreuerZuweisungDialog({
           </div>
         </form>
       </div>
+      <MessageModal
+        isOpen={messageModal.isOpen}
+        message={messageModal.message}
+        type={messageModal.type}
+        onClose={() => setMessageModal({ isOpen: false, message: '', type: 'info' })}
+      />
     </div>
   )
 }

@@ -8,7 +8,7 @@ export type DateiSchema = {
   actions: Array<{
     sourceContext: SchemaContext
     fromPath: string[]
-    fileName: string
+    fileName: string[]
     targetContext: SchemaContext
     toPath: string[]
   }>
@@ -67,7 +67,7 @@ export default function SchemataVerwaltenDialog({ offen, onClose, onSave, initia
     const newAction = {
       sourceContext,
       fromPath: [],
-      fileName: '',
+      fileName: [],
       targetContext,
       toPath: []
     }
@@ -124,14 +124,14 @@ export default function SchemataVerwaltenDialog({ offen, onClose, onSave, initia
           <button onClick={onClose} style={{ border: 'none', background: 'transparent', fontSize: 18, cursor: 'pointer' }}>✕</button>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '260px 1fr', gap: 16 }}>
-          <div style={{ border: '1px solid #e2e8f0', borderRadius: 10, padding: 12, display: 'grid', gap: 10, background: '#f8fafc' }}>
+          <div style={{ border: '1px solid #e2e8f0', borderRadius: 10, padding: 12, display: 'flex', flexDirection: 'column', gap: 10, background: '#f8fafc' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <strong>Schemata</strong>
               <button onClick={addSchema} style={{ border: '1px solid #d1d5db', borderRadius: 8, background: '#1d4ed8', color: '#fff', fontWeight: 600, padding: '4px 10px', cursor: 'pointer' }}>+</button>
             </div>
-            <div style={{ display: 'grid', gap: 6 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               {schemas.map(schema => (
-                <div key={schema.id} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <div key={schema.id} style={{ display: 'flex', alignItems: 'center', gap: 6, width: '100%' }}>
                   <div
                     onClick={() => setSelectedSchemaId(schema.id)}
                     style={{
@@ -142,11 +142,15 @@ export default function SchemataVerwaltenDialog({ offen, onClose, onSave, initia
                       border: selectedSchemaId === schema.id ? '1px solid #38bdf8' : '1px solid #e2e8f0',
                       cursor: 'pointer',
                       fontWeight: selectedSchemaId === schema.id ? 600 : 500,
+                      minWidth: 0,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap'
                     }}
                   >
                     {schema.name}
                   </div>
-                  <button onClick={() => removeSchema(schema.id)} style={{ border: '1px solid #fecdd3', borderRadius: 8, background: '#fee2e2', color: '#b91c1c', padding: '4px 8px', cursor: 'pointer' }}>🗑</button>
+                  <button onClick={() => removeSchema(schema.id)} style={{ border: '1px solid #fecdd3', borderRadius: 8, background: '#fee2e2', color: '#b91c1c', padding: '4px 8px', cursor: 'pointer', flexShrink: 0 }}>🗑</button>
                 </div>
               ))}
               {!schemas.length && (
@@ -182,7 +186,7 @@ export default function SchemataVerwaltenDialog({ offen, onClose, onSave, initia
                         <span style={{ fontSize: 12, color: '#475569' }}>Quelle (Person & Ordner)</span>
                         <select
                           value={action.sourceContext}
-                          onChange={e => updateAction(idx, { sourceContext: e.currentTarget.value as SchemaContext, fromPath: [], fileName: '' })}
+                          onChange={e => updateAction(idx, { sourceContext: e.currentTarget.value as SchemaContext, fromPath: [], fileName: [] })}
                           style={{ padding: 6, borderRadius: 8, border: '1px solid #cbd5f5' }}
                         >
                           {contextList.map(opt => (
@@ -194,7 +198,7 @@ export default function SchemataVerwaltenDialog({ offen, onClose, onSave, initia
                           onChange={e => {
                             const val = e.currentTarget.value
                             const target = getTemplatesForContext(action.sourceContext).find(opt => opt.path.join('>') === val)
-                            updateAction(idx, { fromPath: target ? target.path : [], fileName: '' })
+                            updateAction(idx, { fromPath: target ? target.path : [], fileName: [] })
                           }}
                           style={{ padding: 6, borderRadius: 8, border: '1px solid #cbd5f5' }}
                         >
@@ -207,18 +211,39 @@ export default function SchemataVerwaltenDialog({ offen, onClose, onSave, initia
                         </select>
                       </label>
                       <label style={{ display: 'grid', gap: 4 }}>
-                        <span style={{ fontSize: 12, color: '#475569' }}>Datei auswählen</span>
-                        <select
-                          value={action.fileName}
-                          onChange={e => updateAction(idx, { fileName: e.currentTarget.value })}
-                          style={{ padding: 6, borderRadius: 8, border: '1px solid #cbd5f5' }}
-                          disabled={!action.fromPath.length}
-                        >
-                          <option value="">-- Datei wählen --</option>
-                          {getTemplatesForContext(action.sourceContext).find(opt => opt.path.join('>') === action.fromPath.join('>'))?.files.map(f => (
-                            <option key={f} value={f}>{f}</option>
-                          ))}
-                        </select>
+                        <span style={{ fontSize: 12, color: '#475569' }}>Dateien auswählen</span>
+                        <div style={{ border: '1px solid #cbd5f5', borderRadius: 8, padding: 8, maxHeight: 150, overflowY: 'auto', background: !action.fromPath.length ? '#f1f5f9' : '#fff' }}>
+                          {!action.fromPath.length ? (
+                            <div style={{ fontSize: 12, color: '#94a3b8', textAlign: 'center', padding: 8 }}>Bitte zuerst einen Ordner wählen</div>
+                          ) : (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                              {getTemplatesForContext(action.sourceContext).find(opt => opt.path.join('>') === action.fromPath.join('>'))?.files.map(f => {
+                                const isSelected = action.fileName.includes(f)
+                                return (
+                                  <label key={f} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', padding: '4px 0' }}>
+                                    <input
+                                      type="checkbox"
+                                      checked={isSelected}
+                                      onChange={e => {
+                                        const currentFiles = action.fileName || []
+                                        if (e.currentTarget.checked) {
+                                          updateAction(idx, { fileName: [...currentFiles, f] })
+                                        } else {
+                                          updateAction(idx, { fileName: currentFiles.filter(n => n !== f) })
+                                        }
+                                      }}
+                                      style={{ cursor: 'pointer' }}
+                                    />
+                                    <span style={{ fontSize: 13, color: '#334155' }}>{f}</span>
+                                  </label>
+                                )
+                              })}
+                              {!getTemplatesForContext(action.sourceContext).find(opt => opt.path.join('>') === action.fromPath.join('>'))?.files.length && (
+                                <div style={{ fontSize: 12, color: '#94a3b8', textAlign: 'center', padding: 8 }}>Keine Dateien in diesem Ordner</div>
+                              )}
+                            </div>
+                          )}
+                        </div>
                       </label>
                       <label style={{ display: 'grid', gap: 4 }}>
                         <span style={{ fontSize: 12, color: '#475569' }}>Ziel (Person & Ordner)</span>

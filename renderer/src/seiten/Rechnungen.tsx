@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import Layout from '../seite-shared/Layout'
 import LoadingDialog from '../komponenten/LoadingDialog'
+import MessageModal from '../komponenten/MessageModal'
 
 export default function Rechnungen() {
   const [files, setFiles] = useState<Array<{ name: string; absPath: string }>>([])
@@ -27,6 +28,11 @@ export default function Rechnungen() {
   const [newTemplateName, setNewTemplateName] = useState<string>('')
   const [newTemplateSubject, setNewTemplateSubject] = useState<string>('')
   const [newTemplateText, setNewTemplateText] = useState<string>('')
+  const [messageModal, setMessageModal] = useState<{ isOpen: boolean; message: string; type: 'success' | 'error' | 'info' }>({
+    isOpen: false,
+    message: '',
+    type: 'info'
+  })
 
 
   const verrechnungsZeitraum = useMemo(() => {
@@ -171,8 +177,14 @@ export default function Rechnungen() {
   const selectedKeys = useMemo(()=> Object.entries(selected).filter(([_,v])=> v!=null).map(([k])=>k), [selected])
 
   async function handleGenerate() {
-    if (selectedKeys.length === 0) return alert('Bitte Kunden auswählen')
-    if (selectedVorlagen.length === 0) return alert('Bitte mindestens eine Vorlage auswählen')
+    if (selectedKeys.length === 0) {
+      setMessageModal({ isOpen: true, message: 'Bitte Kunden auswählen', type: 'info' })
+      return
+    }
+    if (selectedVorlagen.length === 0) {
+      setMessageModal({ isOpen: true, message: 'Bitte mindestens eine Vorlage auswählen', type: 'info' })
+      return
+    }
     const dir = await window.api?.chooseDirectory?.('Zielordner wählen'); if (!dir) return
     
     // Loading State starten
@@ -263,42 +275,42 @@ export default function Rechnungen() {
             }).filter(item => item.to && item.attachments && item.attachments.length)
             if (batch.length === 0) {
               setIsLoading(false)
-              alert('Rechnungen erstellt, aber keine gültigen Empfänger/Anhänge zum Mailversand gefunden.')
+              setMessageModal({ isOpen: true, message: 'Rechnungen erstellt, aber keine gültigen Empfänger/Anhänge zum Mailversand gefunden.', type: 'info' })
             } else {
               setLoadingMessage('E-Mails werden gesendet...')
               const mailRes = await (window as any).api?.mail?.sendBatch?.(batch)
               setIsLoading(false)
               if (mailRes?.ok) {
-                alert('Rechnungen erstellt und E-Mails versendet.')
+                setMessageModal({ isOpen: true, message: 'Rechnungen erstellt und E-Mails versendet.', type: 'success' })
                 if (selectedTemplate === NEW_TEMPLATE_ID) {
                   setMailSubject('')
                   setMailText('')
                 }
               } else {
-                alert('Rechnungen erstellt, aber Mailversand fehlgeschlagen.')
+                setMessageModal({ isOpen: true, message: 'Rechnungen erstellt, aber Mailversand fehlgeschlagen.', type: 'error' })
               }
             }
           } catch (e) {
             setIsLoading(false)
-            alert('Rechnungen erstellt, Fehler beim Mailversand: ' + String(e))
+            setMessageModal({ isOpen: true, message: 'Rechnungen erstellt, Fehler beim Mailversand: ' + String(e), type: 'error' })
           }
         } else {
           setLoadingMessage('Fertig!')
           setTimeout(() => {
             setIsLoading(false)
             const rechnungsnummer = 'currentRechnungsnummer' in res ? res.currentRechnungsnummer : 'unbekannt'
-            alert(`Rechnungen erstellt. Neue Rechnungsnummer: ${rechnungsnummer}`)
+            setMessageModal({ isOpen: true, message: `Rechnungen erstellt. Neue Rechnungsnummer: ${rechnungsnummer}`, type: 'success' })
           }, 500)
         }
       } else {
         setIsLoading(false)
-        alert('Fehler beim Generieren der Rechnungen')
+        setMessageModal({ isOpen: true, message: 'Fehler beim Generieren der Rechnungen', type: 'error' })
       }
     } catch (error) {
       if (progressInterval) clearInterval(progressInterval)
       setIsLoading(false)
       console.error('Generation error:', error)
-      alert('Fehler beim Generieren der Rechnungen: ' + (error as Error).message)
+      setMessageModal({ isOpen: true, message: 'Fehler beim Generieren der Rechnungen: ' + (error as Error).message, type: 'error' })
     }
   }
 

@@ -7,6 +7,8 @@ import BetreuerWechselDialog from './BetreuerWechselDialog'
 import SchemataVerwaltenDialog from './SchemataVerwaltenDialog'
 import type { DateiSchema, SchemaContext } from './SchemataVerwaltenDialog'
 import DatenVerwaltungTabs from './DatenVerwaltungTabs'
+import { StandardOrdnerService } from '../logik/dateiVerwaltung/standardOrdnerService'
+import ConfirmModal from './ConfirmModal'
 
 type Props = {
   daten: Record<string, any>[]
@@ -63,6 +65,11 @@ export default function TabelleDropdownZeilen({
   const [wechselDialogOffen, setWechselDialogOffen] = useState(false)
   const [wechselDialogRow, setWechselDialogRow] = useState<Record<string, any> | null>(null)
   const [schemaDialogOffen, setSchemaDialogOffen] = useState(false)
+  const [confirmModal, setConfirmModal] = useState<{ isOpen: boolean; message: string; onConfirm: () => void; deleteKey?: string }>({
+    isOpen: false,
+    message: '',
+    onConfirm: () => {}
+  })
   const keys = useMemo(() => {
     if (!daten || daten.length === 0) return []
     return Object.keys(daten[0]).filter(k => !ausblenden.includes(k) && !k.startsWith('__'))
@@ -281,7 +288,7 @@ export default function TabelleDropdownZeilen({
     return ''
   }
 
-  function replaceKundenPlaceholders(tpl: string, row: any) {
+  function replaceKundenPlaceholders(tpl: string, row: any, position?: 1 | 2) {
     const text = String(tpl || '')
     if (!text) return ''
     const { vor, nach } = getKundenNameParts(row || {})
@@ -291,6 +298,18 @@ export default function TabelleDropdownZeilen({
     }
     const nb1 = getNachname(kundeBetreuer1Key ? row?.[kundeBetreuer1Key] : '')
     const nb2 = getNachname(kundeBetreuer2Key ? row?.[kundeBetreuer2Key] : '')
+    
+    // {betreuerkunde}: Verwende Nachname des ausgetauschten Betreuers basierend auf position
+    let betreuerkunde = ''
+    if (position === 1) {
+      betreuerkunde = nb1
+    } else if (position === 2) {
+      betreuerkunde = nb2
+    } else {
+      // Fallback: Verwende Betreuer 1, falls vorhanden, sonst Betreuer 2
+      betreuerkunde = nb1 || nb2
+    }
+    
     return text
       .replace(/\{vorname\}/gi, vor)
       .replace(/\{nachname\}/gi, nach)
@@ -298,6 +317,8 @@ export default function TabelleDropdownZeilen({
       .replace(/\{kfname\}/gi, nach)
       .replace(/\{nb1\}/gi, nb1)
       .replace(/\{nb2\}/gi, nb2)
+      .replace(/\{betreuerkunde\}/gi, betreuerkunde)
+      .replace(/\{dateityp\}/gi, '') // {dateityp} wird zu leerem String (für Wildcard-Suche)
   }
 
   function replaceBetreuerPlaceholders(tpl: string, row: any) {
@@ -311,6 +332,7 @@ export default function TabelleDropdownZeilen({
       .replace(/\{bvname\}/gi, names.vor)
       .replace(/\{bfname\}/gi, names.nach)
       .replace(/\{nk1\}/gi, nk1)
+      .replace(/\{dateityp\}/gi, '') // {dateityp} wird zu leerem String (für Wildcard-Suche)
   }
 
   type SchemaContextInfo = {
@@ -319,6 +341,7 @@ export default function TabelleDropdownZeilen({
     neuerBetreuerRow?: any
     alterBetreuerName?: string
     neuerBetreuerName?: string
+    position?: 1 | 2 // Position des ausgetauschten Betreuers (1 oder 2) für {betreuerkunde}
   }
 
 type ResolvedContext = {
@@ -363,8 +386,8 @@ type ResolvedContext = {
     return null
   }
 
-  function replacePlaceholdersForContext(ctx: SchemaContext, tpl: string, row: any) {
-    if (ctx === 'kunde') return replaceKundenPlaceholders(tpl, row)
+  function replacePlaceholdersForContext(ctx: SchemaContext, tpl: string, row: any, position?: 1 | 2) {
+    if (ctx === 'kunde') return replaceKundenPlaceholders(tpl, row, position)
     return replaceBetreuerPlaceholders(tpl, row)
   }
 
@@ -372,41 +395,103 @@ type ResolvedContext = {
     if (!schemaId || !dokumenteDir) return
     const schema = (verschiebeSchemata || []).find(s => s.id === schemaId)
     if (!schema || !schema.actions?.length) return
+    const position = info.position // Position des ausgetauschten Betreuers (1 oder 2)
+    
+    // Lade Table-Settings für Platzhalter-Ersetzung
+    const kundenSettings = await (async () => {
+      const cfg = await window.api?.getConfig?.()
+      return cfg?.tableSettings?.kunden || { gruppen: {} }
+    })()
+    const betreuerSettings = await (async () => {
+      const cfg = await window.api?.getConfig?.()
+      return cfg?.tableSettings?.betreuer || { gruppen: {} }
+    })()
+    
     for (const action of schema.actions) {
       const source = resolveContext(action.sourceContext, info)
       const target = resolveContext(action.targetContext, info)
       if (!source || !target) continue
-      const fileName = action.fileName ? replacePlaceholdersForContext(action.sourceContext, action.fileName, source.row) : ''
-      if (!fileName) continue
-      const fromPath = (action.fromPath || []).map(seg => replacePlaceholdersForContext(action.sourceContext, seg, source.row)).filter(Boolean)
-      const toPath = (action.toPath || []).map(seg => replacePlaceholdersForContext(action.targetContext, seg, target.row)).filter(Boolean)
-      const sanitizedFileName = fileName.replace(/[\\/:*?"<>|]/g, '-').trim()
-      if (!sanitizedFileName) continue
-      const moveFn = window.api?.folders?.moveFile
-      if (!moveFn) return
-      let moved = false
-      let lastError: any = null
-      for (const fromPersonName of source.folderNames) {
-        const payload = {
-          baseDir: dokumenteDir,
-          fromPersonType: source.personType,
-          fromPersonName,
-          fromPath,
-          fileName: sanitizedFileName,
-          toPersonType: target.personType,
-          toPersonName: target.folderNames[0] || target.folderNames[target.folderNames.length - 1],
-          toPath,
+      
+      const fromPath = (action.fromPath || []).map(seg => replacePlaceholdersForContext(action.sourceContext, seg, source.row, position)).filter(Boolean)
+      const toPath = (action.toPath || []).map(seg => replacePlaceholdersForContext(action.targetContext, seg, target.row, position)).filter(Boolean)
+      
+      // Für jede Datei im Schema
+      for (const fileTemplate of action.fileName || []) {
+        // Prüfe, ob Template {dateityp} oder {betreuerkunde} enthält
+        const hatDateityp = /\{dateityp\}/i.test(fileTemplate)
+        const hatBetreuerkunde = /\{betreuerkunde\}/i.test(fileTemplate)
+        
+        let actualFileName = fileTemplate
+        let sourceBetreuerRow: any | undefined
+        
+        // Bestimme sourceBetreuerRow für {betreuerkunde}
+        if (hatBetreuerkunde && action.sourceContext === 'kunde' && position) {
+          if (position === 1 && info.alterBetreuerRow) {
+            sourceBetreuerRow = info.alterBetreuerRow
+          } else if (position === 2 && info.alterBetreuerRow) {
+            sourceBetreuerRow = info.alterBetreuerRow
+          }
         }
-        try {
-          const res = await moveFn(payload)
-          if (res?.ok) { moved = true; break }
-          lastError = { payload, res }
-        } catch (error) {
-          lastError = { payload, error }
+        
+        // Wenn {dateityp} verwendet wird, muss die Datei zuerst gefunden werden
+        if (hatDateityp) {
+          const sourceSettings = source.personType === 'kunden' ? kundenSettings : betreuerSettings
+          const sourceKontext = {
+            baseDir: dokumenteDir,
+            personType: source.personType,
+            row: source.row,
+            settings: sourceSettings
+          }
+          
+          const gefundeneDatei = await StandardOrdnerService.findeStandardDatei(
+            sourceKontext,
+            fromPath,
+            fileTemplate,
+            sourceBetreuerRow
+          )
+          
+          if (!gefundeneDatei.exists || !gefundeneDatei.path) {
+            console.warn(`Datei mit {dateityp} nicht gefunden: ${fileTemplate}`)
+            continue
+          }
+          
+          // Extrahiere den tatsächlichen Dateinamen aus dem Pfad
+          actualFileName = gefundeneDatei.path.split(/[/\\]/).pop() || fileTemplate
+        } else {
+          // Normale Platzhalter-Ersetzung
+          actualFileName = replacePlaceholdersForContext(action.sourceContext, fileTemplate, source.row, position)
         }
-      }
-      if (!moved && lastError) {
-        console.warn('Datei konnte nicht verschoben werden', lastError.payload || {}, lastError.res || lastError.error)
+        
+        const sanitizedFileName = actualFileName.replace(/[\\/:*?"<>|]/g, '-').trim()
+        if (!sanitizedFileName) continue
+        
+        const moveFn = window.api?.folders?.moveFile
+        if (!moveFn) continue
+        
+        let moved = false
+        let lastError: any = null
+        for (const fromPersonName of source.folderNames) {
+          const payload = {
+            baseDir: dokumenteDir,
+            fromPersonType: source.personType,
+            fromPersonName,
+            fromPath,
+            fileName: sanitizedFileName, // Verwende den tatsächlich gefundenen Dateinamen
+            toPersonType: target.personType,
+            toPersonName: target.folderNames[0] || target.folderNames[target.folderNames.length - 1],
+            toPath,
+          }
+          try {
+            const res = await moveFn(payload)
+            if (res?.ok) { moved = true; break }
+            lastError = { payload, res }
+          } catch (error) {
+            lastError = { payload, error }
+          }
+        }
+        if (!moved && lastError) {
+          console.warn('Datei konnte nicht verschoben werden', lastError.payload || {}, lastError.res || lastError.error)
+        }
       }
     }
   }
@@ -649,26 +734,33 @@ type ResolvedContext = {
                       <button title="Bearbeiten" onClick={(e) => { e.stopPropagation(); setBearbeitenRow(row); setBearbeitenOffen(true) }} style={{ border: 'none', background: 'transparent', padding: 6, cursor: 'pointer' }}>
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="#333" xmlns="http://www.w3.org/2000/svg"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34a.9959.9959 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
                       </button>
-                      <button title="Löschen" onClick={async (e) => {
+                      <button title="Löschen" onClick={(e) => {
                         e.stopPropagation()
                         if (!tableId) return
-                        if (!confirm('Diesen Eintrag wirklich löschen?')) return
-                        const __key = row.__key
-                        // Falls eine Ende-Zuordnung existiert, setze Datum vor dem Archivieren
-                        const endeKey = keys.find(k => (gruppen[k] || []).includes('ende'))
-                        if (endeKey) {
-                          const d = new Date()
-                          const dd = String(d.getDate()).padStart(2,'0')
-                          const mm = String(d.getMonth()+1).padStart(2,'0')
-                          const yyyy = String(d.getFullYear())
-                          const heute = `${dd}.${mm}.${yyyy}`
-                          const updates: any = { [endeKey]: heute }
-                          if (tableId === 'kunden') await window.db?.kundenUpdate?.({ __key, updates })
-                          if (tableId === 'betreuer') await window.db?.betreuerUpdate?.({ __key, updates })
-                        }
-                        if (tableId === 'kunden') await window.db?.kundenDelete?.(__key)
-                        if (tableId === 'betreuer') await window.db?.betreuerDelete?.(__key)
-                        onChanged?.()
+                        setConfirmModal({
+                          isOpen: true,
+                          message: 'Diesen Eintrag wirklich löschen?',
+                          onConfirm: async () => {
+                            setConfirmModal({ isOpen: false, message: '', onConfirm: () => {} })
+                            const __key = row.__key
+                            // Falls eine Ende-Zuordnung existiert, setze Datum vor dem Archivieren
+                            const endeKey = keys.find(k => (gruppen[k] || []).includes('ende'))
+                            if (endeKey) {
+                              const d = new Date()
+                              const dd = String(d.getDate()).padStart(2,'0')
+                              const mm = String(d.getMonth()+1).padStart(2,'0')
+                              const yyyy = String(d.getFullYear())
+                              const heute = `${dd}.${mm}.${yyyy}`
+                              const updates: any = { [endeKey]: heute }
+                              if (tableId === 'kunden') await window.db?.kundenUpdate?.({ __key, updates })
+                              if (tableId === 'betreuer') await window.db?.betreuerUpdate?.({ __key, updates })
+                            }
+                            if (tableId === 'kunden') await window.db?.kundenDelete?.(__key)
+                            if (tableId === 'betreuer') await window.db?.betreuerDelete?.(__key)
+                            onChanged?.()
+                          },
+                          deleteKey: row.__key
+                        })
                       }} style={{ border: 'none', background: 'transparent', padding: 6, cursor: 'pointer' }}>
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="#b00020" xmlns="http://www.w3.org/2000/svg"><path d="M16 9v10H8V9h8m-1.5-6h-5l-1 1H5v2h14V4h-3.5l-1-1z"/></svg>
                       </button>
@@ -808,12 +900,7 @@ type ResolvedContext = {
                     <DatenVerwaltungTabs
                       personType={tableId === 'kunden' ? 'kunden' : 'betreuer'}
                       row={row}
-                      allPersons={allPersons}
                       allKeys={keys}
-                      wichtigeFelder={wichtigeFelder}
-                      displayNames={displayNames}
-                      gruppen={gruppen}
-                      keys={keys}
                     />
                   </div>
                 )}
@@ -937,6 +1024,7 @@ type ResolvedContext = {
                 alterBetreuerName,
                 neuerBetreuerRow: neuerBetreuer,
                 neuerBetreuerName: neuerName,
+                position, // Position des ausgetauschten Betreuers (1 oder 2)
               })
             }
             onChanged?.()
@@ -957,6 +1045,15 @@ type ResolvedContext = {
           ordnerTemplates={ordnerTemplates}
         />
       )}
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        message={confirmModal.message}
+        onConfirm={confirmModal.onConfirm}
+        onCancel={() => setConfirmModal({ isOpen: false, message: '', onConfirm: () => {} })}
+        type="danger"
+        confirmText="Löschen"
+        cancelText="Abbrechen"
+      />
     </div>
   )
 }

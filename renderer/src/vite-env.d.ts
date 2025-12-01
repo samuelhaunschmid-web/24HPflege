@@ -14,10 +14,12 @@ declare global {
       chooseDirectory?: (title?: string) => Promise<string | null>
       saveFile?: (title?: string, defaultPath?: string, filters?: Array<{ name: string; extensions: string[] }>) => Promise<string | null>
       writeTextFile?: (filePath: string, content: string) => Promise<{ ok?: boolean }>
+      openFile?: (filePath: string) => Promise<{ ok?: boolean; message?: string }>
       folders?: {
         ensureStructure?: (payload: { baseDir: string; personType: 'kunden' | 'betreuer'; names: string[]; subfolders: (string | string[])[] }) => Promise<{ ok?: boolean; message?: string; root?: string; createdCount?: number; createdSubCount?: number }>
         listForPersons?: (payload: { baseDir: string; personType: 'kunden' | 'betreuer'; names: string[] }) => Promise<{ ok?: boolean; message?: string; root?: string; result?: Array<{ name: string; dir: string; exists: boolean; subfolders: Array<{ name: string; files: string[] }> }> }>
         getFilePath?: (payload: { baseDir: string; personType: 'kunden' | 'betreuer'; personName: string; folderPath: string[]; fileName: string }) => Promise<{ ok?: boolean; exists?: boolean; path?: string | null; message?: string }>
+        findFileByBaseName?: (payload: { baseDir: string; personType: 'kunden' | 'betreuer'; personName: string; folderPath: string[]; baseFileName: string }) => Promise<{ ok?: boolean; exists?: boolean; path?: string | null; message?: string }>
         moveFile?: (payload: { baseDir: string; fromPersonType: 'kunden' | 'betreuer'; fromPersonName: string; fromPath: string[]; fileName: string; toPersonType: 'kunden' | 'betreuer'; toPersonName: string; toPath: string[] }) => Promise<{ ok?: boolean; message?: string; missing?: boolean; from?: string; to?: string }>
         moveToArchive?: (payload: { baseDir: string; personType: 'kunden' | 'betreuer'; personName: string }) => Promise<{ ok?: boolean; message?: string }>
       }

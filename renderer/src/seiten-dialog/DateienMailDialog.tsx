@@ -1,25 +1,25 @@
 import { useEffect, useState } from 'react'
-
-type EmailTemplate = {
-  id: string
-  name: string
-  to: string
-  subject: string
-  text: string
-  selectedFiles: Array<{ personType: 'kunden' | 'betreuer'; folderPath: string[]; fileTemplate: string }>
-}
+import { StandardTemplateService } from '../logik/dateiVerwaltung/standardTemplateService'
+import type { EmailTemplate } from '../logik/dateiVerwaltung/typen'
+import ConfirmModal from '../komponenten/ConfirmModal'
 
 export default function DateienMailDialog() {
   const [cfg, setCfg] = useState<any>({})
   const [templates, setTemplates] = useState<EmailTemplate[]>([])
   const [tab, setTab] = useState<'neu' | 'bearbeiten'>('neu')
   const [draft, setDraft] = useState<EmailTemplate>({ id: '', name: '', to: '', subject: '', text: '', selectedFiles: [] })
+  const [confirmModal, setConfirmModal] = useState<{ isOpen: boolean; message: string; onConfirm: () => void; templateId?: string }>({
+    isOpen: false,
+    message: '',
+    onConfirm: () => {}
+  })
 
   useEffect(() => {
     ;(async () => {
       const c = await window.api?.getConfig?.()
       setCfg(c || {})
-      setTemplates(Array.isArray(c?.dateienMailTemplates) ? c.dateienMailTemplates : [])
+      const geladeneTemplates = await StandardTemplateService.ladeEmailTemplates()
+      setTemplates(geladeneTemplates)
     })()
   }, [])
 
@@ -31,20 +31,31 @@ export default function DateienMailDialog() {
     const t = { ...draft, id: draft.id || Math.random().toString(36).slice(2) }
     const next = [...templates.filter(x => x.id !== t.id), t]
     setTemplates(next)
-    const cfgNext = { ...cfg, dateienMailTemplates: next }
-    await window.api?.setConfig?.(cfgNext)
-    setCfg(cfgNext)
+    // Verwende StandardTemplateService für konsistentes Speichern
+    await StandardTemplateService.speichereEmailTemplates(next)
+    // Aktualisiere auch cfg für FileSelector
+    const c = await window.api?.getConfig?.()
+    setCfg(c || {})
     setTab('bearbeiten')
     resetDraft()
   }
 
   async function removeTemplate(id: string) {
-    if (!confirm('Vorlage löschen?')) return
-    const next = templates.filter(t => t.id !== id)
-    setTemplates(next)
-    const cfgNext = { ...cfg, dateienMailTemplates: next }
-    await window.api?.setConfig?.(cfgNext)
-    setCfg(cfgNext)
+    setConfirmModal({
+      isOpen: true,
+      message: 'Vorlage löschen?',
+      onConfirm: async () => {
+        setConfirmModal({ isOpen: false, message: '', onConfirm: () => {} })
+        const next = templates.filter(t => t.id !== id)
+        setTemplates(next)
+        // Verwende StandardTemplateService für konsistentes Speichern
+        await StandardTemplateService.speichereEmailTemplates(next)
+        // Aktualisiere auch cfg für FileSelector
+        const c = await window.api?.getConfig?.()
+        setCfg(c || {})
+      },
+      templateId: id
+    })
   }
 
   return (
@@ -96,6 +107,15 @@ export default function DateienMailDialog() {
           {templates.length === 0 && <div style={{ fontSize: 12, color: '#64748b' }}>Keine Vorlagen gespeichert</div>}
         </div>
       )}
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        message={confirmModal.message}
+        onConfirm={confirmModal.onConfirm}
+        onCancel={() => setConfirmModal({ isOpen: false, message: '', onConfirm: () => {} })}
+        type="danger"
+        confirmText="Löschen"
+        cancelText="Abbrechen"
+      />
     </div>
   )
 }

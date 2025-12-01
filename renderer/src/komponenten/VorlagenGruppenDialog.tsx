@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react'
+import MessageModal from './MessageModal'
+import ConfirmModal from './ConfirmModal'
 
 type Props = {
   offen: boolean
@@ -20,6 +22,16 @@ export default function VorlagenGruppenDialog({ offen, onClose }: Props) {
   const [editingGroup, setEditingGroup] = useState<string | null>(null)
   const [editingName, setEditingName] = useState('')
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
+  const [messageModal, setMessageModal] = useState<{ isOpen: boolean; message: string; type: 'success' | 'error' | 'info' }>({
+    isOpen: false,
+    message: '',
+    type: 'info'
+  })
+  const [confirmModal, setConfirmModal] = useState<{ isOpen: boolean; message: string; onConfirm: () => void }>({
+    isOpen: false,
+    message: '',
+    onConfirm: () => {}
+  })
 
   useEffect(() => {
     if (offen) {
@@ -79,20 +91,25 @@ export default function VorlagenGruppenDialog({ offen, onClose }: Props) {
       setNewGroupName('')
       setShowNewGroupInput(false)
     } catch (error) {
-      alert('Fehler beim Erstellen der Gruppe: ' + (error as Error).message)
+      setMessageModal({ isOpen: true, message: 'Fehler beim Erstellen der Gruppe: ' + (error as Error).message, type: 'error' })
     }
   }
 
 
   async function deleteGroup(name: string) {
-    if (!confirm(`Gruppe "${name}" wirklich löschen?`)) return
-
-    try {
-      await window.docgen?.deleteVorlagenGruppe?.(name)
-      await loadData()
-    } catch (error) {
-      alert('Fehler beim Löschen der Gruppe: ' + (error as Error).message)
-    }
+    setConfirmModal({
+      isOpen: true,
+      message: `Gruppe "${name}" wirklich löschen?`,
+      onConfirm: async () => {
+        setConfirmModal({ isOpen: false, message: '', onConfirm: () => {} })
+        try {
+          await window.docgen?.deleteVorlagenGruppe?.(name)
+          await loadData()
+        } catch (error) {
+          setMessageModal({ isOpen: true, message: 'Fehler beim Löschen der Gruppe: ' + (error as Error).message, type: 'error' })
+        }
+      }
+    })
   }
 
   async function renameGroup(oldName: string, newName: string) {
@@ -102,7 +119,7 @@ export default function VorlagenGruppenDialog({ offen, onClose }: Props) {
       await window.docgen?.renameVorlagenGruppe?.(oldName, newName.trim())
       await loadData()
     } catch (error) {
-      alert('Fehler beim Umbenennen der Gruppe: ' + (error as Error).message)
+      setMessageModal({ isOpen: true, message: 'Fehler beim Umbenennen der Gruppe: ' + (error as Error).message, type: 'error' })
     }
   }
 
@@ -116,7 +133,7 @@ export default function VorlagenGruppenDialog({ offen, onClose }: Props) {
       await window.docgen?.updateVorlagenGruppeTemplates?.(groupName, newTemplates)
       setGruppen(prev => ({ ...prev, [groupName]: newTemplates }))
     } catch (error) {
-      alert('Fehler beim Aktualisieren der Gruppe: ' + (error as Error).message)
+      setMessageModal({ isOpen: true, message: 'Fehler beim Aktualisieren der Gruppe: ' + (error as Error).message, type: 'error' })
     }
   }
 
@@ -308,6 +325,21 @@ export default function VorlagenGruppenDialog({ offen, onClose }: Props) {
           </button>
         </div>
       </div>
+      <MessageModal
+        isOpen={messageModal.isOpen}
+        message={messageModal.message}
+        type={messageModal.type}
+        onClose={() => setMessageModal({ isOpen: false, message: '', type: 'info' })}
+      />
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        message={confirmModal.message}
+        onConfirm={confirmModal.onConfirm}
+        onCancel={() => setConfirmModal({ isOpen: false, message: '', onConfirm: () => {} })}
+        type="danger"
+        confirmText="Löschen"
+        cancelText="Abbrechen"
+      />
     </div>
   )
 }
