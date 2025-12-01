@@ -16,19 +16,17 @@ export default function DateiVorschauDialog({
   dateiName,
   onClose
 }: DateiVorschauDialogProps) {
-  const [isPdf, setIsPdf] = useState(false)
   const [ladeFehler, setLadeFehler] = useState<string | null>(null)
 
   useEffect(() => {
     if (offen && dateiPfad) {
       // Prüfe Dateityp
       const isPdfFile = dateiName.toLowerCase().endsWith('.pdf')
-      setIsPdf(isPdfFile)
       setLadeFehler(null)
 
       // Für Nicht-PDFs direkt extern öffnen
       if (!isPdfFile) {
-        window.api?.openFile?.(dateiPfad).catch(err => {
+        window.api?.openFile?.(dateiPfad).catch((_err: unknown) => {
           setLadeFehler('Datei konnte nicht geöffnet werden')
         })
         // Schließe Dialog nach kurzer Verzögerung

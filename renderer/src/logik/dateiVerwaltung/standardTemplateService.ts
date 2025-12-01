@@ -3,7 +3,6 @@ import type { OrdnerTemplateRegel, OrdnerTemplateBaum, DateiSchema, EmailTemplat
 /**
  * Service für das Laden und Speichern von Templates und Schemata aus der Config
  */
-import type { OrdnerTemplateBaum, OrdnerTemplateRegel } from './typen'
 
 export class StandardTemplateService {
 
@@ -125,7 +124,7 @@ export class StandardTemplateService {
   /**
    * Hilfsmethoden für Baum-Konvertierung
    */
-  private static pfadeZuBaum(paths: (string | string[])[], rules: OrdnerTemplateRegel[]): OrdnerTemplateBaum[] {
+  static pfadeZuBaum(paths: (string | string[])[], rules: OrdnerTemplateRegel[]): OrdnerTemplateBaum[] {
     const root: Record<string, OrdnerTemplateBaum> = {}
 
     const ensureNode = (nodes: Record<string, OrdnerTemplateBaum>, segs: string[], files?: string[]) => {

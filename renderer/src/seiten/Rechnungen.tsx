@@ -825,6 +825,12 @@ export default function Rechnungen() {
           </div>
         </div>
       )}
+      <MessageModal
+        isOpen={messageModal.isOpen}
+        message={messageModal.message}
+        type={messageModal.type}
+        onClose={() => setMessageModal({ isOpen: false, message: '', type: 'info' })}
+      />
     </Layout>
   )
 }

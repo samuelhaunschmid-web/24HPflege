@@ -1,4 +1,4 @@
-import type { MailBatchKontext, BatchMail, DateiAnhang, SendBatchResponse } from './typen'
+import type { MailBatchKontext, BatchMail, DateiAnhang, SendBatchResponse, StandardOrdnerKontext } from './typen'
 import { StandardOrdnerService } from './standardOrdnerService'
 import { ersetzePlatzhalter } from './platzhalter'
 
@@ -67,8 +67,8 @@ export class MailService {
       return { ok: false, message: 'Keine E-Mails zum Versenden' }
     }
 
-    const res: SendBatchResponse = await window.api?.mail?.sendBatch?.(batch)
-    return res || { ok: false, message: 'Unbekannter Fehler beim Versenden' }
+    const res = await window.api?.mail?.sendBatch?.(batch)
+    return (res as SendBatchResponse) || { ok: false, message: 'Unbekannter Fehler beim Versenden' }
   }
 
   /**
@@ -128,7 +128,7 @@ export class MailService {
     const settings = tableSettings[personType]
 
     // Prüfe, ob {betreuerkunde} verwendet wird
-    const fileTemplatesContent = template.selectedFiles.map(f => f.fileTemplate).join(' ').toLowerCase()
+    const fileTemplatesContent = template.selectedFiles.map((f: { fileTemplate: string }) => f.fileTemplate).join(' ').toLowerCase()
     const textContent = `${template.to} ${template.subject} ${template.text}`.toLowerCase()
     const allContent = `${textContent} ${fileTemplatesContent}`
     const hasBetreuerkunde = /\{betreuerkunde\}/i.test(allContent)
@@ -186,16 +186,10 @@ export class MailService {
       const personType = selFile.personType
       const relevantPerson = personType === 'kunden' ? person : (betreuer || person)
 
-      if (!relevantPerson) continue
+      if (!relevantPerson || !baseDir) continue
 
       const settings = tableSettings[personType]
-      const kontext = {
-        baseDir,
-        personType,
-        row: relevantPerson,
-        settings
-      }
-
+      
       // Prüfe, ob Template {betreuerkunde} enthält
       const hatBetreuerkunde = /\{betreuerkunde\}/i.test(selFile.fileTemplate)
       // Übergebe betreuerRow, wenn {betreuerkunde} verwendet wird und ein Betreuer vorhanden ist
@@ -203,12 +197,20 @@ export class MailService {
       
       // Für {betreuerkunde}: Wir müssen die Betreuer-Settings verwenden, um den Nachnamen zu extrahieren
       // Erweitere den Kontext um Betreuer-Settings, wenn ein Betreuer vorhanden ist
-      const erweiterterKontext = betreuerRow && personType === 'kunden' 
+      const erweiterterKontext: StandardOrdnerKontext = (betreuerRow && personType === 'kunden')
         ? {
-            ...kontext,
+            baseDir,
+            personType,
+            row: relevantPerson,
+            settings,
             betreuerSettings: tableSettings.betreuer // Betreuer-Settings für Platzhalter-Ersetzung
           }
-        : kontext
+        : {
+            baseDir,
+            personType,
+            row: relevantPerson,
+            settings
+          }
 
       // Debug: Log vor dem Aufruf
       if (hatBetreuerkunde && betreuerRow) {
