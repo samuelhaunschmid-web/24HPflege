@@ -7,7 +7,7 @@ Diese Anleitung erklärt, wie du einen GitHub Release für die 24h Pflege App ve
 ### 1. GitHub Repository
 - Das Projekt muss auf GitHub hochgeladen sein
 - Repository-Name sollte mit der Konfiguration in `package.json` übereinstimmen:
-  - Aktuell konfiguriert: `samuelhaunschmid-web/24HPflege-updates`
+  - Aktuell konfiguriert: `samuelhaunschmid-web/24HPflege`
   - Falls anders, in `package.json` unter `build.publish[0].repo` anpassen
 
 ### 2. GitHub Personal Access Token (PAT)
@@ -30,33 +30,41 @@ Ein Token mit folgenden Berechtigungen:
 
 ## 🚀 Methoden zum Veröffentlichen
 
-### Methode 1: Automatisch mit GitHub Actions (Empfohlen)
+### Methode 1: Automatisch bei jedem Push (Empfohlen) ⭐
 
 **Vorteile:**
-- Automatischer Build auf GitHub Servern
-- Keine lokalen Builds nötig
-- Konsistente Build-Umgebung
+- ✅ **Vollautomatisch** - Keine manuellen Schritte nötig
+- ✅ Automatischer Build auf GitHub Servern
+- ✅ Erstellt nur Releases wenn die Version in `package.json` geändert wurde
+- ✅ Keine doppelten Releases (prüft ob Tag bereits existiert)
 
-**Schritte:**
-1. Stelle sicher, dass `.github/workflows/release.yml` existiert (bereits erstellt)
-2. Initialisiere Git Repository (falls noch nicht geschehen):
+**Wie es funktioniert:**
+1. Erhöhe die Version in `package.json` (z.B. von `1.0.5` auf `1.0.6`)
+2. Committe und pushe die Änderung:
    ```bash
-   git init
-   git add .
-   git commit -m "Initial commit"
-   git remote add origin https://github.com/DEIN_USERNAME/DEIN_REPO.git
-   git push -u origin main
+   git add package.json
+   git commit -m "Bump version to 1.0.6"
+   git push
    ```
-3. Erstelle einen Tag für die neue Version:
-   ```bash
-   git tag v1.0.5  # Version aus package.json verwenden
-   git push origin v1.0.5
-   ```
-4. GitHub Actions startet automatisch den Build und erstellt den Release
+3. **Das war's!** 🎉
+   - GitHub Actions prüft automatisch, ob ein Tag für diese Version existiert
+   - Wenn nicht, wird automatisch:
+     - Ein Tag `v1.0.6` erstellt
+     - Die App gebaut
+     - Ein GitHub Release erstellt
 
 **Manueller Trigger:**
 - Gehe zu GitHub → Actions → "Build and Release"
 - Klicke auf "Run workflow"
+
+### Methode 2: Manuell mit Tag (Alternative)
+
+Falls du manuell einen Tag erstellen willst:
+```bash
+git tag v1.0.5  # Version aus package.json verwenden
+git push origin v1.0.5
+```
+GitHub Actions startet automatisch den Build und erstellt den Release.
 
 ### Methode 2: Manuell mit electron-builder
 
@@ -98,7 +106,7 @@ Die aktuelle Konfiguration:
   {
     "provider": "github",
     "owner": "samuelhaunschmid-web",
-    "repo": "24HPflege-updates",
+    "repo": "24HPflege",
     "releaseType": "release"
   }
 ]
@@ -109,27 +117,26 @@ Die aktuelle Konfiguration:
 - `repo`: Name deines GitHub Repositories
 - `releaseType`: `release` (stable), `prerelease` (beta), oder `draft` (Entwurf)
 
-## 🔄 Workflow für neue Releases
+## 🔄 Workflow für neue Releases (Automatisch)
 
 1. **Version erhöhen** in `package.json`:
    ```json
-   "version": "1.0.5"
+   "version": "1.0.6"
    ```
 
-2. **Änderungen committen**:
+2. **Änderungen committen und pushen**:
    ```bash
    git add package.json
-   git commit -m "Bump version to 1.0.5"
+   git commit -m "Bump version to 1.0.6"
    git push
    ```
 
-3. **Tag erstellen und pushen**:
-   ```bash
-   git tag v1.0.5
-   git push origin v1.0.5
-   ```
+3. **Fertig!** 🎉
+   - GitHub Actions prüft automatisch, ob ein Tag für diese Version existiert
+   - Wenn nicht, wird automatisch ein Tag erstellt und ein Release gebaut
+   - Du musst nichts weiter tun!
 
-4. **GitHub Actions baut automatisch** und erstellt den Release
+**Hinweis:** Der Workflow läuft bei jedem Push auf `main`. Wenn die Version unverändert ist oder der Tag bereits existiert, wird kein neuer Release erstellt.
 
 ## ✅ Checkliste vor dem Release
 
