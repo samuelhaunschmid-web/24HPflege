@@ -63,17 +63,13 @@ jobs:
           npm ci
           npm ci --prefix renderer
 
-      - name: Build renderer
-        if: steps.check-tag.outputs.exists == 'false'
-        run: npm run build:renderer
-
       - name: Build and Publish to GitHub Releases
         if: steps.check-tag.outputs.exists == 'false'
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
         run: |
-          # electron-builder erstellt automatisch den Release basierend auf dem Tag
-          npm run build
+          # electron-builder veröffentlicht nun unabhängig vom Tag dank --publish always
+          npm run build:release
 
       - name: Push tag to remote
         if: steps.check-tag.outputs.exists == 'false'
