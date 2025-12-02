@@ -8,6 +8,9 @@ on:
       - 'v*'  # Trigger bei Tags wie v1.0.5
   workflow_dispatch:  # Manueller Trigger über GitHub UI
 
+permissions:
+  contents: write
+
 jobs:
   check-version-and-release:
     runs-on: windows-latest
