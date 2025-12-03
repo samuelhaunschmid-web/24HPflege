@@ -170,6 +170,23 @@ export default function Layout({ children }: Props) {
             </NavLink>
           </li>
           <li>
+            <NavLink 
+              to={'/dateien/sortieren'}
+              style={({ isActive }) => ({
+                display: 'block',
+                padding: '10px 12px',
+                borderRadius: 10,
+                textDecoration: 'none',
+                color: isActive ? '#0b4de0' : '#334155',
+                fontWeight: 600,
+                background: isActive ? '#eef4ff' : 'transparent',
+                border: isActive ? '1px solid #dbe6ff' : '1px solid transparent'
+              })}
+            >
+              Dateien Sortieren
+            </NavLink>
+          </li>
+          <li>
             <button onClick={()=> { const next = !rechnungenOpen; setRechnungenOpen(next); try { localStorage.setItem('sidebar:rechnungenOpen', next ? '1' : '0') } catch {} }} style={{
               width: '100%',
               textAlign: 'left',

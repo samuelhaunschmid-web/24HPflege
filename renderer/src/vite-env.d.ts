@@ -22,6 +22,10 @@ declare global {
         findFileByBaseName?: (payload: { baseDir: string; personType: 'kunden' | 'betreuer'; personName: string; folderPath: string[]; baseFileName: string }) => Promise<{ ok?: boolean; exists?: boolean; path?: string | null; message?: string }>
         moveFile?: (payload: { baseDir: string; fromPersonType: 'kunden' | 'betreuer'; fromPersonName: string; fromPath: string[]; fileName: string; toPersonType: 'kunden' | 'betreuer'; toPersonName: string; toPath: string[] }) => Promise<{ ok?: boolean; message?: string; missing?: boolean; from?: string; to?: string }>
         moveToArchive?: (payload: { baseDir: string; personType: 'kunden' | 'betreuer'; personName: string }) => Promise<{ ok?: boolean; message?: string }>
+        listDirectory?: (payload: { path: string }) => Promise<{ ok?: boolean; message?: string; folders?: Array<{ name: string; path: string; fileCount: number }>; files?: Array<{ name: string; path: string }> }>
+        listFilesInDirectory?: (payload: { path: string }) => Promise<{ ok?: boolean; message?: string; files?: Array<{ name: string; path: string }> }>
+        moveFileFromPath?: (payload: { sourcePath: string; baseDir: string; personType: 'kunden' | 'betreuer'; personName: string; folderPath: string[]; targetFileName?: string }) => Promise<{ ok?: boolean; message?: string; from?: string; to?: string; finalFileName?: string; renamed?: boolean }>
+        checkFileExists?: (payload: { baseDir: string; personType: 'kunden' | 'betreuer'; personName: string; folderPath: string[]; fileName: string }) => Promise<{ ok?: boolean; exists?: boolean; path?: string | null; message?: string }>
       }
       openFolderDialog?: (personType: 'kunden' | 'betreuer') => Promise<{ ok?: boolean; message?: string }>
       openMailTemplatesDialog?: () => Promise<{ ok?: boolean; message?: string }>

@@ -12,6 +12,7 @@ import Einstellungen from './seiten/Einstellungen'
 import ArchivierteKunden from './seiten/ArchivierteKunden'
 import ArchivierteBetreuer from './seiten/ArchivierteBetreuer'
 import DateienMail from './seiten/DateienMail'
+import DateienSortieren from './seiten/DateienSortieren'
 import OrdnerManagmentDialog from './seiten-dialog/OrdnerManagmentDialog'
 import DateienMailDialog from './seiten-dialog/DateienMailDialog'
 
@@ -27,6 +28,7 @@ const router = createHashRouter([
   { path: '/archiv/betreuer', element: <ArchivierteBetreuer /> },
   { path: '/dateien/mail', element: <Navigate to="/mail" replace /> },
   { path: '/mail', element: <DateienMail /> },
+  { path: '/dateien/sortieren', element: <DateienSortieren /> },
   { path: '/dialog/dateien-mail', element: <DateienMailDialog /> },
   { path: '/dialog/ordner', element: <OrdnerManagmentDialog /> },
 ])

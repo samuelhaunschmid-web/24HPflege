@@ -66,8 +66,18 @@ export class StandardOrdnerService {
     const ordnerListe = await this.ladeOrdnerFuerPersonen(baseDir, personType, varianten)
 
     // Finde passenden Ordner-Eintrag
-    const personEintrag = ordnerListe.find(e => varianten.includes(e.name)) || null
-    if (!personEintrag) return null
+    let personEintrag = ordnerListe.find(e => varianten.includes(e.name)) || null
+    
+    // Wenn Ordner nicht existiert, erstelle einen Dummy-Eintrag damit fehlende Dateien berechnet werden können
+    if (!personEintrag) {
+      const personName = varianten[0] || ''
+      personEintrag = {
+        name: personName,
+        dir: '',
+        exists: false,
+        subfolders: []
+      }
+    }
 
     // Berechne fehlende Standarddateien
     const fehlendeDateien = this.berechneFehlendeDateien(personEintrag, templateRegeln, kontext)
@@ -434,7 +444,36 @@ export class StandardOrdnerService {
     templateRegeln: OrdnerTemplateRegel[],
     kontext: StandardOrdnerKontext
   ): any[] {
-    if (!eintrag?.exists || !templateRegeln?.length) return []
+    if (!templateRegeln?.length) return []
+    
+    // Wenn der Ordner nicht existiert, sind alle Dateien fehlend
+    if (!eintrag?.exists) {
+      const fehlende: any[] = []
+      for (const regel of templateRegeln) {
+        for (const fileTemplate of regel.files) {
+          if (/\{betreuerkunde\}/i.test(fileTemplate) && kontext.personType === 'kunden') {
+            const betreuerErwartungen = this.erstelleBetreuerkundeErwartungen(fileTemplate, kontext)
+            fehlende.push(...betreuerErwartungen.map(erwartung => ({
+              file: erwartung,
+              folderPath: regel.path.join(' / '),
+              template: fileTemplate
+            })))
+          } else {
+            const expectedName = ersetzePlatzhalter(fileTemplate, { 
+              personType: kontext.personType, 
+              row: kontext.row, 
+              settings: kontext.settings 
+            })
+            fehlende.push({
+              file: expectedName,
+              folderPath: regel.path.join(' / '),
+              template: fileTemplate
+            })
+          }
+        }
+      }
+      return fehlende
+    }
 
     const fehlende: any[] = []
 

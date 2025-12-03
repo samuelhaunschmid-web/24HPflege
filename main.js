@@ -864,6 +864,185 @@ app.whenReady().then(() => {
     }
   });
 
+  // Ordner und Dateien in einem beliebigen Pfad auflisten (für Dateisortierung)
+  ipcMain.handle('folders:listDirectory', async (_e, args) => {
+    try {
+      const dirPath = String(args && args.path || '').trim();
+      if (!dirPath || !fs.existsSync(dirPath)) {
+        return { ok: false, message: 'Pfad ungültig oder nicht vorhanden' };
+      }
+      const stat = fs.statSync(dirPath);
+      if (!stat.isDirectory()) {
+        return { ok: false, message: 'Pfad ist kein Ordner' };
+      }
+      const entries = fs.readdirSync(dirPath, { withFileTypes: true });
+      const folders = [];
+      const files = [];
+      for (const entry of entries) {
+        // Versteckte Dateien und Temp-Dateien ausblenden
+        if (entry.name.startsWith('.') || entry.name.startsWith('~$') || entry.name === 'Thumbs.db' || entry.name === 'desktop.ini') {
+          continue;
+        }
+        if (entry.isDirectory()) {
+          // Anzahl der Dateien im Unterordner zählen
+          const subPath = path.join(dirPath, entry.name);
+          let fileCount = 0;
+          try {
+            const subEntries = fs.readdirSync(subPath, { withFileTypes: true });
+            fileCount = subEntries.filter(e => e.isFile() && !e.name.startsWith('.') && !e.name.startsWith('~$')).length;
+          } catch {}
+          folders.push({ name: entry.name, path: subPath, fileCount });
+        } else if (entry.isFile()) {
+          files.push({ name: entry.name, path: path.join(dirPath, entry.name) });
+        }
+      }
+      return { ok: true, folders, files };
+    } catch (e) {
+      return { ok: false, message: String(e) };
+    }
+  });
+
+  // Dateien in einem Unterordner auflisten
+  ipcMain.handle('folders:listFilesInDirectory', async (_e, args) => {
+    try {
+      const dirPath = String(args && args.path || '').trim();
+      if (!dirPath || !fs.existsSync(dirPath)) {
+        return { ok: false, message: 'Pfad ungültig oder nicht vorhanden' };
+      }
+      const stat = fs.statSync(dirPath);
+      if (!stat.isDirectory()) {
+        return { ok: false, message: 'Pfad ist kein Ordner' };
+      }
+      const entries = fs.readdirSync(dirPath, { withFileTypes: true });
+      const files = [];
+      for (const entry of entries) {
+        // Versteckte Dateien und Temp-Dateien ausblenden
+        if (entry.name.startsWith('.') || entry.name.startsWith('~$') || entry.name === 'Thumbs.db' || entry.name === 'desktop.ini') {
+          continue;
+        }
+        if (entry.isFile()) {
+          files.push({ name: entry.name, path: path.join(dirPath, entry.name) });
+        }
+      }
+      return { ok: true, files };
+    } catch (e) {
+      return { ok: false, message: String(e) };
+    }
+  });
+
+  // Datei von beliebigem Pfad zu Personen-Ordner verschieben (für Dateisortierung)
+  ipcMain.handle('folders:moveFileFromPath', async (_e, args) => {
+    try {
+      const sourcePath = String(args && args.sourcePath || '').trim();
+      const baseDir = String(args && args.baseDir || '').trim();
+      const personType = (args && args.personType) === 'betreuer' ? 'betreuer' : 'kunden';
+      const personName = String(args && args.personName || '').trim();
+      const folderPath = Array.isArray(args && args.folderPath) ? args.folderPath : [];
+      const targetFileName = String(args && args.targetFileName || '').trim();
+      
+      if (!sourcePath || !fs.existsSync(sourcePath)) {
+        return { ok: false, message: 'Quelldatei nicht gefunden' };
+      }
+      if (!fs.statSync(sourcePath).isFile()) {
+        return { ok: false, message: 'Quellpfad ist keine Datei' };
+      }
+      if (!baseDir || !fs.existsSync(baseDir)) {
+        return { ok: false, message: 'Dokumente-Ordner ungültig' };
+      }
+      if (!personName) {
+        return { ok: false, message: 'Personenname fehlt' };
+      }
+      
+      function sanitizeName(name) {
+        return String(name || '').replace(/[\\/:*?"<>|]/g, '-').trim();
+      }
+      
+      const root = path.join(baseDir, personType === 'betreuer' ? 'BetreuerDaten' : 'KundenDaten');
+      const personDir = path.join(root, sanitizeName(personName));
+      
+      // Zielordner mit Unterordnern erstellen
+      let targetDir = personDir;
+      for (const seg of folderPath) {
+        const sanitized = sanitizeName(seg);
+        if (sanitized) {
+          targetDir = path.join(targetDir, sanitized);
+        }
+      }
+      
+      if (!fs.existsSync(targetDir)) {
+        fs.mkdirSync(targetDir, { recursive: true });
+      }
+      
+      // Zieldateiname (entweder angegeben oder Original)
+      const fileName = targetFileName || path.basename(sourcePath);
+      let targetFile = path.join(targetDir, sanitizeName(fileName));
+      let finalFileName = sanitizeName(fileName);
+      let renamed = false;
+      
+      // Konfliktbehandlung: Umbenennung bei Duplikaten
+      if (fs.existsSync(targetFile)) {
+        const ext = path.extname(fileName);
+        const baseName = path.basename(fileName, ext);
+        let counter = 1;
+        while (fs.existsSync(targetFile)) {
+          finalFileName = `${sanitizeName(baseName)}_${counter}${ext}`;
+          targetFile = path.join(targetDir, finalFileName);
+          counter++;
+        }
+        renamed = true;
+      }
+      
+      // Datei verschieben
+      fs.renameSync(sourcePath, targetFile);
+      
+      return { 
+        ok: true, 
+        from: sourcePath, 
+        to: targetFile, 
+        finalFileName,
+        renamed 
+      };
+    } catch (e) {
+      return { ok: false, message: String(e) };
+    }
+  });
+
+  // Prüfen ob Datei bereits existiert (für Konflikt-Warnung)
+  ipcMain.handle('folders:checkFileExists', async (_e, args) => {
+    try {
+      const baseDir = String(args && args.baseDir || '').trim();
+      const personType = (args && args.personType) === 'betreuer' ? 'betreuer' : 'kunden';
+      const personName = String(args && args.personName || '').trim();
+      const folderPath = Array.isArray(args && args.folderPath) ? args.folderPath : [];
+      const fileName = String(args && args.fileName || '').trim();
+      
+      if (!baseDir || !personName || !fileName) {
+        return { ok: false, exists: false };
+      }
+      
+      function sanitizeName(name) {
+        return String(name || '').replace(/[\\/:*?"<>|]/g, '-').trim();
+      }
+      
+      const root = path.join(baseDir, personType === 'betreuer' ? 'BetreuerDaten' : 'KundenDaten');
+      let targetDir = path.join(root, sanitizeName(personName));
+      
+      for (const seg of folderPath) {
+        const sanitized = sanitizeName(seg);
+        if (sanitized) {
+          targetDir = path.join(targetDir, sanitized);
+        }
+      }
+      
+      const targetFile = path.join(targetDir, sanitizeName(fileName));
+      const exists = fs.existsSync(targetFile);
+      
+      return { ok: true, exists, path: exists ? targetFile : null };
+    } catch (e) {
+      return { ok: false, exists: false, message: String(e) };
+    }
+  });
+
   // Neues Fenster für Ordner-Management-Dialog öffnen
   ipcMain.handle('window:openFolderDialog', async (_e, args) => {
     try {

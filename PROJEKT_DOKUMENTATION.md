@@ -1,6 +1,6 @@
 # 24h Pflege - Projekt-Dokumentation
 
-> **Letzte Aktualisierung:** 01.12.2024
+> **Letzte Aktualisierung:** 02.12.2024
 > 
 > Diese Datei dient als Übersicht über die Struktur und Funktionen der App. Sie soll zukünftig bei Änderungen aktualisiert werden.
 
@@ -85,12 +85,21 @@ Diese Übersicht zeigt, welche Dateien auf welchen Seiten verwendet werden.
 │   │   │   ├── ConfirmModal.tsx
 │   │   │   └── useTableSettings.ts (Hook²)
 │   │   │
-│   │   └── 📄 ArchivierteBetreuer.tsx
+│   │   ├── 📄 ArchivierteBetreuer.tsx
+│   │   │   ├── Layout.tsx
+│   │   │   ├── CountBadge.tsx
+│   │   │   ├── ArchivDropdownZeilen.tsx
+│   │   │   ├── ConfirmModal.tsx
+│   │   │   └── useTableSettings.ts (Hook²)
+│   │   │
+│   │   └── 📄 DateienSortieren.tsx
 │   │       ├── Layout.tsx
-│   │       ├── CountBadge.tsx
-│   │       ├── ArchivDropdownZeilen.tsx
+│   │       ├── OrdnerListe.tsx
+│   │       ├── DateiListe.tsx
 │   │       ├── ConfirmModal.tsx
-│   │       └── useTableSettings.ts (Hook²)
+│   │       ├── MessageModal.tsx
+│   │       ├── LoadingDialog.tsx
+│   │       └── useDateiSortierung.ts (Hook²)
 │   │
 │   └── 📁 seiten-dialog/
 │       │
@@ -126,6 +135,8 @@ Diese Übersicht zeigt, welche Dateien auf welchen Seiten verwendet werden.
 │   ├── 📄 DateiAktionenMenue.tsx
 │   ├── 📄 OrdnerManagment.tsx
 │   ├── 📄 OrdnerAutomatischErstellen.tsx
+│   ├── 📄 OrdnerListe.tsx
+│   ├── 📄 DateiListe.tsx
 │   ├── 📄 PdfLoadingDialog.tsx
 │   └── 📄 useTableSettings.ts (Hook²)
 │
@@ -135,9 +146,11 @@ Diese Übersicht zeigt, welche Dateien auf welchen Seiten verwendet werden.
     ├── 📄 mailService.ts
     ├── 📄 standardOrdnerService.ts
     ├── 📄 standardTemplateService.ts
+    ├── 📄 dateiSortierService.ts
     ├── 📄 useDateienMailTemplates.ts (Hook²)
     ├── 📄 useDateienMailVersand.ts (Hook²)
     ├── 📄 useDateiSchemata.ts (Hook²)
+    ├── 📄 useDateiSortierung.ts (Hook²)
     ├── 📄 useOrdnerTemplates.ts (Hook²)
     └── 📄 useStandardOrdner.ts (Hook²)
 ```
@@ -357,7 +370,33 @@ Diese Übersicht zeigt, welche Dateien auf welchen Seiten verwendet werden.
 
 ---
 
-## 2.10 Dialog-Seiten
+### 2.10 DateienSortieren.tsx
+**Pfad:** `renderer/src/seiten/DateienSortieren.tsx`
+
+**Wann wird sie aufgerufen?**
+- Wenn man auf "Dateien Sortieren" in der Seitenleiste klickt
+- Über die URL³ `/dateien/sortieren`
+
+**Grundfunktionen:**
+- Quellordner festlegen (Drive-Ordner mit unterschriebenen Dokumenten)
+- Ordner im Quellpfad anzeigen
+- Dateien automatisch Kunden/Betreuern zuordnen (basierend auf Dateinamen)
+- Dateien in die entsprechenden Zielordner importieren (verschieben)
+- Konfliktbehandlung bei bereits existierenden Dateien (Umbenennung)
+- Warnung bei Dateikonflikten vor dem Import
+
+**Verwendete Komponenten:**
+- `Layout` – Rahmen mit Seitenleiste
+- `OrdnerListe` – Zeigt Ordner im Quellpfad
+- `DateiListe` – Zeigt Dateien mit Zuordnungsstatus
+- `ConfirmModal` – Warnung bei Konflikten
+- `MessageModal` – Zeigt Erfolgs-/Fehlermeldungen
+- `LoadingDialog` – Zeigt Fortschritt beim Import
+- `useDateiSortierung` – Hook für State-Management
+
+---
+
+## 2.11 Dialog-Seiten
 
 Diese Seiten werden in separaten Fenstern geöffnet:
 
@@ -635,7 +674,34 @@ Spezieller Ladedialog für PDF-Erstellung.
 
 ---
 
-### 3.22 useTableSettings.ts (Hook²)
+### 3.22 OrdnerListe.tsx
+**Pfad:** `renderer/src/komponenten/OrdnerListe.tsx`
+
+**Funktion:**
+Zeigt die Liste der Ordner im Quellpfad für die Dateisortierung.
+
+**Was macht sie:**
+- Zeigt Ordnernamen mit Dateianzahl
+- Expandierbare Ordner zum Anzeigen der Dateien
+- Button zum Öffnen im Explorer
+- Button zum Importieren der zugeordneten Dateien
+
+---
+
+### 3.23 DateiListe.tsx
+**Pfad:** `renderer/src/komponenten/DateiListe.tsx`
+
+**Funktion:**
+Zeigt die Dateien in einem Ordner mit Zuordnungsstatus.
+
+**Was macht sie:**
+- Zeigt Dateinamen mit Status (zugeordnet/nicht zugeordnet)
+- Zeigt Ziel-Person und Zielordner
+- Zeigt Konflikt-Warnung bei bereits existierenden Dateien
+
+---
+
+### 3.24 useTableSettings.ts (Hook²)
 **Pfad:** `renderer/src/komponenten/useTableSettings.ts`
 
 **Funktion:**
@@ -690,7 +756,22 @@ Verwaltet die Standard-Ordnerstruktur für Kunden/Betreuer.
 
 ---
 
-### 4.5 standardTemplateService.ts
+### 4.5 dateiSortierService.ts
+**Pfad:** `renderer/src/logik/dateiVerwaltung/dateiSortierService.ts`
+
+**Funktion:**
+Service für automatische Dateisortierung und -zuordnung.
+
+**Was macht sie:**
+- Erkennt Dateien anhand ihres Namens
+- Ordnet Dateien automatisch Kunden/Betreuern zu
+- Vergleicht Dateinamen mit erwarteten Standard-Dateien
+- Unterstützt Namensvarianten (Nachname Vorname / Vorname Nachname)
+- Verschiebt Dateien mit Konfliktbehandlung
+
+---
+
+### 4.6 standardTemplateService.ts
 **Pfad:** `renderer/src/logik/dateiVerwaltung/standardTemplateService.ts`
 
 **Funktion:**
@@ -698,11 +779,12 @@ Lädt und speichert die Ordner-Struktur-Templates.
 
 ---
 
-### 4.6 Hooks² für Dateiverwaltung
+### 4.7 Hooks² für Dateiverwaltung
 
 - **useDateienMailTemplates.ts** – Lädt E-Mail-Vorlagen für Dateianhänge
 - **useDateienMailVersand.ts** – Versendet E-Mails mit Dateianhängen
 - **useDateiSchemata.ts** – Verwaltet Schemata¹¹ für Dateiverschiebung
+- **useDateiSortierung.ts** – Verwaltet Dateisortierung (Quellpfad, Ordner, Import)
 - **useOrdnerTemplates.ts** – Verwaltet Ordner-Struktur-Templates
 - **useStandardOrdner.ts** – Lädt Ordnerstruktur für eine Person
 
