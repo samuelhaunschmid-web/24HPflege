@@ -68,11 +68,11 @@ export default function DateienSortieren() {
     }
 
     // Direkt importieren wenn keine Konflikte
-    await fuehreImportAus(ordnerIndex, zuImportieren.length)
+    await fuehreImportAus(ordnerIndex)
   }
 
   // Import durchführen
-  const fuehreImportAus = async (ordnerIndex: number, anzahl: number) => {
+  const fuehreImportAus = async (ordnerIndex: number) => {
     setLoadingDialog({
       isOpen: true,
       title: 'Dateien werden importiert',
@@ -131,7 +131,7 @@ export default function DateienSortieren() {
     const zuImportieren = ordnerItem.zuordnungen.filter(z => 
       z.istZugeordnet && ordnerItem.ausgewaehlteDateien.has(z.dateiPfad)
     )
-    await fuehreImportAus(ordnerIndex, zuImportieren.length)
+    await fuehreImportAus(ordnerIndex)
   }
 
   return (

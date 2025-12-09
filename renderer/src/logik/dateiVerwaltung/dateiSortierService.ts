@@ -1,5 +1,5 @@
-import type { PersonTyp, OrdnerTemplateRegel, TabellenEinstellungen, StandardOrdnerKontext } from './typen'
-import { ersetzePlatzhalter, extrahiereNamen, erstelleNamensVarianten, sanitisiereDateiname } from './platzhalter'
+import type { PersonTyp, TabellenEinstellungen, StandardOrdnerKontext } from './typen'
+import { extrahiereNamen, erstelleNamensVarianten, sanitisiereDateiname } from './platzhalter'
 import { StandardTemplateService } from './standardTemplateService'
 import { StandardOrdnerService } from './standardOrdnerService'
 

@@ -98,10 +98,10 @@ export function useDateiSortierung() {
   useEffect(() => {
     // Wenn Personen-Daten geladen wurden und Ordner bereits geöffnet sind, aktualisiere Zuordnungen
     if ((kunden.length > 0 || betreuer.length > 0) && kundenSettings && betreuerSettings && baseDir) {
-      const geoeffneteOrdner = ordner.filter((o, idx) => o.isExpanded && o.dateien.length > 0)
+      const geoeffneteOrdner = ordner.filter(o => o.isExpanded && o.dateien.length > 0)
       if (geoeffneteOrdner.length > 0) {
         // Aktualisiere Zuordnungen für alle geöffneten Ordner
-        geoeffneteOrdner.forEach((_, idx) => {
+        geoeffneteOrdner.forEach(() => {
           const ordnerIndex = ordner.findIndex(o => o.isExpanded && o.dateien.length > 0)
           if (ordnerIndex >= 0) {
             aktualisiereZuordnungen(ordnerIndex)
