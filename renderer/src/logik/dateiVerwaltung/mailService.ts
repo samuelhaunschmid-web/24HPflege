@@ -96,6 +96,7 @@ export class MailService {
           row: kunde,
           settings: tableSettings.kunden,
           betreuerRow: bet,
+          betreuerSettings: tableSettings.betreuer,
           kundeRow: kunde
         }
 

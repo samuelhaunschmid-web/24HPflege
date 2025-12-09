@@ -13,6 +13,13 @@ export function ersetzePlatzhalter(text: string, kontext: PlatzhalterKontext): s
 
   const vor = String(vorKey && row ? row[vorKey] || '' : '').trim()
   const nach = String(nachKey && row ? row[nachKey] || '' : '').trim()
+  const betreuerSettings = kontext.betreuerSettings || settings
+
+  // Vor-/Nachname eines optional übergebenen Betreuers ermitteln (für {bvname}/{bfname} auch wenn personType !== 'betreuer')
+  const betreuerVorKey = betreuerSettings.gruppen ? Object.keys(betreuerSettings.gruppen).find(k => (betreuerSettings.gruppen[k] || []).includes('vorname')) : undefined
+  const betreuerNachKey = betreuerSettings.gruppen ? Object.keys(betreuerSettings.gruppen).find(k => (betreuerSettings.gruppen[k] || []).includes('nachname')) : undefined
+  const betreuerVor = String(betreuerVorKey && kontext.betreuerRow ? kontext.betreuerRow[betreuerVorKey] || '' : '').trim()
+  const betreuerNach = String(betreuerNachKey && kontext.betreuerRow ? kontext.betreuerRow[betreuerNachKey] || '' : '').trim()
 
   // Spezielle Platzhalter für Betreuer eines Kunden
   let nb1 = ''
@@ -105,8 +112,10 @@ export function ersetzePlatzhalter(text: string, kontext: PlatzhalterKontext): s
   result = result.replace(/\{kfname\}/gi, personType === 'kunden' ? nach : '')
 
   // Betreuer-spezifische Platzhalter
-  result = result.replace(/\{bvname\}/gi, personType === 'betreuer' ? vor : '')
-  result = result.replace(/\{bfname\}/gi, personType === 'betreuer' ? nach : '')
+  const effektiverBetreuerVor = personType === 'betreuer' ? vor : betreuerVor
+  const effektiverBetreuerNach = personType === 'betreuer' ? nach : betreuerNach
+  result = result.replace(/\{bvname\}/gi, effektiverBetreuerVor)
+  result = result.replace(/\{bfname\}/gi, effektiverBetreuerNach)
 
   // Betreuer-Nachnamen für Kunden
   result = result.replace(/\{nb1\}/gi, nb1)
