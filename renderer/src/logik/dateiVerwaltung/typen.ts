@@ -131,6 +131,7 @@ export type PlatzhalterKontext = {
   // Optional für kombinierte Kontexte (z.B. E-Mails)
   betreuerRow?: any
   kundeRow?: any
+  kundeSettings?: TabellenEinstellungen // Optional: Kunden-Settings für {nk1} Platzhalter
   betreuerSettings?: TabellenEinstellungen // Optional: Betreuer-Settings für {betreuerkunde} Platzhalter
 }
 
@@ -145,6 +146,9 @@ export type StandardOrdnerKontext = {
   personType: PersonTyp
   row: any
   settings: TabellenEinstellungen
+  // Optional: Kontext eines zugewiesenen Kunden (für {nk1} in Betreuer-Templates)
+  kundeRow?: any
+  kundeSettings?: TabellenEinstellungen
   betreuerSettings?: TabellenEinstellungen // Optional: Betreuer-Settings für {betreuerkunde} Platzhalter
 }
 

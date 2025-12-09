@@ -6,12 +6,109 @@ const PizZip = require('pizzip');
 const Docxtemplater = require('docxtemplater');
 const mammoth = require('mammoth');
 const { autoUpdater } = require('electron-updater');
+const { spawn, spawnSync } = require('child_process');
 
 const isDev = process.env.VITE_DEV_SERVER_URL || process.env.ELECTRON_START_URL;
 
 let splashWindow = null;
 let mainWindow = null;
 let childWindows = new Set();
+let libreListenerProcess = null;
+
+// Starte bei Bedarf einen einmaligen LibreOffice-Listener, damit Konvertierungen
+// ohne wiederholten Prozess-Start erfolgen können.
+function ensureLibreOfficeListener(sofficePath) {
+  if (libreListenerProcess && !libreListenerProcess.killed) return true;
+  try {
+    const listener = spawn(sofficePath || 'soffice', [
+      '--headless',
+      '--accept=socket,host=127.0.0.1,port=2002;urp;StarOffice.ServiceManager',
+      '--nologo',
+      '--nodefault',
+      '--nolockcheck',
+      '--norestore',
+      '--invisible'
+    ], { stdio: 'ignore', detached: true });
+    libreListenerProcess = listener;
+    return true;
+  } catch (err) {
+    console.warn('LibreOffice Listener konnte nicht gestartet werden:', err?.message || err);
+    return false;
+  }
+}
+
+function hasUnoconv() {
+  try {
+    const res = spawnSync('unoconv', ['-h'], { stdio: 'ignore' });
+    return !res.error && res.status === 0;
+  } catch {
+    return false;
+  }
+}
+
+// Führt eine gebündelte DOCX→PDF-Konvertierung aus und nutzt, wenn möglich,
+// einen laufenden LibreOffice-Listener (unoconv) oder andernfalls einen
+// einmaligen soffice-Batch-Aufruf.
+async function convertDocxBatch(docxFiles, outDir) {
+  const files = (docxFiles || []).filter(f => !!f && fs.existsSync(f));
+  if (!files.length) return { pdfs: [], failed: [] };
+
+  const cfg = readConfig();
+  const manual = cfg.libreOfficePath && fs.existsSync(cfg.libreOfficePath) ? cfg.libreOfficePath : null;
+  const detected = findSofficeExecutable() || 'soffice';
+  const soffice = manual || detected;
+
+  // Versuche zuerst Listener + unoconv
+  let converted = false;
+  if (hasUnoconv() && ensureLibreOfficeListener(soffice)) {
+    const res = spawnSync('unoconv', [
+      '-f', 'pdf',
+      '-o', outDir,
+      '-c', 'socket,host=127.0.0.1,port=2002;urp;StarOffice.ServiceManager',
+      ...files
+    ], { stdio: 'pipe' });
+    converted = !res.error && res.status === 0;
+  }
+
+  // Fallback: ein soffice-Batch-Aufruf mit allen Dateien
+  if (!converted) {
+    const res = spawnSync(soffice, [
+      '--headless',
+      '--convert-to', 'pdf',
+      '--outdir', outDir,
+      ...files
+    ], { stdio: 'pipe' });
+    converted = !res.error && res.status === 0;
+    if (res.error) {
+      // Letzter Fallback: lowriter-Batch versuchen
+      const res2 = spawnSync('lowriter', [
+        '--headless',
+        '--convert-to', 'pdf',
+        '--outdir', outDir,
+        ...files
+      ], { stdio: 'pipe' });
+      converted = !res2.error && res2.status === 0;
+    }
+  }
+
+  const pdfs = [];
+  const failed = [];
+  for (const f of files) {
+    const pdfPath = path.join(outDir, `${path.basename(f, path.extname(f))}.pdf`);
+    if (fs.existsSync(pdfPath)) {
+      pdfs.push(pdfPath);
+    } else {
+      failed.push(f);
+    }
+  }
+  return { pdfs, failed };
+}
+
+app.on('will-quit', () => {
+  if (libreListenerProcess && !libreListenerProcess.killed) {
+    try { process.kill(libreListenerProcess.pid); } catch {}
+  }
+});
 
 function createSplashWindow() {
   splashWindow = new BrowserWindow({
@@ -371,13 +468,10 @@ app.whenReady().then(() => {
         googleClientId: cfg.googleClientId || null,
         googleClientSecret: cfg.googleClientSecret || null,
       },
-      paths: {
-        datenDir: cfg.datenDir || null,
-        altDatenDir: cfg.altDatenDir || null,
-        vorlagenDir: cfg.vorlagenDir || null,
-        rechnungsvorlageDir: cfg.rechnungsvorlageDir || null,
-        libreOfficePath: cfg.libreOfficePath || null,
-      }
+      folderTemplatesPaths: cfg.folderTemplatesPaths || {},
+      folderTemplatesRules: cfg.folderTemplatesRules || {},
+      wechselDateiSchemata: cfg.wechselDateiSchemata || [],
+      dateienMailTemplates: cfg.dateienMailTemplates || [],
     };
     return { ok: true, payload };
   });
@@ -403,13 +497,17 @@ app.whenReady().then(() => {
       if (src.autoInvoicePrefs && typeof src.autoInvoicePrefs === 'object') {
         next.autoInvoicePrefs = { ...(current.autoInvoicePrefs || {}), ...src.autoInvoicePrefs };
       }
-      if (src.paths && typeof src.paths === 'object') {
-        const p = src.paths;
-        if (p.datenDir) next.datenDir = p.datenDir;
-        if (p.altDatenDir) next.altDatenDir = p.altDatenDir;
-        if (p.vorlagenDir) next.vorlagenDir = p.vorlagenDir;
-        if (p.rechnungsvorlageDir) next.rechnungsvorlageDir = p.rechnungsvorlageDir;
-        if (p.libreOfficePath) next.libreOfficePath = p.libreOfficePath;
+      if (src.folderTemplatesPaths && typeof src.folderTemplatesPaths === 'object') {
+        next.folderTemplatesPaths = { ...(current.folderTemplatesPaths || {}), ...src.folderTemplatesPaths };
+      }
+      if (src.folderTemplatesRules && typeof src.folderTemplatesRules === 'object') {
+        next.folderTemplatesRules = { ...(current.folderTemplatesRules || {}), ...src.folderTemplatesRules };
+      }
+      if (Array.isArray(src.wechselDateiSchemata)) {
+        next.wechselDateiSchemata = src.wechselDateiSchemata;
+      }
+      if (Array.isArray(src.dateienMailTemplates)) {
+        next.dateienMailTemplates = src.dateienMailTemplates;
       }
       writeConfig(next);
       return { ok: true, next };
@@ -1999,22 +2097,12 @@ app.whenReady().then(() => {
     }
     if (alsPdf) {
       try {
-        const { spawnSync } = require('child_process')
+        const { pdfs } = await convertDocxBatch(generatedFiles, zielOrdner);
+        // Lösche nur die ursprünglichen DOCX, wenn ein PDF vorhanden ist
         for (const file of generatedFiles) {
-          // Convert using LibreOffice if available
-          const cfg2 = readConfig();
-          const manual = cfg2.libreOfficePath && fs.existsSync(cfg2.libreOfficePath) ? cfg2.libreOfficePath : null;
-          const detected = findSofficeExecutable();
-          const soffice = manual || detected || 'soffice'
-          // Wenn erkannt und noch nicht gespeichert, automatisch merken
-          if (detected && !cfg2.libreOfficePath) {
-            try { writeConfig({ ...cfg2, libreOfficePath: detected }); } catch {}
-          }
-          const res = spawnSync(soffice, ['--headless', '--convert-to', 'pdf', '--outdir', zielOrdner, file], { stdio: 'ignore' })
-          if (res.error) {
-            // Try lowriter alias
-            const res2 = spawnSync('lowriter', ['--headless', '--convert-to', 'pdf', '--outdir', zielOrdner, file], { stdio: 'ignore' })
-            // ignore if also fails; user will get docx instead
+          const pdfTarget = path.join(zielOrdner, `${path.basename(file, path.extname(file))}.pdf`);
+          if (pdfs.includes(pdfTarget) && fs.existsSync(file)) {
+            try { fs.unlinkSync(file); } catch {}
           }
         }
       } catch {}
@@ -2038,7 +2126,7 @@ app.whenReady().then(() => {
   }
 
   ipcMain.handle('docs:generateHtmlPdf', async (_e, args) => {
-    const { ordnerName, targetDir, selectedVorlagen, kunde, betreuer, alsPdf, selectedKundenKeys, month, year, individualRanges } = args || {};
+    const { ordnerName, targetDir, selectedVorlagen, kunde, betreuer, betreuerA, betreuerB, betreuerModus, alsPdf, selectedKundenKeys, month, year, individualRanges } = args || {};
     if (!Array.isArray(selectedVorlagen) || selectedVorlagen.length === 0) throw new Error('Keine Vorlagen ausgewählt');
     if (!targetDir) throw new Error('Kein Zielordner');
     const cfg = readConfig();
@@ -2107,52 +2195,20 @@ app.whenReady().then(() => {
           }
         }
         
-        // Schritt 2: Alle DOCX-Dateien zu PDF konvertieren
+        // Schritt 2: Alle DOCX-Dateien zu PDF konvertieren (Batch + Listener)
         try {
-          const { spawnSync } = require('child_process');
-          const cfg3 = readConfig();
-          const manual2 = cfg3.libreOfficePath && fs.existsSync(cfg3.libreOfficePath) ? cfg3.libreOfficePath : null;
-          const detected2 = findSofficeExecutable();
-          const soffice = manual2 || detected2 || 'soffice';
-          
+          const { pdfs } = await convertDocxBatch(generatedDocxFiles, zielOrdner);
+          // Schritt 3: Erfolgreich konvertierte DOCX-Dateien löschen
           for (const tempDocxPath of generatedDocxFiles) {
-            const result = spawnSync(soffice, [
-              '--headless',
-              '--convert-to', 'pdf',
-              '--outdir', zielOrdner,
-              tempDocxPath
-            ], { stdio: 'pipe' });
-            
-            if (result.error) {
-              // Fallback: lowriter versuchen
-              const result2 = spawnSync('lowriter', [
-                '--headless',
-                '--convert-to', 'pdf',
-                '--outdir', zielOrdner,
-                tempDocxPath
-              ], { stdio: 'pipe' });
-              
-              if (result2.error) {
-                console.warn('LibreOffice not available, keeping DOCX file:', tempDocxPath);
-                // Datei aus Liste entfernen, damit sie nicht gelöscht wird
-                const index = generatedDocxFiles.indexOf(tempDocxPath);
-                if (index > -1) generatedDocxFiles.splice(index, 1);
+            const pdfPath = path.join(zielOrdner, `${path.basename(tempDocxPath, path.extname(tempDocxPath))}.pdf`);
+            if (pdfs.includes(pdfPath) && fs.existsSync(tempDocxPath)) {
+              try { fs.unlinkSync(tempDocxPath); } catch (deleteError) {
+                console.warn('Could not delete temp DOCX file:', tempDocxPath, deleteError);
               }
             }
           }
         } catch (error) {
           console.error('PDF conversion error:', error);
-        }
-        
-        // Schritt 3: Alle temporären DOCX-Dateien löschen
-        for (const tempDocxPath of generatedDocxFiles) {
-          try {
-            if (fs.existsSync(tempDocxPath)) {
-              fs.unlinkSync(tempDocxPath);
-            }
-          } catch (deleteError) {
-            console.warn('Could not delete temp DOCX file:', tempDocxPath, deleteError);
-          }
         }
       } else {
         // Normale DOCX-Erstellung (keine PDF-Konvertierung)
@@ -2191,6 +2247,22 @@ app.whenReady().then(() => {
       // Lade Gruppenzuweisungen für [[Betreuer Anfang]] Platzhalter
       const tableSettings = cfg.tableSettings || {};
       const kundenGruppen = tableSettings['kunden']?.gruppen || {};
+    const hatZweiBetreuer = !!betreuerA || !!betreuerB || betreuerModus === 'zwei';
+
+    function prefixiereBetreuer(obj, prefix) {
+      if (!obj) return {};
+      const res = {};
+      Object.keys(obj || {}).forEach(key => {
+        res[`${prefix}${key}`] = obj[key];
+      });
+      return res;
+    }
+    function formatBetreuerName(row) {
+      if (!row) return '';
+      const vor = String(row['Vor.Nam'] || '').trim();
+      const nach = String(row['Fam. Nam'] || '').trim();
+      return `${vor} ${nach}`.trim();
+    }
 
       // Funktion um das Anfangsdatum des Betreuers zu ermitteln
       function getBetreuerAnfangsdatum(kunde, betreuer) {
@@ -2233,29 +2305,41 @@ app.whenReady().then(() => {
         throw new Error(`Der Betreuer "${betreuerName}" ist beim Kunden "${kunde.__display || 'Unbekannter Kunde'}" nicht als Betreuer 1 oder Betreuer 2 zugeordnet.`);
       }
 
-      const data = { ...(kunde || {}), ...(betreuer || {}) };
+      let data = { ...(kunde || {}) };
+      if (!hatZweiBetreuer && betreuer) data = { ...data, ...(betreuer || {}) };
       if (kunde) Object.keys(kunde).forEach(key => { if (key.startsWith('a')) data[key] = kunde[key]; });
 
-      // Füge [[Betreuer Anfang]] Platzhalter hinzu
-      if (kunde && betreuer) {
-        try {
-          const betreuerAnfang = getBetreuerAnfangsdatum(kunde, betreuer);
-          data['Betreuer Anfang'] = betreuerAnfang;
-        } catch (error) {
-          // Bei Fehler eine Warnung zeigen aber Generierung fortsetzen mit leerem Platzhalter
-          console.warn('WARNUNG:', error.message);
-          // Zeige Warnung über Electron dialog
-          const { dialog } = require('electron');
-          dialog.showMessageBoxSync(null, {
-            type: 'warning',
-            title: 'Betreuer-Zuordnung',
-            message: error.message,
-            detail: 'Das Dokument wird trotzdem generiert, aber der Platzhalter [[Betreuer Anfang]] bleibt leer.'
-          });
+      if (hatZweiBetreuer) {
+        data = {
+          ...data,
+          ...prefixiereBetreuer(betreuerA, 'ba.'),
+          ...prefixiereBetreuer(betreuerB, 'bb.')
+        };
+        if (betreuerA) data['Betreuer A'] = formatBetreuerName(betreuerA);
+        if (betreuerB) data['Betreuer B'] = formatBetreuerName(betreuerB);
+        data['Betreuer Anfang'] = '';
+      } else {
+        // Füge [[Betreuer Anfang]] Platzhalter hinzu
+        if (kunde && betreuer) {
+          try {
+            const betreuerAnfang = getBetreuerAnfangsdatum(kunde, betreuer);
+            data['Betreuer Anfang'] = betreuerAnfang;
+          } catch (error) {
+            // Bei Fehler eine Warnung zeigen aber Generierung fortsetzen mit leerem Platzhalter
+            console.warn('WARNUNG:', error.message);
+            // Zeige Warnung über Electron dialog
+            const { dialog } = require('electron');
+            dialog.showMessageBoxSync(null, {
+              type: 'warning',
+              title: 'Betreuer-Zuordnung',
+              message: error.message,
+              detail: 'Das Dokument wird trotzdem generiert, aber der Platzhalter [[Betreuer Anfang]] bleibt leer.'
+            });
+            data['Betreuer Anfang'] = '';
+          }
+        } else {
           data['Betreuer Anfang'] = '';
         }
-      } else {
-        data['Betreuer Anfang'] = '';
       }
       
       if (alsPdf) {
@@ -2275,52 +2359,23 @@ app.whenReady().then(() => {
         generatedDocxFiles.push(tempDocxPath);
       }
       
-      // Schritt 2: Alle DOCX-Dateien zu PDF konvertieren
+      // Schritt 2: Alle DOCX-Dateien zu PDF konvertieren (Batch + Listener)
       try {
-        const { spawnSync } = require('child_process');
-        const cfg4 = readConfig();
-        const manual3 = cfg4.libreOfficePath && fs.existsSync(cfg4.libreOfficePath) ? cfg4.libreOfficePath : null;
-        const detected3 = findSofficeExecutable() || 'soffice';
-        const soffice = manual3 || detected3;
+        const { pdfs } = await convertDocxBatch(generatedDocxFiles, zielOrdner);
         
+        // Schritt 3: Erfolgreich konvertierte DOCX-Dateien löschen
         for (const tempDocxPath of generatedDocxFiles) {
-          const result = spawnSync(soffice, [
-            '--headless',
-            '--convert-to', 'pdf',
-            '--outdir', zielOrdner,
-            tempDocxPath
-          ], { stdio: 'pipe' });
-          
-          if (result.error) {
-            // Fallback: lowriter versuchen
-            const result2 = spawnSync('lowriter', [
-              '--headless',
-              '--convert-to', 'pdf',
-              '--outdir', zielOrdner,
-              tempDocxPath
-            ], { stdio: 'pipe' });
-            
-            if (result2.error) {
-              console.warn('LibreOffice not available, keeping DOCX file:', tempDocxPath);
-              // Datei aus Liste entfernen, damit sie nicht gelöscht wird
-              const index = generatedDocxFiles.indexOf(tempDocxPath);
-              if (index > -1) generatedDocxFiles.splice(index, 1);
+          const pdfPath = path.join(zielOrdner, `${path.basename(tempDocxPath, path.extname(tempDocxPath))}.pdf`);
+          if (pdfs.includes(pdfPath) && fs.existsSync(tempDocxPath)) {
+            try {
+              fs.unlinkSync(tempDocxPath);
+            } catch (deleteError) {
+              console.warn('Could not delete temp DOCX file:', tempDocxPath, deleteError);
             }
           }
         }
       } catch (error) {
         console.error('PDF conversion error:', error);
-      }
-      
-      // Schritt 3: Alle temporären DOCX-Dateien löschen
-      for (const tempDocxPath of generatedDocxFiles) {
-        try {
-          if (fs.existsSync(tempDocxPath)) {
-            fs.unlinkSync(tempDocxPath);
-          }
-        } catch (deleteError) {
-          console.warn('Could not delete temp DOCX file:', tempDocxPath, deleteError);
-        }
       }
     } else {
       // Normale DOCX-Erstellung
@@ -2411,70 +2466,21 @@ app.whenReady().then(() => {
     // PDF-Konvertierung falls gewünscht (wie in generateHtmlPdf)
     if (alsPdf) {
       try {
-        const { spawnSync } = require('child_process');
-        const pdfFiles = [];
-        
+        const { pdfs } = await convertDocxBatch(generatedFiles, targetDir);
+
+        // Erfolgreich konvertierte DOCX-Dateien löschen
         for (const file of generatedFiles) {
-          try {
-            // LibreOffice für PDF-Konvertierung verwenden (wie in generateHtmlPdf)
-            const soffice = findSofficeExecutable() || 'soffice';
-            const result = spawnSync(soffice, [
-              '--headless',
-              '--convert-to', 'pdf',
-              '--outdir', targetDir,
-              file
-            ], { stdio: 'pipe' });
-            
-            if (result.error) {
-              // Fallback: lowriter versuchen
-              const result2 = spawnSync('lowriter', [
-                '--headless',
-                '--convert-to', 'pdf',
-                '--outdir', targetDir,
-                file
-              ], { stdio: 'pipe' });
-              
-              if (result2.error) {
-                console.warn('LibreOffice not available, keeping DOCX file');
-                pdfFiles.push(file); // Behalte DOCX wenn PDF-Konvertierung fehlschlägt
-              } else {
-                // PDF erfolgreich erstellt
-                const pdfFileName = path.basename(file, path.extname(file)) + '.pdf';
-                const pdfFilePath = path.join(targetDir, pdfFileName);
-                if (fs.existsSync(pdfFilePath)) {
-                  pdfFiles.push(pdfFilePath);
-                }
-                // Temporäre DOCX-Datei löschen nach erfolgreicher PDF-Konvertierung
-                try {
-                  fs.unlinkSync(file);
-                } catch (deleteError) {
-                  console.warn('Could not delete temp DOCX file:', deleteError);
-                }
-              }
-            } else {
-              // PDF erfolgreich erstellt
-              const pdfFileName = path.basename(file, path.extname(file)) + '.pdf';
-              const pdfFilePath = path.join(targetDir, pdfFileName);
-              if (fs.existsSync(pdfFilePath)) {
-                pdfFiles.push(pdfFilePath);
-              }
-              // Temporäre DOCX-Datei löschen nach erfolgreicher PDF-Konvertierung
-              try {
-                fs.unlinkSync(file);
-              } catch (deleteError) {
-                console.warn('Could not delete temp DOCX file:', deleteError);
-              }
+          const pdfPath = path.join(targetDir, `${path.basename(file, path.extname(file))}.pdf`);
+          if (pdfs.includes(pdfPath) && fs.existsSync(file)) {
+            try { fs.unlinkSync(file); } catch (deleteError) {
+              console.warn('Could not delete temp DOCX file:', deleteError);
             }
-          } catch (error) {
-            console.error('PDF conversion error for file:', file, error);
-            pdfFiles.push(file); // Behalte DOCX bei Fehler
           }
         }
-        
+
         // Ersetze used-Liste mit PDF-Dateien und aktualisiere Mapping
-        if (pdfFiles.length > 0) {
-          // Mapping neu aufbauen anhand von Basenamen
-          const pdfByBase = Object.fromEntries(pdfFiles.map(p => [path.basename(p, path.extname(p)), p]));
+        if (pdfs.length > 0) {
+          const pdfByBase = Object.fromEntries(pdfs.map(p => [path.basename(p, path.extname(p)), p]));
           const newUsed = [];
           const newUsedByKey = {};
           for (const [k, files] of Object.entries(usedByKey)) {

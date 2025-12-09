@@ -121,7 +121,7 @@ export default function DateiVerwaltungsPanel({
               {fehlendeDateienAnzahl}
             </span>
           )}
-          {onHauptOrdnerKlick && ordnerStruktur.exists && (
+          {onHauptOrdnerKlick && (
             <button
               title="Ordner-Management"
               onClick={onHauptOrdnerKlick}

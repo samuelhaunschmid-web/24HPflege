@@ -62,6 +62,17 @@ export class StandardOrdnerService {
     const { baseDir, personType, row, settings } = kontext
     if (!baseDir) return null
 
+    // Für Betreuer: versuche automatisch den zugewiesenen Kunden zu ermitteln (für {nk1})
+    let kontextMitKunde: StandardOrdnerKontext = kontext
+    if (personType === 'betreuer' && !kontext.kundeRow) {
+      const { kundeRow, kundenSettings } = await this.findeZugewiesenenKundenFuerBetreuer(row, settings)
+      kontextMitKunde = {
+        ...kontext,
+        ...(kundenSettings ? { kundeSettings: kundenSettings } : {}),
+        ...(kundeRow ? { kundeRow } : {})
+      }
+    }
+
     const { varianten } = this.ermittlePersonNamen(row, personType, settings)
     const ordnerListe = await this.ladeOrdnerFuerPersonen(baseDir, personType, varianten)
 
@@ -80,7 +91,7 @@ export class StandardOrdnerService {
     }
 
     // Berechne fehlende Standarddateien
-    const fehlendeDateien = this.berechneFehlendeDateien(personEintrag, templateRegeln, kontext)
+    const fehlendeDateien = this.berechneFehlendeDateien(personEintrag, templateRegeln, kontextMitKunde)
 
     return {
       ...personEintrag,
@@ -140,6 +151,7 @@ export class StandardOrdnerService {
 
     // Prüfe, ob Template {betreuerkunde} enthält
     const hatBetreuerkunde = /\{betreuerkunde\}/i.test(dateiTemplate)
+    const brauchtNk1 = /\{nk1\}/i.test(dateiTemplate) && personType === 'betreuer'
     
     // Prüfe, ob Template {dateityp} enthält (für Wildcard-Suche)
     const hatDateityp = /\{dateityp\}/i.test(dateiTemplate)
@@ -154,8 +166,24 @@ export class StandardOrdnerService {
       return await this.findeStandardDateiMitDateityp(kontext, folderPath, dateiTemplate, betreuerRow)
     }
 
+    // Für Betreuer + {nk1}: ermittele Kunden-Kontext, falls noch nicht vorhanden
+    let kundeRow = kontext.kundeRow
+    let kundeSettings = kontext.kundeSettings
+    if (brauchtNk1 && !kundeRow) {
+      const res = await this.findeZugewiesenenKundenFuerBetreuer(row, settings)
+      kundeRow = res.kundeRow || undefined
+      kundeSettings = res.kundenSettings || kundeSettings
+    }
+
     const { varianten } = this.ermittlePersonNamen(row, personType, settings)
-    const platzhalterKontext = { personType, row, settings, betreuerRow }
+    const platzhalterKontext = { 
+      personType, 
+      row, 
+      settings, 
+      betreuerRow, 
+      ...(kundeRow ? { kundeRow } : {}),
+      ...(kundeSettings ? { kundeSettings } : {})
+    }
     const expectedName = ersetzePlatzhalter(dateiTemplate, platzhalterKontext)
 
     // Versuche alle Namensvarianten
@@ -189,8 +217,25 @@ export class StandardOrdnerService {
     const { baseDir, personType, row, settings } = kontext
     if (!baseDir) return { exists: false, path: null }
 
+    // Für Betreuer + {nk1}: ermittele Kunden-Kontext, falls noch nicht vorhanden
+    let kundeRow = kontext.kundeRow
+    let kundeSettings = kontext.kundeSettings
+    const brauchtNk1 = personType === 'betreuer' && /\{nk1\}/i.test(dateiTemplate)
+    if (brauchtNk1 && !kundeRow) {
+      const res = await this.findeZugewiesenenKundenFuerBetreuer(row, settings)
+      kundeRow = res.kundeRow || undefined
+      kundeSettings = res.kundenSettings || kundeSettings
+    }
+
     const { varianten } = this.ermittlePersonNamen(row, personType, settings)
-    const platzhalterKontext = { personType, row, settings, betreuerRow }
+    const platzhalterKontext = { 
+      personType, 
+      row, 
+      settings, 
+      betreuerRow,
+      ...(kundeRow ? { kundeRow } : {}),
+      ...(kundeSettings ? { kundeSettings } : {})
+    }
     
     // Ersetze alle Platzhalter (inkl. {dateityp} wird zu leerem String)
     let basisName = ersetzePlatzhalter(dateiTemplate, platzhalterKontext)
@@ -436,6 +481,40 @@ export class StandardOrdnerService {
   }
 
   /**
+   * Hilfsfunktion: findet den ersten Kunden, dem ein Betreuer zugeordnet ist (betreuer1 oder betreuer2)
+   * Wird für {nk1} benötigt, wenn Betreuer-Templates in Standardordnern verwendet werden.
+   */
+  private static async findeZugewiesenenKundenFuerBetreuer(
+    betreuerRow: any,
+    betreuerSettings: any
+  ): Promise<{ kundeRow: any | null; kundenSettings: any | null }> {
+    const kundenSettings = await this.getTableSettings('kunden')
+    const lists = await window.docgen?.getLists?.()
+    const kunden = lists?.kunden || []
+
+    if (!kunden.length) {
+      return { kundeRow: null, kundenSettings }
+    }
+
+    const { vorname, nachname } = extrahiereNamen(betreuerRow, betreuerSettings || { gruppen: {} })
+    const betreuerFull = `${vorname} ${nachname}`.trim().toLowerCase()
+    if (!betreuerFull) {
+      return { kundeRow: null, kundenSettings }
+    }
+
+    const b1Key = Object.keys(kundenSettings.gruppen || {}).find(k => (kundenSettings.gruppen[k] || []).includes('betreuer1'))
+    const b2Key = Object.keys(kundenSettings.gruppen || {}).find(k => (kundenSettings.gruppen[k] || []).includes('betreuer2'))
+
+    const kundeRow = kunden.find(k => {
+      const b1Val = b1Key ? String(k[b1Key] || '').trim().toLowerCase() : ''
+      const b2Val = b2Key ? String(k[b2Key] || '').trim().toLowerCase() : ''
+      return b1Val === betreuerFull || b2Val === betreuerFull
+    }) || null
+
+    return { kundeRow, kundenSettings }
+  }
+
+  /**
    * Berechnet fehlende Standarddateien für einen Ordner-Eintrag
    * Unterstützt {betreuerkunde} Platzhalter: Erstellt für jeden vorhandenen Betreuer eine separate Erwartung
    */
@@ -445,6 +524,14 @@ export class StandardOrdnerService {
     kontext: StandardOrdnerKontext
   ): any[] {
     if (!templateRegeln?.length) return []
+    const platzhalterGrundKontext = {
+      personType: kontext.personType,
+      row: kontext.row,
+      settings: kontext.settings,
+      ...(kontext.kundeRow ? { kundeRow: kontext.kundeRow } : {}),
+      ...(kontext.kundeSettings ? { kundeSettings: kontext.kundeSettings } : {}),
+      ...(kontext.betreuerSettings ? { betreuerSettings: kontext.betreuerSettings } : {})
+    }
     
     // Wenn der Ordner nicht existiert, sind alle Dateien fehlend
     if (!eintrag?.exists) {
@@ -459,11 +546,7 @@ export class StandardOrdnerService {
               template: fileTemplate
             })))
           } else {
-            const expectedName = ersetzePlatzhalter(fileTemplate, { 
-              personType: kontext.personType, 
-              row: kontext.row, 
-              settings: kontext.settings 
-            })
+            const expectedName = ersetzePlatzhalter(fileTemplate, platzhalterGrundKontext)
             fehlende.push({
               file: expectedName,
               folderPath: regel.path.join(' / '),
@@ -495,7 +578,7 @@ export class StandardOrdnerService {
             })))
           } else {
             // Für {dateityp}: Ersetze Platzhalter, aber behalte {dateityp} für Anzeige
-            const expectedName = ersetzePlatzhalter(fileTemplate, { personType: kontext.personType, row: kontext.row, settings: kontext.settings })
+            const expectedName = ersetzePlatzhalter(fileTemplate, platzhalterGrundKontext)
             fehlende.push({
               file: expectedName,
               folderPath: regel.path.join(' / '),
@@ -523,11 +606,7 @@ export class StandardOrdnerService {
           }
         } else if (/\{dateityp\}/i.test(fileTemplate)) {
           // Für {dateityp}: Prüfe, ob eine Datei mit dem Basisnamen existiert (unabhängig von Erweiterung)
-          const expectedName = ersetzePlatzhalter(fileTemplate, {
-            personType: kontext.personType,
-            row: kontext.row,
-            settings: kontext.settings
-          })
+          const expectedName = ersetzePlatzhalter(fileTemplate, platzhalterGrundKontext)
           // Entferne führende/abschließende Punkte
           const baseName = expectedName.replace(/^\.+|\.+$/g, '').trim()
           
@@ -546,11 +625,7 @@ export class StandardOrdnerService {
           }
         } else {
           // Normale Platzhalter-Ersetzung
-          const expectedName = ersetzePlatzhalter(fileTemplate, {
-            personType: kontext.personType,
-            row: kontext.row,
-            settings: kontext.settings
-          })
+          const expectedName = ersetzePlatzhalter(fileTemplate, platzhalterGrundKontext)
 
           if (!existingFiles.has(expectedName)) {
             fehlende.push({

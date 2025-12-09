@@ -2,7 +2,6 @@ import { useState } from 'react'
 import Layout from '../seite-shared/Layout'
 import { useDateiSortierung } from '../logik/dateiVerwaltung/useDateiSortierung'
 import OrdnerListe from '../komponenten/OrdnerListe'
-import DateiListe from '../komponenten/DateiListe'
 import ConfirmModal from '../komponenten/ConfirmModal'
 import MessageModal from '../komponenten/MessageModal'
 import LoadingDialog from '../komponenten/LoadingDialog'
@@ -310,31 +309,8 @@ export default function DateienSortieren() {
               onToggle={toggleOrdner}
               onOeffneImExplorer={oeffneOrdnerImExplorer}
               onImportiere={handleImportiere}
+              onToggleDateiAuswahl={toggleDateiAuswahl}
             />
-
-            {/* Expandierte Ordner mit Dateilisten */}
-            {ordner.map((o, index) => (
-              o.isExpanded && !o.isLoading && (
-                <div
-                  key={`files-${o.path}`}
-                  style={{
-                    marginTop: -8,
-                    marginBottom: 8,
-                    background: '#ffffff',
-                    borderRadius: '0 0 10px 10px',
-                    border: '1px solid #e5e7eb',
-                    borderTop: 'none'
-                  }}
-                >
-                  <DateiListe
-                    zuordnungen={o.zuordnungen}
-                    isLoading={o.isLoading}
-                    ausgewaehlteDateien={o.ausgewaehlteDateien}
-                    onToggleAuswahl={(dateiPfad) => toggleDateiAuswahl(index, dateiPfad)}
-                  />
-                </div>
-              )
-            ))}
           </div>
         )}
 

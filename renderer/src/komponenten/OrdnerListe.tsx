@@ -1,16 +1,18 @@
 import type { QuellOrdner } from '../logik/dateiVerwaltung/useDateiSortierung'
+import DateiListe from './DateiListe'
 
 type Props = {
   ordner: QuellOrdner[]
   onToggle: (index: number) => void
   onOeffneImExplorer: (pfad: string) => void
   onImportiere: (index: number) => void
+  onToggleDateiAuswahl: (ordnerIndex: number, dateiPfad: string) => void
 }
 
 /**
  * Komponente zur Anzeige der Ordner im Quellpfad
  */
-export default function OrdnerListe({ ordner, onToggle, onOeffneImExplorer, onImportiere }: Props) {
+export default function OrdnerListe({ ordner, onToggle, onOeffneImExplorer, onImportiere, onToggleDateiAuswahl }: Props) {
   if (ordner.length === 0) {
     return (
       <div style={{
@@ -176,6 +178,20 @@ export default function OrdnerListe({ ordner, onToggle, onOeffneImExplorer, onIm
                 fontSize: 13
               }}>
                 Lade Dateien...
+              </div>
+            )}
+
+            {/* Dateiliste (nur wenn expandiert und nicht loading) */}
+            {o.isExpanded && !o.isLoading && o.zuordnungen.length > 0 && (
+              <div style={{
+                borderTop: '1px solid #e5e7eb'
+              }}>
+                <DateiListe
+                  zuordnungen={o.zuordnungen}
+                  isLoading={false}
+                  ausgewaehlteDateien={o.ausgewaehlteDateien}
+                  onToggleAuswahl={(dateiPfad) => onToggleDateiAuswahl(index, dateiPfad)}
+                />
               </div>
             )}
           </div>

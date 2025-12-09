@@ -72,22 +72,19 @@ export function ersetzePlatzhalter(text: string, kontext: PlatzhalterKontext): s
     }
   }
 
-  if (personType === 'betreuer' && betreuerRow && kundeRow) {
+  if (personType === 'betreuer' && kundeRow) {
     // Kunde-Platzhalter für Betreuer (erster zugewiesener Kunde)
-    const kundenNachKey = Object.keys(settings.gruppen).find(k => (settings.gruppen[k] || []).includes('nachname'))
-    const betreuerFull = `${vor} ${nach}`.trim()
+    const kundenSettings = kontext.kundeSettings || settings
+    const kundenNachKey = Object.keys(kundenSettings.gruppen || {}).find(k => (kundenSettings.gruppen[k] || []).includes('nachname'))
+    const kundenB1Key = Object.keys(kundenSettings.gruppen || {}).find(k => (kundenSettings.gruppen[k] || []).includes('betreuer1'))
+    const kundenB2Key = Object.keys(kundenSettings.gruppen || {}).find(k => (kundenSettings.gruppen[k] || []).includes('betreuer2'))
 
-    // Finde ersten Kunden, der diesen Betreuer hat
-    if (kundeRow) {
-      const kundenB1Key = Object.keys(settings.gruppen).find(k => (settings.gruppen[k] || []).includes('betreuer1'))
-      const kundenB2Key = Object.keys(settings.gruppen).find(k => (settings.gruppen[k] || []).includes('betreuer2'))
+    const betreuerFull = `${vor} ${nach}`.trim().toLowerCase()
+    const b1Val = kundenB1Key ? String(kundeRow[kundenB1Key] || '').trim().toLowerCase() : ''
+    const b2Val = kundenB2Key ? String(kundeRow[kundenB2Key] || '').trim().toLowerCase() : ''
 
-      const b1Val = kundenB1Key ? String(kundeRow[kundenB1Key] || '').trim() : ''
-      const b2Val = kundenB2Key ? String(kundeRow[kundenB2Key] || '').trim() : ''
-
-      if (b1Val === betreuerFull || b2Val === betreuerFull) {
-        nk1 = kundenNachKey ? String(kundeRow[kundenNachKey] || '').trim() : ''
-      }
+    if (betreuerFull && (b1Val === betreuerFull || b2Val === betreuerFull)) {
+      nk1 = kundenNachKey ? String(kundeRow[kundenNachKey] || '').trim() : ''
     }
   }
   

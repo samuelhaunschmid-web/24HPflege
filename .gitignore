@@ -64,6 +64,12 @@ coverage/
 # Electron Builder
 electron-builder.env
 dist_electron/
+builder-debug.yml
+latest.yml
+*-unpacked/
+win-unpacked/
+mac/
+linux-unpacked/
 
 # Local configuration files (if any are created in project root)
 config.json
@@ -73,3 +79,14 @@ config.json
 # Uncomment if you don't want to commit them:
 # package-lock.json
 # renderer/package-lock.json
+
+# Backup files
+*.bak
+*.backup
+*~
+
+# Temporary files
+*.temp
+*.tmp
+temp/
+tmp/

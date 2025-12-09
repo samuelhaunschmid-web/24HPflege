@@ -29,6 +29,7 @@ type FehlendeStandardDatei = {
   personName: string
   zielOrdner: string[]
   templateName: string
+  hatDateitypPlatzhalter: boolean // True wenn Template {dateityp} enthält
 }
 
 /**
@@ -88,15 +89,28 @@ export class DateiSortierService {
 
         if (struktur.fehlendeDateien && struktur.fehlendeDateien.length > 0) {
           for (const fehlend of struktur.fehlendeDateien) {
-            // Normalisiere Dateiname: lowercase, trim, entferne führende/abschließende Leerzeichen
-            const dateiNameKey = fehlend.file.toLowerCase().trim()
+            // Prüfe ob Template {dateityp} enthält
+            const hatDateityp = /\{dateityp\}/i.test(fehlend.template)
+            
+            // Für {dateityp}: Verwende Basisnamen (ohne Erweiterung) als Key
+            // Für normale Dateien: Verwende vollständigen Namen
+            let dateiNameKey: string
+            if (hatDateityp) {
+              // Entferne Erweiterung und normalisiere
+              const baseName = fehlend.file.replace(/\.[^.]+$/, '').replace(/^\.+|\.+$/g, '').trim()
+              dateiNameKey = baseName.toLowerCase().trim()
+            } else {
+              dateiNameKey = fehlend.file.toLowerCase().trim()
+            }
+            
             const eintrag: FehlendeStandardDatei = {
               dateiName: fehlend.file.trim(), // Original-Name für Anzeige
               personType: 'kunden',
               personRow: kunde,
               personName,
               zielOrdner: fehlend.folderPath.split(' / ').filter(Boolean),
-              templateName: fehlend.template
+              templateName: fehlend.template,
+              hatDateitypPlatzhalter: hatDateityp
             }
 
             if (!dateiMap.has(dateiNameKey)) {
@@ -131,15 +145,28 @@ export class DateiSortierService {
 
         if (struktur.fehlendeDateien && struktur.fehlendeDateien.length > 0) {
           for (const fehlend of struktur.fehlendeDateien) {
-            // Normalisiere Dateiname: lowercase, trim, entferne führende/abschließende Leerzeichen
-            const dateiNameKey = fehlend.file.toLowerCase().trim()
+            // Prüfe ob Template {dateityp} enthält
+            const hatDateityp = /\{dateityp\}/i.test(fehlend.template)
+            
+            // Für {dateityp}: Verwende Basisnamen (ohne Erweiterung) als Key
+            // Für normale Dateien: Verwende vollständigen Namen
+            let dateiNameKey: string
+            if (hatDateityp) {
+              // Entferne Erweiterung und normalisiere
+              const baseName = fehlend.file.replace(/\.[^.]+$/, '').replace(/^\.+|\.+$/g, '').trim()
+              dateiNameKey = baseName.toLowerCase().trim()
+            } else {
+              dateiNameKey = fehlend.file.toLowerCase().trim()
+            }
+            
             const eintrag: FehlendeStandardDatei = {
               dateiName: fehlend.file.trim(), // Original-Name für Anzeige
               personType: 'betreuer',
               personRow: betreuerPerson,
               personName,
               zielOrdner: fehlend.folderPath.split(' / ').filter(Boolean),
-              templateName: fehlend.template
+              templateName: fehlend.template,
+              hatDateitypPlatzhalter: hatDateityp
             }
 
             if (!dateiMap.has(dateiNameKey)) {
@@ -192,8 +219,28 @@ export class DateiSortierService {
       }
     }
 
+    // Wenn kein exaktes Match gefunden wurde, prüfe ob es ein {dateityp} Match sein könnte
+    // Entferne Erweiterung und suche nach Basisnamen
+    const baseName = dateiName.replace(/\.[^.]+$/, '').trim()
+    const baseNameKey = baseName.toLowerCase().trim()
+    const baseNameMatches = fehlendeDateienMap.get(baseNameKey)
+    
+    if (baseNameMatches && baseNameMatches.length > 0) {
+      // Prüfe ob einer der Matches ein {dateityp} Template ist
+      const dateitypMatch = baseNameMatches.find(m => m.hatDateitypPlatzhalter)
+      if (dateitypMatch) {
+        return {
+          personType: dateitypMatch.personType,
+          personRow: dateitypMatch.personRow,
+          personName: dateitypMatch.personName,
+          zielOrdner: dateitypMatch.zielOrdner,
+          templateName: dateitypMatch.templateName
+        }
+      }
+    }
+
     // Debug: Zeige was gesucht wurde
-    console.log('[DateiSortierService] Kein Match gefunden für:', dateiNameKey)
+    console.log('[DateiSortierService] Kein Match gefunden für:', dateiNameKey, '(Basisname:', baseNameKey + ')')
     console.log('[DateiSortierService] Verfügbare Keys:', Array.from(fehlendeDateienMap.keys()).slice(0, 10))
 
     // Keine Zuordnung gefunden

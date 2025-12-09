@@ -190,7 +190,11 @@ export default function VorlagenGruppenDialog({ offen, onClose }: Props) {
                 </div>
               </div>
 
-              {(order.length > 0 ? order : Object.keys(gruppen)).map(groupName => {
+              {(
+                order.length > 0
+                  ? [...order, ...Object.keys(gruppen).filter(k => !order.includes(k))]
+                  : Object.keys(gruppen)
+              ).map(groupName => {
                 const templates = gruppen[groupName] || []
                 const isExpanded = expandedGroups.has(groupName)
 

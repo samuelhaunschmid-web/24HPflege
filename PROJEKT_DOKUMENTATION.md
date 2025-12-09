@@ -1,6 +1,6 @@
 # 24h Pflege - Projekt-Dokumentation
 
-> **Letzte Aktualisierung:** 02.12.2024
+> **Letzte Aktualisierung:** 09.12.2025
 > 
 > Diese Datei dient als Übersicht über die Struktur und Funktionen der App. Sie soll zukünftig bei Änderungen aktualisiert werden.
 
@@ -169,10 +169,11 @@ Diese Übersicht zeigt, welche Dateien auf welchen Seiten verwendet werden.
 
 **Grundfunktionen:**
 - Auswahl eines Kunden aus der Datenbank
-- Auswahl eines Betreuers aus der Datenbank
+- Auswahl eines Betreuers aus der Datenbank oder zweier Betreuer (A/B) für Wechsel-Dokumente
 - Auswahl von Dokumentvorlagen (organisiert in Gruppen)
 - Generierung von Dokumenten als DOCX oder PDF
 - Festlegung eines Ordnernamens für die erzeugten Dateien
+- Übergabe zusätzlicher Platzhalter für Betreuer A/B (`[[ba.<Feld>]]`, `[[bb.<Feld>]]`) in Vorlagen
 
 **Verwendete Komponenten:**
 - `Layout` – Rahmen mit Seitenleiste
@@ -300,7 +301,21 @@ Diese Übersicht zeigt, welche Dateien auf welchen Seiten verwendet werden.
   - Dokumente-Ordner (Kunden-/Betreuerdaten)
   - LibreOffice-Pfad (für PDF-Konvertierung)
 - App-Updates prüfen und installieren
-- Einstellungen exportieren/importieren (über die Komponente `EinstellungenExportImport`)
+- Einstellungen exportieren/importieren (über die Komponente `EinstellungenExportImport`):
+  - Exportiert/Importiert werden:
+    - Tabellen-Einstellungen (`tableSettings`) für Kunden/Betreuer
+    - Anzeigenamen der Rechnungsvorlagen (`invoiceTemplateDisplayNames`)
+    - E-Mail-Vorlagen für Rechnungen (`emailTemplates`)
+    - Einstellungen für automatische Rechnungen (`autoInvoicePrefs`)
+    - Mail-Konfiguration (Google OAuth: `googleClientId`, `googleClientSecret`)
+    - Standardordner-Templates inkl. erwarteter Dateien:
+      - `folderTemplatesPaths` (Ordner-Struktur für Kunden/Betreuer)
+      - `folderTemplatesRules` (Regeln + Standard-Dateien pro Ordner)
+    - Datei-Schemata für Betreuerwechsel (`wechselDateiSchemata`)
+    - Mailvorlagen der Mail-Seite (`dateienMailTemplates`)
+  - **Nicht** exportiert/importiert werden:
+    - Physische Pfade wie `datenDir`, `altDatenDir`, `vorlagenDir`, `rechnungsvorlageDir`, `libreOfficePath`
+    - Dokumente-Ordner (`dokumenteDir`) selbst (nur die Templates/Regeln, nicht die echten Dateien)
 - LibreOffice Installation
 
 **Verwendete Komponenten:**
@@ -733,6 +748,8 @@ Ersetzt Platzhalter⁷ in Texten durch echte Werte.
 **Beispiel:**
 `{nachname}_{vorname}.pdf` wird zu `Müller_Max.pdf`
 
+- `{nk1}` füllt bei Betreuer-Vorlagen automatisch den Nachnamen des ersten zugewiesenen Kunden (Betreuer1/Betreuer2) aus, damit Standarddateien korrekt benannt werden.
+
 ---
 
 ### 4.3 mailService.ts
@@ -787,6 +804,20 @@ Lädt und speichert die Ordner-Struktur-Templates.
 - **useDateiSortierung.ts** – Verwaltet Dateisortierung (Quellpfad, Ordner, Import)
 - **useOrdnerTemplates.ts** – Verwaltet Ordner-Struktur-Templates
 - **useStandardOrdner.ts** – Lädt Ordnerstruktur für eine Person
+
+---
+
+### 4.8 main.js (Dokumenten- und PDF-Backend)
+**Pfad:** `main.js`
+
+**Funktion:**
+- Generiert DOCX über Docxtemplater und konvertiert optional zu PDF.
+- Startet bei Bedarf einen einmaligen LibreOffice-Listener (UNO-Socket) und nutzt Batch-Konvertierung, um Start-Overhead zu sparen.
+
+**Was macht sich geändert:**
+- Statt je Datei einen eigenen `soffice`-Prozess zu starten, werden alle erzeugten DOCX einer Anfrage gebündelt konvertiert.
+- Falls `unoconv` verfügbar ist, wird der laufende LibreOffice-Listener genutzt; sonst fällt die App auf einen einmaligen Batch-Aufruf von `soffice` zurück.
+- Erfolgreich konvertierte DOCX werden nach dem PDF-Export gelöscht, damit nur PDFs im Zielordner verbleiben.
 
 ---
 

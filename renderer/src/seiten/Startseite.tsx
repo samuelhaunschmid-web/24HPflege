@@ -11,14 +11,21 @@ export default function Startseite() {
   const [betreuer, setBetreuer] = useState<Person[]>([])
   const [kunde, setKunde] = useState<Person | null>(null)
   const [betreuu, setBetreuu] = useState<Person | null>(null)
+  const [betreuerA, setBetreuerA] = useState<Person | null>(null)
+  const [betreuerB, setBetreuerB] = useState<Person | null>(null)
   const [kundenQuery, setKundenQuery] = useState<string>('')
   const [betreuerQuery, setBetreuerQuery] = useState<string>('')
+  const [betreuerAQuery, setBetreuerAQuery] = useState<string>('')
+  const [betreuerBQuery, setBetreuerBQuery] = useState<string>('')
   const [showKundenDropdown, setShowKundenDropdown] = useState<boolean>(false)
   const [showBetreuerDropdown, setShowBetreuerDropdown] = useState<boolean>(false)
+  const [showBetreuerADropdown, setShowBetreuerADropdown] = useState<boolean>(false)
+  const [showBetreuerBDropdown, setShowBetreuerBDropdown] = useState<boolean>(false)
   const [ordnerName, setOrdnerName] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [loadingProgress, setLoadingProgress] = useState(0)
   const [loadingMessage, setLoadingMessage] = useState('')
+  const [betreuerModus, setBetreuerModus] = useState<'ein' | 'zwei'>('ein')
 
   // Hilfsfunktion um Dateinamen aus Pfad zu extrahieren
   function getFilenameFromPath(path: string): string {
@@ -28,10 +35,13 @@ export default function Startseite() {
   // Gruppen-basiertes Vorlagen-System
   const [templateGroups, setTemplateGroups] = useState<Record<string, string[]>>({})
   const [templateGroupOrder, setTemplateGroupOrder] = useState<string[]>([])
-  const [selectedGroups, setSelectedGroups] = useState<string[]>([])
-  const [selectedGroupTemplates, setSelectedGroupTemplates] = useState<string[]>([])
+  const [selectedGroupsEin, setSelectedGroupsEin] = useState<string[]>([])
+  const [selectedGroupsZwei, setSelectedGroupsZwei] = useState<string[]>([])
+  const [selectedGroupTemplatesEin, setSelectedGroupTemplatesEin] = useState<string[]>([])
+  const [selectedGroupTemplatesZwei, setSelectedGroupTemplatesZwei] = useState<string[]>([])
   const [gruppenDialogOffen, setGruppenDialogOffen] = useState(false)
-  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
+  const [expandedGroupsEin, setExpandedGroupsEin] = useState<Set<string>>(new Set())
+  const [expandedGroupsZwei, setExpandedGroupsZwei] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     ;(async () => {
@@ -79,10 +89,30 @@ export default function Startseite() {
     if (!q) return betreuerLabels
     return betreuerLabels.filter(b => b.label.toLowerCase().includes(q))
   }, [betreuerLabels, betreuerQuery])
+  const betreuerAFiltered = useMemo(() => {
+    const q = betreuerAQuery.trim().toLowerCase()
+    if (!q) return betreuerLabels
+    return betreuerLabels.filter(b => b.label.toLowerCase().includes(q))
+  }, [betreuerLabels, betreuerAQuery])
+  const betreuerBFiltered = useMemo(() => {
+    const q = betreuerBQuery.trim().toLowerCase()
+    if (!q) return betreuerLabels
+    return betreuerLabels.filter(b => b.label.toLowerCase().includes(q))
+  }, [betreuerLabels, betreuerBQuery])
+
+  const currentSelectedGroups = betreuerModus === 'ein' ? selectedGroupsEin : selectedGroupsZwei
+  const currentSelectedTemplates = betreuerModus === 'ein' ? selectedGroupTemplatesEin : selectedGroupTemplatesZwei
+  const currentExpanded = betreuerModus === 'ein' ? expandedGroupsEin : expandedGroupsZwei
+
+  const setCurrentSelectedGroups = betreuerModus === 'ein' ? setSelectedGroupsEin : setSelectedGroupsZwei
+  const setCurrentSelectedTemplates = betreuerModus === 'ein' ? setSelectedGroupTemplatesEin : setSelectedGroupTemplatesZwei
+  const setCurrentExpanded = betreuerModus === 'ein' ? setExpandedGroupsEin : setExpandedGroupsZwei
 
   function renderGroups() {
-    // Verwende templateGroupOrder oder falle auf die Keys von templateGroups zurück
-    const effectiveOrder = templateGroupOrder.length > 0 ? templateGroupOrder : Object.keys(templateGroups)
+    // Verwende templateGroupOrder und ergänze fehlende Keys, damit alle Gruppen sichtbar sind
+    const effectiveOrder = (templateGroupOrder.length > 0
+      ? [...templateGroupOrder, ...Object.keys(templateGroups).filter(k => !templateGroupOrder.includes(k))]
+      : Object.keys(templateGroups))
 
     if (effectiveOrder.length === 0) {
       return (
@@ -97,9 +127,9 @@ export default function Startseite() {
       <div style={{ maxHeight: 420, overflow: 'auto' }}>
         {effectiveOrder.map(groupName => {
           const templates = templateGroups[groupName] || []
-          const isExpanded = expandedGroups.has(groupName)
-          const isGroupSelected = selectedGroups.includes(groupName)
-          const selectedTemplateCount = selectedGroupTemplates.filter(t => templates.includes(t)).length
+          const isExpanded = currentExpanded.has(groupName)
+          const isGroupSelected = currentSelectedGroups.includes(groupName)
+          const selectedTemplateCount = currentSelectedTemplates.filter(t => templates.includes(t)).length
 
           return (
             <div key={groupName} style={{ border: '1px solid #e5e7eb', borderRadius: 8, marginBottom: 8, background: '#fafafa' }}>
@@ -117,7 +147,7 @@ export default function Startseite() {
                   textRendering: 'optimizeLegibility'
                 }}
                 onClick={() => {
-                  setExpandedGroups(prev => {
+                  setCurrentExpanded(prev => {
                     const newSet = new Set(prev)
                     if (newSet.has(groupName)) {
                       newSet.delete(groupName)
@@ -135,17 +165,17 @@ export default function Startseite() {
                     e.stopPropagation()
                     const checked = e.currentTarget.checked
                     if (checked) {
-                      setSelectedGroups(prev => [...prev, groupName])
-                      setSelectedGroupTemplates(prev => [...new Set([...prev, ...templates])])
+                      setCurrentSelectedGroups(prev => [...prev, groupName])
+                      setCurrentSelectedTemplates(prev => [...new Set([...prev, ...templates])])
                       // Expandiere die Gruppe automatisch wenn ausgewählt
-                      setExpandedGroups(prev => {
+                      setCurrentExpanded(prev => {
                         const newSet = new Set(prev)
                         newSet.add(groupName)
                         return newSet
                       })
                     } else {
-                      setSelectedGroups(prev => prev.filter(g => g !== groupName))
-                      setSelectedGroupTemplates(prev => prev.filter(t => !templates.includes(t)))
+                      setCurrentSelectedGroups(prev => prev.filter(g => g !== groupName))
+                      setCurrentSelectedTemplates(prev => prev.filter(t => !templates.includes(t)))
                     }
                   }}
                   onClick={(e) => e.stopPropagation()}
@@ -175,17 +205,17 @@ export default function Startseite() {
                         gap: 6,
                         padding: '4px 8px',
                         borderRadius: 4,
-                        background: selectedGroupTemplates.includes(template) ? '#dbeafe' : '#f9fafb',
+                        background: currentSelectedTemplates.includes(template) ? '#dbeafe' : '#f9fafb',
                         cursor: 'pointer',
                         fontSize: 13,
                         border: '1px solid #e5e7eb'
                       }}>
                         <input
                           type="checkbox"
-                          checked={selectedGroupTemplates.includes(template)}
+                          checked={currentSelectedTemplates.includes(template)}
                           onChange={(e) => {
                             const checked = e.currentTarget.checked
-                            setSelectedGroupTemplates(prev =>
+                            setCurrentSelectedTemplates(prev =>
                               checked
                                 ? [...prev, template]
                                 : prev.filter(t => t !== template)
@@ -216,9 +246,20 @@ export default function Startseite() {
   })
 
   async function handleGenerate() {
-    if (selectedGroupTemplates.length === 0) {
+    const activeSelectedTemplates = betreuerModus === 'ein' ? selectedGroupTemplatesEin : selectedGroupTemplatesZwei
+    if (activeSelectedTemplates.length === 0) {
       setMessageModal({ isOpen: true, message: 'Bitte mindestens eine Vorlage wählen.', type: 'info' })
       return
+    }
+    if (betreuerModus === 'zwei') {
+      if (!betreuerA || !betreuerB) {
+        setMessageModal({ isOpen: true, message: 'Bitte Betreuer A und Betreuer B wählen.', type: 'info' })
+        return
+      }
+      if (!kunde) {
+        setMessageModal({ isOpen: true, message: 'Bitte einen Kunden wählen.', type: 'info' })
+        return
+      }
     }
     const dir = await window.api?.chooseDirectory?.('Zielordner wählen')
     if (!dir) return
@@ -233,9 +274,12 @@ export default function Startseite() {
     try {
       const basePayload = {
         targetDir: dir,
-        selectedVorlagen: selectedGroupTemplates,
+        selectedVorlagen: activeSelectedTemplates,
         kunde,
-        betreuer: betreuu,
+        betreuer: betreuerModus === 'ein' ? betreuu : null,
+        betreuerA: betreuerModus === 'zwei' ? betreuerA : null,
+        betreuerB: betreuerModus === 'zwei' ? betreuerB : null,
+        betreuerModus,
         alsPdf: modus === 'pdf',
       }
       const payload = ordnerName
@@ -286,6 +330,49 @@ export default function Startseite() {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
         <div style={{ display: 'grid', gap: 12 }}>
           <div style={{ background: '#fff', border: '1px solid #eaeaea', borderRadius: 10, padding: 12 }}>
+            <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+              <button
+                onClick={() => {
+                  setBetreuerModus('ein')
+                  setBetreuerA(null)
+                  setBetreuerB(null)
+                  setBetreuerAQuery('')
+                  setBetreuerBQuery('')
+                }}
+                style={{
+                  flex: 1,
+                  padding: '8px 12px',
+                  borderRadius: 8,
+                  border: '1px solid #d1d5db',
+                  background: betreuerModus === 'ein' ? '#005bd1' : '#f1f5f9',
+                  color: betreuerModus === 'ein' ? '#ffffff' : '#1f2937',
+                  fontWeight: 700,
+                  cursor: 'pointer'
+                }}
+              >
+                1 Betreuer
+              </button>
+              <button
+                onClick={() => {
+                  setBetreuerModus('zwei')
+                  setBetreuu(null)
+                  setBetreuerQuery('')
+                }}
+                style={{
+                  flex: 1,
+                  padding: '8px 12px',
+                  borderRadius: 8,
+                  border: '1px solid #d1d5db',
+                  background: betreuerModus === 'zwei' ? '#005bd1' : '#f1f5f9',
+                  color: betreuerModus === 'zwei' ? '#ffffff' : '#1f2937',
+                  fontWeight: 700,
+                  cursor: 'pointer'
+                }}
+              >
+                2 Betreuer
+              </button>
+            </div>
+
             <div style={{ display: 'grid', gap: 10 }}>
               <div>
                 <label style={{ display: 'block', marginBottom: 4, fontSize: '14px', fontWeight: 600, color: '#1f2937' }}>Kunde</label>
@@ -348,66 +435,194 @@ export default function Startseite() {
                 </div>
               </div>
 
-              <div>
-                <label style={{ display: 'block', marginBottom: 4, fontSize: '14px', fontWeight: 600, color: '#1f2937' }}>Betreuer</label>
-                <div style={{ position: 'relative' }}>
-                <input 
-                  value={betreuerQuery}
-                  placeholder="Betreuer wählen" 
-                  onChange={(e) => {
-                    const v = e.currentTarget.value
-                    setBetreuerQuery(v)
-                    const found = betreuerLabels.find(x => x.label === v)
-                    if (found) {
-                      const b = betreuer.find(x => x.__key === found.key)
-                      setBetreuu(b || null)
-                    } else {
-                      setBetreuu(null)
-                    }
-                  }}
-                  onFocus={() => setShowBetreuerDropdown(true)}
-                  onBlur={() => setTimeout(() => setShowBetreuerDropdown(false), 150)}
-                  style={{ 
-                    padding: '8px 12px', 
-                    border: '1px solid #d1d5db', 
-                    borderRadius: 8, 
-                    width: '100%', 
-                    maxWidth: '100%', 
-                    boxSizing: 'border-box',
-                    fontSize: '14px',
-                    fontFamily: 'inherit',
-                    backgroundColor: '#ffffff',
-                    color: '#1f2937'
-                  }}
-                />
-                {/* native datalist entfernt, wir verwenden das benutzerdefinierte Dropdown */}
-                {showBetreuerDropdown && (
-                  <div style={{ position: 'absolute', zIndex: 20, top: 'calc(100% + 4px)', left: 0, right: 0, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, boxShadow: '0 8px 24px rgba(0,0,0,0.12)', maxHeight: 220, overflowY: 'auto' }}>
-                    {betreuerFiltered.length === 0 ? (
-                      <div style={{ padding: '8px 10px', color: '#64748b', fontWeight: '600', WebkitFontSmoothing: 'subpixel-antialiased', MozOsxFontSmoothing: 'auto', textRendering: 'optimizeLegibility' }}>Keine Treffer</div>
-                    ) : (
-                      betreuerFiltered.map((b, i) => (
-                        <div
-                          key={b.key + String(i)}
-                          onMouseDown={(e)=>{
-                            e.preventDefault()
-                            const match = betreuer.find(x => x.__key === b.key)
-                            setBetreuu(match || null)
-                            setBetreuerQuery(b.label)
-                            setShowBetreuerDropdown(false)
-                          }}
-                          style={{ padding: '8px 10px', cursor: 'pointer', color: '#1f2937', fontWeight: '600', WebkitFontSmoothing: 'subpixel-antialiased', MozOsxFontSmoothing: 'auto', textRendering: 'optimizeLegibility' }}
-                          onMouseEnter={(e)=>{ (e.currentTarget as HTMLDivElement).style.background = '#f8fafc' }}
-                          onMouseLeave={(e)=>{ (e.currentTarget as HTMLDivElement).style.background = 'transparent' }}
-                        >
-                          {b.label}
-                        </div>
-                      ))
-                    )}
+              {betreuerModus === 'ein' && (
+                <div>
+                  <label style={{ display: 'block', marginBottom: 4, fontSize: '14px', fontWeight: 600, color: '#1f2937' }}>Betreuer</label>
+                  <div style={{ position: 'relative' }}>
+                  <input 
+                    value={betreuerQuery}
+                    placeholder="Betreuer wählen" 
+                    onChange={(e) => {
+                      const v = e.currentTarget.value
+                      setBetreuerQuery(v)
+                      const found = betreuerLabels.find(x => x.label === v)
+                      if (found) {
+                        const b = betreuer.find(x => x.__key === found.key)
+                        setBetreuu(b || null)
+                      } else {
+                        setBetreuu(null)
+                      }
+                    }}
+                    onFocus={() => setShowBetreuerDropdown(true)}
+                    onBlur={() => setTimeout(() => setShowBetreuerDropdown(false), 150)}
+                    style={{ 
+                      padding: '8px 12px', 
+                      border: '1px solid #d1d5db', 
+                      borderRadius: 8, 
+                      width: '100%', 
+                      maxWidth: '100%', 
+                      boxSizing: 'border-box',
+                      fontSize: '14px',
+                      fontFamily: 'inherit',
+                      backgroundColor: '#ffffff',
+                      color: '#1f2937'
+                    }}
+                  />
+                  {/* native datalist entfernt, wir verwenden das benutzerdefinierte Dropdown */}
+                  {showBetreuerDropdown && (
+                    <div style={{ position: 'absolute', zIndex: 20, top: 'calc(100% + 4px)', left: 0, right: 0, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, boxShadow: '0 8px 24px rgba(0,0,0,0.12)', maxHeight: 220, overflowY: 'auto' }}>
+                      {betreuerFiltered.length === 0 ? (
+                        <div style={{ padding: '8px 10px', color: '#64748b', fontWeight: '600', WebkitFontSmoothing: 'subpixel-antialiased', MozOsxFontSmoothing: 'auto', textRendering: 'optimizeLegibility' }}>Keine Treffer</div>
+                      ) : (
+                        betreuerFiltered.map((b, i) => (
+                          <div
+                            key={b.key + String(i)}
+                            onMouseDown={(e)=>{
+                              e.preventDefault()
+                              const match = betreuer.find(x => x.__key === b.key)
+                              setBetreuu(match || null)
+                              setBetreuerQuery(b.label)
+                              setShowBetreuerDropdown(false)
+                            }}
+                            style={{ padding: '8px 10px', cursor: 'pointer', color: '#1f2937', fontWeight: '600', WebkitFontSmoothing: 'subpixel-antialiased', MozOsxFontSmoothing: 'auto', textRendering: 'optimizeLegibility' }}
+                            onMouseEnter={(e)=>{ (e.currentTarget as HTMLDivElement).style.background = '#f8fafc' }}
+                            onMouseLeave={(e)=>{ (e.currentTarget as HTMLDivElement).style.background = 'transparent' }}
+                          >
+                            {b.label}
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  )}
                   </div>
-                )}
                 </div>
-              </div>
+              )}
+
+              {betreuerModus === 'zwei' && (
+                <>
+                  <div>
+                    <label style={{ display: 'block', marginBottom: 4, fontSize: '14px', fontWeight: 600, color: '#1f2937' }}>Betreuer A</label>
+                    <div style={{ position: 'relative' }}>
+                    <input 
+                      value={betreuerAQuery}
+                      placeholder="Betreuer A wählen" 
+                      onChange={(e) => {
+                        const v = e.currentTarget.value
+                        setBetreuerAQuery(v)
+                        const found = betreuerLabels.find(x => x.label === v)
+                        if (found) {
+                          const b = betreuer.find(x => x.__key === found.key)
+                          setBetreuerA(b || null)
+                        } else {
+                          setBetreuerA(null)
+                        }
+                      }}
+                      onFocus={() => setShowBetreuerADropdown(true)}
+                      onBlur={() => setTimeout(() => setShowBetreuerADropdown(false), 150)}
+                      style={{ 
+                        padding: '8px 12px', 
+                        border: '1px solid #d1d5db', 
+                        borderRadius: 8, 
+                        width: '100%', 
+                        maxWidth: '100%', 
+                        boxSizing: 'border-box',
+                        fontSize: '14px',
+                        fontFamily: 'inherit',
+                        backgroundColor: '#ffffff',
+                        color: '#1f2937'
+                      }}
+                    />
+                    {/* native datalist entfernt, wir verwenden das benutzerdefinierte Dropdown */}
+                    {showBetreuerADropdown && (
+                      <div style={{ position: 'absolute', zIndex: 20, top: 'calc(100% + 4px)', left: 0, right: 0, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, boxShadow: '0 8px 24px rgba(0,0,0,0.12)', maxHeight: 220, overflowY: 'auto' }}>
+                        {betreuerAFiltered.length === 0 ? (
+                          <div style={{ padding: '8px 10px', color: '#64748b', fontWeight: '600', WebkitFontSmoothing: 'subpixel-antialiased', MozOsxFontSmoothing: 'auto', textRendering: 'optimizeLegibility' }}>Keine Treffer</div>
+                        ) : (
+                          betreuerAFiltered.map((b, i) => (
+                            <div
+                              key={b.key + String(i)}
+                              onMouseDown={(e)=>{
+                                e.preventDefault()
+                                const match = betreuer.find(x => x.__key === b.key)
+                                setBetreuerA(match || null)
+                                setBetreuerAQuery(b.label)
+                                setShowBetreuerADropdown(false)
+                              }}
+                              style={{ padding: '8px 10px', cursor: 'pointer', color: '#1f2937', fontWeight: '600', WebkitFontSmoothing: 'subpixel-antialiased', MozOsxFontSmoothing: 'auto', textRendering: 'optimizeLegibility' }}
+                              onMouseEnter={(e)=>{ (e.currentTarget as HTMLDivElement).style.background = '#f8fafc' }}
+                              onMouseLeave={(e)=>{ (e.currentTarget as HTMLDivElement).style.background = 'transparent' }}
+                            >
+                              {b.label}
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    )}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', marginBottom: 4, fontSize: '14px', fontWeight: 600, color: '#1f2937' }}>Betreuer B</label>
+                    <div style={{ position: 'relative' }}>
+                    <input 
+                      value={betreuerBQuery}
+                      placeholder="Betreuer B wählen" 
+                      onChange={(e) => {
+                        const v = e.currentTarget.value
+                        setBetreuerBQuery(v)
+                        const found = betreuerLabels.find(x => x.label === v)
+                        if (found) {
+                          const b = betreuer.find(x => x.__key === found.key)
+                          setBetreuerB(b || null)
+                        } else {
+                          setBetreuerB(null)
+                        }
+                      }}
+                      onFocus={() => setShowBetreuerBDropdown(true)}
+                      onBlur={() => setTimeout(() => setShowBetreuerBDropdown(false), 150)}
+                      style={{ 
+                        padding: '8px 12px', 
+                        border: '1px solid #d1d5db', 
+                        borderRadius: 8, 
+                        width: '100%', 
+                        maxWidth: '100%', 
+                        boxSizing: 'border-box',
+                        fontSize: '14px',
+                        fontFamily: 'inherit',
+                        backgroundColor: '#ffffff',
+                        color: '#1f2937'
+                      }}
+                    />
+                    {/* native datalist entfernt, wir verwenden das benutzerdefinierte Dropdown */}
+                    {showBetreuerBDropdown && (
+                      <div style={{ position: 'absolute', zIndex: 20, top: 'calc(100% + 4px)', left: 0, right: 0, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, boxShadow: '0 8px 24px rgba(0,0,0,0.12)', maxHeight: 220, overflowY: 'auto' }}>
+                        {betreuerBFiltered.length === 0 ? (
+                          <div style={{ padding: '8px 10px', color: '#64748b', fontWeight: '600', WebkitFontSmoothing: 'subpixel-antialiased', MozOsxFontSmoothing: 'auto', textRendering: 'optimizeLegibility' }}>Keine Treffer</div>
+                        ) : (
+                          betreuerBFiltered.map((b, i) => (
+                            <div
+                              key={b.key + String(i)}
+                              onMouseDown={(e)=>{
+                                e.preventDefault()
+                                const match = betreuer.find(x => x.__key === b.key)
+                                setBetreuerB(match || null)
+                                setBetreuerBQuery(b.label)
+                                setShowBetreuerBDropdown(false)
+                              }}
+                              style={{ padding: '8px 10px', cursor: 'pointer', color: '#1f2937', fontWeight: '600', WebkitFontSmoothing: 'subpixel-antialiased', MozOsxFontSmoothing: 'auto', textRendering: 'optimizeLegibility' }}
+                              onMouseEnter={(e)=>{ (e.currentTarget as HTMLDivElement).style.background = '#f8fafc' }}
+                              onMouseLeave={(e)=>{ (e.currentTarget as HTMLDivElement).style.background = 'transparent' }}
+                            >
+                              {b.label}
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    )}
+                    </div>
+                  </div>
+                </>
+              )}
 
               <div>
                 <label style={{ display: 'block', marginBottom: 4, fontSize: '14px', fontWeight: 600, color: '#1f2937' }}>Neuer Ordnername</label>
