@@ -127,10 +127,6 @@ export default function DateienSortieren() {
 
     const ordnerItem = ordner[ordnerIndex]
     if (!ordnerItem) return
-
-    const zuImportieren = ordnerItem.zuordnungen.filter(z => 
-      z.istZugeordnet && ordnerItem.ausgewaehlteDateien.has(z.dateiPfad)
-    )
     await fuehreImportAus(ordnerIndex)
   }
 
