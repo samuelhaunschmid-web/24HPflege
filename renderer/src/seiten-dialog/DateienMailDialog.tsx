@@ -3,6 +3,27 @@ import { StandardTemplateService } from '../logik/dateiVerwaltung/standardTempla
 import type { EmailTemplate } from '../logik/dateiVerwaltung/typen'
 import ConfirmModal from '../komponenten/ConfirmModal'
 
+function normalizeSelectedFiles(files: any): Array<{ personType: 'kunden' | 'betreuer'; folderPath: string[]; fileTemplate: string }> {
+  if (!Array.isArray(files)) return []
+  return files.map((f) => {
+    const rawPath = f?.folderPath
+    const folderPath = Array.isArray(rawPath)
+      ? rawPath.filter(Boolean)
+      : (typeof rawPath === 'string'
+        ? rawPath.split(/[\\/]+/).map((s: string) => s.trim()).filter(Boolean)
+        : [])
+
+    const personType: 'kunden' | 'betreuer' =
+      f?.personType === 'betreuer' ? 'betreuer' : 'kunden'
+
+    return {
+      personType,
+      folderPath,
+      fileTemplate: String(f?.fileTemplate || '').trim(),
+    }
+  })
+}
+
 export default function DateienMailDialog() {
   const [cfg, setCfg] = useState<any>({})
   const [templates, setTemplates] = useState<EmailTemplate[]>([])
@@ -19,7 +40,8 @@ export default function DateienMailDialog() {
       const c = await window.api?.getConfig?.()
       setCfg(c || {})
       const geladeneTemplates = await StandardTemplateService.ladeEmailTemplates()
-      setTemplates(geladeneTemplates)
+      const normalized = geladeneTemplates.map(t => ({ ...t, selectedFiles: normalizeSelectedFiles(t.selectedFiles) }))
+      setTemplates(normalized)
     })()
   }, [])
 
@@ -28,7 +50,7 @@ export default function DateienMailDialog() {
   }
 
   async function saveDraft() {
-    const t = { ...draft, id: draft.id || Math.random().toString(36).slice(2) }
+    const t = { ...draft, selectedFiles: normalizeSelectedFiles(draft.selectedFiles), id: draft.id || Math.random().toString(36).slice(2) }
     const next = [...templates.filter(x => x.id !== t.id), t]
     setTemplates(next)
     // Verwende StandardTemplateService für konsistentes Speichern
@@ -97,11 +119,12 @@ export default function DateienMailDialog() {
             <div key={t.id} style={{ border: '1px solid #e6e8ef', borderRadius: 8, padding: 12, display: 'grid', gap: 8 }}>
               <div style={{ display: 'flex', alignItems: 'center' }}>
                 <div style={{ fontWeight: 600, flex: 1 }}>{t.name}</div>
-                <button onClick={() => { setDraft(t); setTab('neu') }} style={{ padding: '4px 8px', borderRadius: 6, border: '1px solid #0ea5e9', background: '#e0f2fe', color: '#0369a1', cursor: 'pointer', marginRight: 4 }}>Öffnen</button>
+                <button onClick={() => { setDraft({ ...t, selectedFiles: normalizeSelectedFiles(t.selectedFiles) }); setTab('neu') }} style={{ padding: '4px 8px', borderRadius: 6, border: '1px solid #0ea5e9', background: '#e0f2fe', color: '#0369a1', cursor: 'pointer', marginRight: 4 }}>Öffnen</button>
                 <button onClick={() => removeTemplate(t.id)} style={{ padding: '4px 8px', borderRadius: 6, border: '1px solid #ef4444', background: '#fef2f2', color: '#991b1b', cursor: 'pointer' }}>Löschen</button>
               </div>
               <div style={{ fontSize: 13, color: '#64748b' }}>An: {t.to}</div>
               <div style={{ fontSize: 13, color: '#64748b' }}>Betreff: {t.subject}</div>
+              <VorlagenAnhaengeAnzeige template={t} cfg={cfg} />
             </div>
           ))}
           {templates.length === 0 && <div style={{ fontSize: 12, color: '#64748b' }}>Keine Vorlagen gespeichert</div>}
@@ -120,39 +143,107 @@ export default function DateienMailDialog() {
   )
 }
 
-function FileSelector({ cfg, selectedFiles, onFilesChange }: { cfg: any; selectedFiles: Array<{ personType: 'kunden' | 'betreuer'; folderPath: string[]; fileTemplate: string }>; onFilesChange: (files: Array<{ personType: 'kunden' | 'betreuer'; folderPath: string[]; fileTemplate: string }>) => void }) {
+function VorlagenAnhaengeAnzeige({ template, cfg }: { template: EmailTemplate; cfg: any }) {
+  const selected = normalizeSelectedFiles(template.selectedFiles)
   const kundenRules = (cfg?.folderTemplatesRules?.kunden || []) as Array<{ path: string[]; files: string[] }>
   const betreuerRules = (cfg?.folderTemplatesRules?.betreuer || []) as Array<{ path: string[]; files: string[] }>
 
+  const isStillAvailable = (personType: 'kunden' | 'betreuer', folderPath: string[], fileTemplate: string) => {
+    const rules = personType === 'kunden' ? kundenRules : betreuerRules
+    return rules.some(r => r.path.join('/') === folderPath.join('/') && (r.files || []).includes(fileTemplate))
+  }
+
+  if (selected.length === 0) {
+    return <div style={{ fontSize: 12, color: '#64748b' }}>Keine Anhänge gespeichert</div>
+  }
+
+  return (
+    <div style={{ border: '1px dashed #cbd5e1', borderRadius: 8, padding: 8, display: 'grid', gap: 6 }}>
+      <div style={{ fontWeight: 600, fontSize: 13 }}>Anhänge (gespeichert)</div>
+      {selected.map((f, idx) => {
+        const available = isStillAvailable(f.personType, f.folderPath, f.fileTemplate)
+        return (
+          <div key={`${f.personType}-${idx}`} style={{ display: 'flex', flexDirection: 'column', gap: 2, padding: 6, borderRadius: 6, background: available ? '#f8fafc' : '#fff7ed', border: '1px solid #e2e8f0' }}>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <span style={{ fontSize: 12, fontWeight: 600 }}>{f.fileTemplate || '(leer)'}</span>
+              <span style={{ fontSize: 11, color: '#475569', padding: '2px 6px', borderRadius: 4, background: '#e2e8f0' }}>{f.personType === 'kunden' ? 'Kunde' : 'Betreuer'}</span>
+            </div>
+            <div style={{ fontSize: 11, color: '#64748b' }}>{f.folderPath.join(' / ') || '(kein Ordner)'}</div>
+            {!available && <div style={{ fontSize: 11, color: '#b45309' }}>Nicht mehr in den aktuellen Standard-Dateien vorhanden</div>}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+function FileSelector({ cfg, selectedFiles, onFilesChange }: { cfg: any; selectedFiles: Array<{ personType: 'kunden' | 'betreuer'; folderPath: string[]; fileTemplate: string }>; onFilesChange: (files: Array<{ personType: 'kunden' | 'betreuer'; folderPath: string[]; fileTemplate: string }>) => void }) {
+  const kundenRules = (cfg?.folderTemplatesRules?.kunden || []) as Array<{ path: string[]; files: string[] }>
+  const betreuerRules = (cfg?.folderTemplatesRules?.betreuer || []) as Array<{ path: string[]; files: string[] }>
+  const safeSelected = Array.isArray(selectedFiles) ? selectedFiles : []
+
+  function removeSelected(index: number) {
+    onFilesChange(safeSelected.filter((_, i) => i !== index))
+  }
+
   function toggleFile(personType: 'kunden' | 'betreuer', folderPath: string[], fileTemplate: string) {
-    const exists = selectedFiles.some(f => 
+    const exists = safeSelected.some(f => 
       f.personType === personType && 
       f.folderPath.join('/') === folderPath.join('/') && 
       f.fileTemplate === fileTemplate
     )
     if (exists) {
-      onFilesChange(selectedFiles.filter(f => !(
+      onFilesChange(safeSelected.filter(f => !(
         f.personType === personType && 
         f.folderPath.join('/') === folderPath.join('/') && 
         f.fileTemplate === fileTemplate
       )))
     } else {
-      onFilesChange([...selectedFiles, { personType, folderPath, fileTemplate }])
+      onFilesChange([...safeSelected, { personType, folderPath, fileTemplate }])
     }
   }
 
   function isSelected(personType: 'kunden' | 'betreuer', folderPath: string[], fileTemplate: string) {
-    return selectedFiles.some(f => 
+    return safeSelected.some(f => 
       f.personType === personType && 
       f.folderPath.join('/') === folderPath.join('/') && 
       f.fileTemplate === fileTemplate
     )
+  }
+
+  function isStillAvailable(personType: 'kunden' | 'betreuer', folderPath: string[], fileTemplate: string) {
+    const rules = personType === 'kunden' ? kundenRules : betreuerRules
+    return rules.some(r => r.path.join('/') === folderPath.join('/') && (r.files || []).includes(fileTemplate))
   }
 
   return (
     <div>
       <div style={{ fontWeight: 600, marginBottom: 8 }}>Anzuhängende Standard-Dateien</div>
       <div style={{ display: 'grid', gap: 12 }}>
+        <div style={{ border: '1px solid #e6e8ef', borderRadius: 8, padding: 8, display: 'grid', gap: 6 }}>
+          <div style={{ fontWeight: 600 }}>Aktuell ausgewählt</div>
+          {safeSelected.length === 0 && <div style={{ fontSize: 12, color: '#64748b' }}>Keine Dateien ausgewählt</div>}
+          {safeSelected.map((f, idx) => {
+            const available = isStillAvailable(f.personType, f.folderPath, f.fileTemplate)
+            return (
+              <div key={`${f.personType}-${idx}`} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: 6, border: '1px solid #e2e8f0', borderRadius: 6, background: available ? '#f8fafc' : '#fff7ed' }}>
+                <div style={{ fontSize: 12, color: '#334155', flex: 1 }}>
+                  <div style={{ fontWeight: 600 }}>{f.fileTemplate}</div>
+                  <div style={{ color: '#64748b' }}>{f.personType === 'kunden' ? 'Kunde' : 'Betreuer'} · {f.folderPath.join(' / ')}</div>
+                  {!available && <div style={{ color: '#b45309' }}>Nicht mehr in den aktuellen Standard-Dateien vorhanden</div>}
+                </div>
+                <button onClick={() => removeSelected(idx)} style={{ padding: '4px 8px', borderRadius: 6, border: '1px solid #ef4444', background: '#fef2f2', color: '#991b1b', cursor: 'pointer' }}>
+                  Entfernen
+                </button>
+              </div>
+            )
+          })}
+          {safeSelected.length > 0 && (
+            <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>
+              Hinweis: Diese Liste zeigt alle gespeicherten Anhänge der Vorlage – auch wenn sie nicht mehr in den Standard-Dateien existieren.
+            </div>
+          )}
+        </div>
         <div>
           <div style={{ fontWeight: 600, marginBottom: 8 }}>Kunden-Dateien</div>
           <div style={{ display: 'grid', gap: 6, border: '1px solid #e6e8ef', borderRadius: 8, padding: 8, maxHeight: 240, overflowY: 'auto' }}>
