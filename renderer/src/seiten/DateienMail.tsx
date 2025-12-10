@@ -149,7 +149,7 @@ export default function DateienMail() {
                 const fileTemplatesContent = t.selectedFiles.map(f => f.fileTemplate).join(' ').toLowerCase()
                 const allContent = `${textContent} ${fileTemplatesContent}`
                 const hasKundenPlaceholders = /\{(?:vorname|nachname|kvname|kfname|nb1|nb2)\}/i.test(textContent)
-                const hasBetreuerPlaceholders = /\{(?:vorname|nachname|bvname|bfname|nk1)\}/i.test(textContent)
+                const hasBetreuerPlaceholders = /\{(?:vorname|nachname|bvname|bfname|nk1|svnr)\}/i.test(textContent)
                 const hasBetreuerkunde = /\{betreuerkunde\}/i.test(allContent)
                 // Kombiniere beide Prüfungen
                 const needsKunden = needsKundenFiles || hasKundenPlaceholders || hasBetreuerkunde

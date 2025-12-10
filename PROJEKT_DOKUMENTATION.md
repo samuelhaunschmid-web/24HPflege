@@ -1,6 +1,6 @@
 # 24h Pflege - Projekt-Dokumentation
 
-> **Letzte Aktualisierung:** 09.12.2025
+> **Letzte Aktualisierung:** 10.12.2025
 > 
 > Diese Datei dient als Übersicht über die Struktur und Funktionen der App. Sie soll zukünftig bei Änderungen aktualisiert werden.
 
@@ -748,7 +748,10 @@ Ersetzt Platzhalter⁷ in Texten durch echte Werte.
 **Beispiel:**
 `{nachname}_{vorname}.pdf` wird zu `Müller_Max.pdf`
 
+- Namensvarianten werden nicht mehr doppelt erzeugt: Ordnernamen und Dateisuchen
+  nutzen ausschließlich die Reihenfolge `Nachname Vorname`.
 - `{nk1}` füllt bei Betreuer-Vorlagen automatisch den Nachnamen des ersten zugewiesenen Kunden (Betreuer1/Betreuer2) aus, damit Standarddateien korrekt benannt werden.
+- `{svnr}` ersetzt die Sozialversicherungsnummer eines Betreuers. Im Kunden-Kontext wird sie befüllt, wenn ein Betreuer mitgegeben wird (z.B. für Mail-Platzhalter).
 
 ---
 
@@ -770,6 +773,8 @@ Verwaltet die Standard-Ordnerstruktur für Kunden/Betreuer.
 - Erstellt Ordner nach Vorlage
 - Prüft, ob Standard-Dateien vorhanden sind
 - Findet Dateien mit Platzhaltern⁷
+- Ordnernamen werden nur in der Form `Nachname Vorname` erzeugt und gesucht (keine
+  parallele Variante mehr mit `Vorname Nachname`).
 
 ---
 
@@ -783,7 +788,7 @@ Service für automatische Dateisortierung und -zuordnung.
 - Erkennt Dateien anhand ihres Namens
 - Ordnet Dateien automatisch Kunden/Betreuern zu
 - Vergleicht Dateinamen mit erwarteten Standard-Dateien
-- Unterstützt Namensvarianten (Nachname Vorname / Vorname Nachname)
+- Erwartet nur die Ordner- und Namenskonvention `Nachname Vorname`
 - Verschiebt Dateien mit Konfliktbehandlung
 
 ---

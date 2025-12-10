@@ -10,16 +10,20 @@ export function ersetzePlatzhalter(text: string, kontext: PlatzhalterKontext): s
   // Grunddaten der Hauptperson extrahieren
   const vorKey = settings.gruppen ? Object.keys(settings.gruppen).find(k => (settings.gruppen[k] || []).includes('vorname')) : undefined
   const nachKey = settings.gruppen ? Object.keys(settings.gruppen).find(k => (settings.gruppen[k] || []).includes('nachname')) : undefined
+  const svnrKey = settings.gruppen ? Object.keys(settings.gruppen).find(k => (settings.gruppen[k] || []).includes('svnr')) : undefined
 
   const vor = String(vorKey && row ? row[vorKey] || '' : '').trim()
   const nach = String(nachKey && row ? row[nachKey] || '' : '').trim()
+  const svnr = String(svnrKey && row ? row[svnrKey] || '' : '').trim()
   const betreuerSettings = kontext.betreuerSettings || settings
 
   // Vor-/Nachname eines optional übergebenen Betreuers ermitteln (für {bvname}/{bfname} auch wenn personType !== 'betreuer')
   const betreuerVorKey = betreuerSettings.gruppen ? Object.keys(betreuerSettings.gruppen).find(k => (betreuerSettings.gruppen[k] || []).includes('vorname')) : undefined
   const betreuerNachKey = betreuerSettings.gruppen ? Object.keys(betreuerSettings.gruppen).find(k => (betreuerSettings.gruppen[k] || []).includes('nachname')) : undefined
+  const betreuerSvnrKey = betreuerSettings.gruppen ? Object.keys(betreuerSettings.gruppen).find(k => (betreuerSettings.gruppen[k] || []).includes('svnr')) : undefined
   const betreuerVor = String(betreuerVorKey && kontext.betreuerRow ? kontext.betreuerRow[betreuerVorKey] || '' : '').trim()
   const betreuerNach = String(betreuerNachKey && kontext.betreuerRow ? kontext.betreuerRow[betreuerNachKey] || '' : '').trim()
+  const betreuerSvnr = String(betreuerSvnrKey && kontext.betreuerRow ? kontext.betreuerRow[betreuerSvnrKey] || '' : '').trim()
 
   // Spezielle Platzhalter für Betreuer eines Kunden
   let nb1 = ''
@@ -114,8 +118,12 @@ export function ersetzePlatzhalter(text: string, kontext: PlatzhalterKontext): s
   // Betreuer-spezifische Platzhalter
   const effektiverBetreuerVor = personType === 'betreuer' ? vor : betreuerVor
   const effektiverBetreuerNach = personType === 'betreuer' ? nach : betreuerNach
+  const effektiveSvnr = personType === 'betreuer'
+    ? svnr
+    : (kontext.betreuerRow ? betreuerSvnr : '')
   result = result.replace(/\{bvname\}/gi, effektiverBetreuerVor)
   result = result.replace(/\{bfname\}/gi, effektiverBetreuerNach)
+  result = result.replace(/\{svnr\}/gi, effektiveSvnr)
 
   // Betreuer-Nachnamen für Kunden
   result = result.replace(/\{nb1\}/gi, nb1)
@@ -147,13 +155,12 @@ export function extrahiereNamen(row: any, settings: any): { vorname: string; nac
 }
 
 /**
- * Hilfsfunktion: Erstellt beide Namensvarianten (Nachname Vorname / Vorname Nachname)
- * Primäre Variante ist Nachname Vorname für Ordner-Namen
+ * Hilfsfunktion: Liefert genau eine Namensvariante (Nachname Vorname)
+ * Sowohl Erstellung als auch Suche nutzen ausschließlich diese Reihenfolge.
  */
 export function erstelleNamensVarianten(vorname: string, nachname: string): string[] {
-  const variant1 = `${nachname} ${vorname}`.trim() // Primäre Variante: Nachname Vorname
-  const variant2 = `${vorname} ${nachname}`.trim() // Alternative Variante: Vorname Nachname
-  return [variant1, variant2].filter(Boolean)
+  const variant = `${nachname} ${vorname}`.trim() // einzige Variante: Nachname Vorname
+  return variant ? [variant] : []
 }
 
 /**

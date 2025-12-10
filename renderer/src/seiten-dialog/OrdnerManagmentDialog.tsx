@@ -234,9 +234,9 @@ function FolderNodeRow({ node, onRename, onRemove, onAddChild, onChangeFiles, pe
           <div style={{ fontSize: 12, color: '#64748b' }}>
             Dateinamen mit Platzhaltern je Zeile. Unterstützt: {`{vorname}`}, {`{nachname}`}
             {personType === 'kunden' ? (
-              <>; für Kunden: {`{kvname}`}, {`{kfname}`}, {`{nb1}`} (Nachname Betreuer 1), {`{nb2}`} (Nachname Betreuer 2), {`{betreuerkunde}`} (Nachname des ausgewählten Betreuers, intelligent), {`{dateityp}`} (beliebige Dateierweiterung, z.B. Bild.{`{dateityp}`} findet Bild.jpg, Bild.png, etc.)</>
+              <>; für Kunden: {`{kvname}`}, {`{kfname}`}, {`{nb1}`} (Nachname Betreuer 1), {`{nb2}`} (Nachname Betreuer 2), {`{betreuerkunde}`} (Nachname des ausgewählten Betreuers, intelligent), {`{svnr}`} (SV-Nummer des ausgewählten Betreuers), {`{dateityp}`} (beliebige Dateierweiterung, z.B. Bild.{`{dateityp}`} findet Bild.jpg, Bild.png, etc.)</>
             ) : (
-              <>; für Betreuer: {`{bvname}`}, {`{bfname}`}, {`{nk1}`} (Nachname zugewiesener Kunde), {`{betreuerkunde}`} (eigener Nachname), {`{dateityp}`} (beliebige Dateierweiterung, z.B. Bild.{`{dateityp}`} findet Bild.jpg, Bild.png, etc.)</>
+              <>; für Betreuer: {`{bvname}`}, {`{bfname}`}, {`{nk1}`} (Nachname zugewiesener Kunde), {`{svnr}`} (SV-Nummer des Betreuers), {`{betreuerkunde}`} (eigener Nachname), {`{dateityp}`} (beliebige Dateierweiterung, z.B. Bild.{`{dateityp}`} findet Bild.jpg, Bild.png, etc.)</>
             )}.
           </div>
           <textarea rows={4} value={filesText} onChange={e => setFilesText(e.currentTarget.value)} onBlur={() => onChangeFiles(node.id, filesText.split(/\r?\n/).map((s: string) => s.trim()).filter(Boolean))} style={{ width: '100%', border: '1px solid #d1d5db', borderRadius: 8, padding: 8, boxSizing: 'border-box', fontFamily: 'monospace' }} />
