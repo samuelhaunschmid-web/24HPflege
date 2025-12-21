@@ -35,14 +35,9 @@ export async function ordnerAutomatischErstellen(
       return true
     }
 
-    // Ordner-Templates laden
-    const templateRegeln = await StandardTemplateService.ladeOrdnerTemplates(personType)
-    const templatePfade = StandardTemplateService.baumZuPfade(
-      StandardTemplateService.pfadeZuBaum(
-        templateRegeln.map(r => r.path),
-        templateRegeln
-      )
-    )
+    // Ordner-Templates laden (als Baumstruktur, wie im Dialog)
+    const templateBaum = await StandardTemplateService.ladeOrdnerTemplatesAlsBaum(personType)
+    const templatePfade = StandardTemplateService.baumZuPfade(templateBaum)
 
     // Ordner erstellen
     const res = await StandardOrdnerService.erstelleStandardStruktur(

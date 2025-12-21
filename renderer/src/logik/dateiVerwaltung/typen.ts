@@ -83,6 +83,7 @@ export type EmailTemplateSelection = {
   selected: boolean
   kundenKeys: string[]
   betreuerKeys: string[]
+  customTo?: string // Optional: Manuell eingegebene E-Mail-Adresse, wenn template.to leer ist
 }
 
 export type DateipfadMitStatus = {

@@ -587,6 +587,19 @@ function TemplateRow({ template, selection, needsKunden, needsBetreuer, kunden, 
           </div>
         )}
       </div>
+      {/* Zeige E-Mail-Eingabefeld wenn template.to leer ist */}
+      {(!template.to || template.to.trim() === '') && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <label style={{ fontWeight: 600, minWidth: 120, fontSize: 13 }}>Empfänger:</label>
+          <input
+            type="email"
+            placeholder="E-Mail-Adresse eingeben..."
+            value={selection.customTo || ''}
+            onChange={(e) => onSelectionChange({ ...selection, customTo: e.target.value })}
+            style={{ flex: 1, padding: 6, borderRadius: 6, border: '1px solid #d1d5db', fontSize: 13 }}
+          />
+        </div>
+      )}
     </div>
   )
 }

@@ -338,6 +338,7 @@ Diese Übersicht zeigt, welche Dateien auf welchen Seiten verwendet werden.
 - Pro Vorlage: Kunde und/oder Betreuer auswählen
 - Prüfung, ob alle benötigten Dateien vorhanden sind (grüner Haken / rotes X)
 - Massen-Versand ausgewählter Vorlagen
+- Wenn eine Vorlage keine feste E-Mail-Adresse hat (leeres `to`-Feld), kann der Empfänger manuell eingegeben werden
 
 **Verwendete Komponenten:**
 - `Layout` – Rahmen mit Seitenleiste
@@ -428,6 +429,7 @@ Diese Seiten werden in separaten Fenstern geöffnet:
 - Vorlagen löschen
 - Konfiguration: Name, Empfänger, Betreff, Text
 - Auswahl der anzuhängenden Standard-Dateien (aus Ordnerstruktur)
+- **Empfänger-Feld kann leer gelassen werden**: Wenn das "An"-Feld leer ist, wird beim Versenden ein Eingabefeld in der Mail-Seite angezeigt, um den Empfänger manuell einzugeben
 
 ---
 

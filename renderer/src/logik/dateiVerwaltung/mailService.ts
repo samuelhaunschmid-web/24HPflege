@@ -100,8 +100,18 @@ export class MailService {
           kundeRow: kunde
         }
 
+        // Verwende customTo aus selection, falls vorhanden, sonst template.to
+        const toAddress = selection.customTo && selection.customTo.trim() 
+          ? selection.customTo.trim() 
+          : ersetzePlatzhalter(template.to, platzhalterKontext)
+        
+        // Überspringe E-Mail wenn keine Adresse vorhanden
+        if (!toAddress || toAddress.trim() === '') {
+          continue
+        }
+        
         batch.push({
-          to: ersetzePlatzhalter(template.to, platzhalterKontext),
+          to: toAddress,
           subject: ersetzePlatzhalter(template.subject, platzhalterKontext),
           text: ersetzePlatzhalter(template.text, platzhalterKontext),
           attachments
@@ -162,8 +172,18 @@ export class MailService {
         } : {})
       }
 
+      // Verwende customTo aus selection, falls vorhanden, sonst template.to
+      const toAddress = selection?.customTo && selection.customTo.trim() 
+        ? selection.customTo.trim() 
+        : ersetzePlatzhalter(template.to, platzhalterKontext)
+      
+      // Überspringe E-Mail wenn keine Adresse vorhanden
+      if (!toAddress || toAddress.trim() === '') {
+        continue
+      }
+      
       batch.push({
-        to: ersetzePlatzhalter(template.to, platzhalterKontext),
+        to: toAddress,
         subject: ersetzePlatzhalter(template.subject, platzhalterKontext),
         text: ersetzePlatzhalter(template.text, platzhalterKontext),
         attachments

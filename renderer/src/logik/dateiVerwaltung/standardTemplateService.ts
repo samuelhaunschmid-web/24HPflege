@@ -45,16 +45,16 @@ export class StandardTemplateService {
     const neueCfg = {
       ...cfg,
       folderTemplatesPaths: {
-        ...cfg.folderTemplatesPaths,
+        ...(cfg.folderTemplatesPaths || {}),
         [personType]: this.baumZuPfade(baum)
       },
       folderTemplatesRules: {
-        ...cfg.folderTemplatesRules,
+        ...(cfg.folderTemplatesRules || {}),
         [personType]: this.baumZuRegeln(baum)
       },
       // Legacy-Feld für Abwärtskompatibilität
       folderTemplates: {
-        ...cfg.folderTemplates,
+        ...(cfg.folderTemplates || {}),
         [personType]: baum.map(n => n.name)
       }
     }
