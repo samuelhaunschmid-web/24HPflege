@@ -5,20 +5,13 @@ import { useDateienMailTemplates } from '../logik/dateiVerwaltung/useDateienMail
 import { useDateienMailVersand } from '../logik/dateiVerwaltung/useDateienMailVersand'
 import { StandardOrdnerService } from '../logik/dateiVerwaltung/standardOrdnerService'
 import { StandardTemplateService } from '../logik/dateiVerwaltung/standardTemplateService'
-import type { EmailTemplate } from '../logik/dateiVerwaltung/typen'
+import type { EmailTemplate, EmailTemplateSelection } from '../logik/dateiVerwaltung/typen'
 import MessageModal from '../komponenten/MessageModal'
-
-type TemplateSelection = {
-  templateId: string
-  selected: boolean
-  kundenKeys: string[]
-  betreuerKeys: string[]
-}
 
 export default function DateienMail() {
   const [kunden, setKunden] = useState<any[]>([])
   const [betreuer, setBetreuer] = useState<any[]>([])
-  const [selections, setSelections] = useState<Record<string, TemplateSelection>>({})
+  const [selections, setSelections] = useState<Record<string, EmailTemplateSelection>>({})
   const [messageModal, setMessageModal] = useState<{ isOpen: boolean; message: string; type: 'success' | 'error' | 'info' }>({
     isOpen: false,
     message: '',
@@ -85,7 +78,7 @@ export default function DateienMail() {
 
   // Selections initialisieren/warten
   useEffect(() => {
-    const init: Record<string, TemplateSelection> = {}
+    const init: Record<string, EmailTemplateSelection> = {}
     templates.forEach(t => {
       init[t.id] = selections[t.id] || { templateId: t.id, selected: false, kundenKeys: [], betreuerKeys: [] }
     })
@@ -115,7 +108,7 @@ export default function DateienMail() {
       if (ergebnis.erfolg) {
         setMessageModal({ isOpen: true, message: ergebnis.message, type: 'success' })
         // Reset selections
-        const reset: Record<string, TemplateSelection> = {}
+        const reset: Record<string, EmailTemplateSelection> = {}
         templates.forEach(t => {
           reset[t.id] = { templateId: t.id, selected: false, kundenKeys: [], betreuerKeys: [] }
         })
@@ -206,7 +199,7 @@ export default function DateienMail() {
 
 function TemplateRow({ template, selection, needsKunden, needsBetreuer, kunden, betreuer, kvKey, knKey, bvKey, bnKey, kundenSettings, betreuerSettings, onSelectionChange }: {
   template: EmailTemplate
-  selection: TemplateSelection
+  selection: EmailTemplateSelection
   needsKunden: boolean
   needsBetreuer: boolean
   kunden: any[]
@@ -217,7 +210,7 @@ function TemplateRow({ template, selection, needsKunden, needsBetreuer, kunden, 
   bnKey: string | undefined
   kundenSettings: any
   betreuerSettings: any
-  onSelectionChange: (sel: TemplateSelection) => void
+  onSelectionChange: (sel: EmailTemplateSelection) => void
 }) {
   const [kundenSearch, setKundenSearch] = useState('')
   const [betreuerSearch, setBetreuerSearch] = useState('')
