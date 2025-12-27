@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useRef } from 'react'
 import Layout from '../seite-shared/Layout'
 import LoadingDialog from '../komponenten/LoadingDialog'
 import MessageModal from '../komponenten/MessageModal'
@@ -11,6 +11,7 @@ export default function Rechnungen() {
   const [monat, setMonat] = useState<number>(new Date().getMonth()+1)
   const [jahr, setJahr] = useState<number>(new Date().getFullYear())
   const [currentRechnungsnummer, setCurrentRechnungsnummer] = useState<number>(1)
+  const isInitialLoad = useRef(true)
   const [modus, setModus] = useState<'docx'|'pdf'>('pdf')
   const [isLoading, setIsLoading] = useState(false)
   const [loadingProgress, setLoadingProgress] = useState(0)
@@ -54,6 +55,7 @@ export default function Rechnungen() {
       if (config?.currentRechnungsnummer) {
         setCurrentRechnungsnummer(config.currentRechnungsnummer)
       }
+      isInitialLoad.current = false
       if (config?.invoiceTemplateDisplayNames && typeof config.invoiceTemplateDisplayNames === 'object') {
         setVorlagenDisplayNames(config.invoiceTemplateDisplayNames as Record<string,string>)
       }
@@ -98,6 +100,20 @@ export default function Rechnungen() {
       }
     })()
   }, [])
+
+  // Speichere Rechnungsnummer automatisch, wenn sie geändert wird (aber nicht beim initialen Laden)
+  useEffect(() => {
+    if (isInitialLoad.current) return // Nicht beim initialen Laden speichern
+    
+    // Speichere die Rechnungsnummer in der Konfiguration
+    ;(async () => {
+      try {
+        await window.api?.setConfig?.({ currentRechnungsnummer })
+      } catch (error) {
+        console.error('Fehler beim Speichern der Rechnungsnummer:', error)
+      }
+    })()
+  }, [currentRechnungsnummer])
 
   function toLastFirst(name: string) {
     const n = String(name||'').trim()

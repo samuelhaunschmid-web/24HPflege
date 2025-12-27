@@ -274,6 +274,7 @@ Diese Übersicht zeigt, welche Dateien auf welchen Seiten verwendet werden.
 - Einstellungen werden automatisch gespeichert
 - Massen-Versand: Rechnungen erstellen und per E-Mail versenden
 - Optional: Rechnungsprotokoll erstellen (Übersicht aller versendeten Rechnungen)
+- Anzeige der aktuellen Rechnungsnummer (wird automatisch aktualisiert nach Rechnungserstellung)
 
 **Verwendete Komponenten:**
 - `Layout` – Rahmen mit Seitenleiste

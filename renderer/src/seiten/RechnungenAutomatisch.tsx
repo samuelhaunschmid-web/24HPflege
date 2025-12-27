@@ -45,6 +45,7 @@ export default function RechnungenAutomatisch()
   const [loadingProgress, setLoadingProgress] = useState(0)
   const [loadingMessage, setLoadingMessage] = useState('')
   const [protokollAktiv, setProtokollAktiv] = useState(false)
+  const [currentRechnungsnummer, setCurrentRechnungsnummer] = useState<number>(1)
 
   const saveTimer = useRef<number | null>(null)
 
@@ -64,6 +65,10 @@ export default function RechnungenAutomatisch()
           normalized[k] = { ...v, email }
         })
         setPrefs(normalized)
+      }
+      // Lade aktuelle Rechnungsnummer aus der Konfiguration
+      if (cfg?.currentRechnungsnummer) {
+        setCurrentRechnungsnummer(cfg.currentRechnungsnummer)
       }
     })()
   }, [])
@@ -217,6 +222,10 @@ export default function RechnungenAutomatisch()
           alsPdf: true,
         })
         if (res?.ok) {
+          // Aktualisiere Rechnungsnummer, falls im Response vorhanden
+          if ('currentRechnungsnummer' in res && typeof res.currentRechnungsnummer === 'number') {
+            setCurrentRechnungsnummer(res.currentRechnungsnummer)
+          }
           const byKey = (res as any).byKey || {}
           const files = Array.isArray(byKey[key]) ? byKey[key] : []
           
@@ -401,6 +410,7 @@ export default function RechnungenAutomatisch()
             }} />
           </div>
           <div style={{ background: '#0f172a', color: '#fff', padding: '2px 6px', borderRadius: 12, fontSize: 10, fontWeight: 600, lineHeight: 1.2 }}>Zeitraum: {verrechnungsZeitraum}</div>
+          <div style={{ background: '#0f172a', color: '#fff', padding: '2px 6px', borderRadius: 12, fontSize: 10, fontWeight: 600, lineHeight: 1.2 }}>Nächste Rechnungsnummer: {currentRechnungsnummer}</div>
         </div>
 
         {/* Rechts: Toggle und Versand-Button */}
